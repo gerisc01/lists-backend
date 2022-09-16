@@ -1,9 +1,8 @@
-require_relative '../../src/api/lists.rb'
+require_relative '../../src/api/lists_api'
 require 'sinatra/base'
 require 'minitest/autorun'
 require 'minitest/spec'
 require 'rack/test'
-require 'pry'
 
 describe Api do
   include Rack::Test::Methods
@@ -18,6 +17,10 @@ describe Api do
     @list1 = List.new("First List")
     @list2 = List.new("Second List")
     @lists_load = {@list1.id => @list1.to_hash, @list2.id => @list2.to_hash}
+  end
+
+  after do
+    File.delete(List.file_name) if File.exist?(List.file_name)
   end
   
   describe "#list api list" do
@@ -43,14 +46,14 @@ describe Api do
   describe "#list api create" do
       
     it "create | happy path" do
-      List.stub :create, nil do
-        input = {"name" => "First List"}
+      List.stub :create, @list1.to_hash do
+        input = {"name" => @list1.name}
         post('/api/lists', input.to_json, {"Content-Type" => "application/json"})
         puts last_response.errors if last_response.status == 500
         assert_equal 201, last_response.status
         output = JSON.parse(last_response.body)
         assert output["id"] != nil, "Expected id to be populated"
-        assert_equal output["name"], "First List"
+        assert_equal @list1.name, output["name"]
       end
     end
 

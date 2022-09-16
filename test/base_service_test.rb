@@ -86,6 +86,13 @@ describe BaseService do
       end
     end
 
+    it "create - failure, duplicate id" do
+      item = BaseServiceTest.new("1", "First")
+      assert_raises do
+        BaseServiceTest.create(item)
+      end
+    end
+
     it "create - failure, wrong type" do
       generic_obj = GenericTestObj.new("5", "Five")
       assert_raises do
@@ -100,8 +107,6 @@ describe BaseService do
     it "create | get | list integration test" do
       item = BaseServiceTest.get("10")
       assert_nil item
-
-      list_amt = BaseServiceTest.list.size
 
       BaseServiceTest.create(BaseServiceTest.new("10", "Ten"))
       item = BaseServiceTest.get("10")

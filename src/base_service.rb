@@ -1,4 +1,5 @@
 require 'securerandom'
+require 'json'
 
 class BaseService
 
@@ -11,6 +12,10 @@ class BaseService
 
   def self.loaded_objs
     @loaded_objs
+  end
+
+  def self.file_name
+    @file_name
   end
 
   def self.get(id)
@@ -27,6 +32,7 @@ class BaseService
     raise "Input isn't a type of #{self.to_s.inspect}" if !clazzObj.is_a?(self)
     raise "Can't save an object with no id" if clazzObj.nil? || clazzObj.id == nil
     list if @loaded_objs == nil
+    raise "#{self.to_s.inspect} object already exists with id #{clazzObj.id}" if @loaded_objs.has_key?(clazzObj.id)
     @loaded_objs[clazzObj.id] = clazzObj.to_hash
     save(@loaded_objs.to_json)
     return @loaded_objs[clazzObj.id]
