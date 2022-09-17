@@ -3,6 +3,7 @@ require 'sinatra/base'
 require 'minitest/autorun'
 require 'minitest/spec'
 require 'rack/test'
+require 'mocha/minitest'
 
 describe Api do
   include Rack::Test::Methods
@@ -26,19 +27,17 @@ describe Api do
   describe "#list api list" do
     
     it "list | happy path" do
-      List.stub :load, @lists_load do
-        get '/api/lists'
-        assert_equal 200, last_response.status
-        assert_equal @lists_load.values.to_json, last_response.body
-      end
+      List.stubs(:load).returns(@lists_load).once
+      get '/api/lists'
+      assert_equal 200, last_response.status
+      assert_equal @lists_load.values.to_json, last_response.body
     end
 
     it "list | empty path" do
-      List.stub :load, {} do
-        get '/api/lists'
-        assert_equal 200, last_response.status
-        assert_equal "[]", last_response.body
-      end
+      List.stubs(:load).returns({}).once
+      get '/api/lists'
+      assert_equal 200, last_response.status
+      assert_equal "[]", last_response.body
     end
     
   end
@@ -46,15 +45,14 @@ describe Api do
   describe "#list api create" do
       
     it "create | happy path" do
-      List.stub :create, @list1.to_hash do
-        input = {"name" => @list1.name}
-        post('/api/lists', input.to_json, {"Content-Type" => "application/json"})
-        puts last_response.errors if last_response.status == 500
-        assert_equal 201, last_response.status
-        output = JSON.parse(last_response.body)
-        assert output["id"] != nil, "Expected id to be populated"
-        assert_equal @list1.name, output["name"]
-      end
+      input = {"name" => @list1.name}
+      List.stubs(:create).returns(@list1.to_hash).once
+      post('/api/lists', input.to_json, {"Content-Type" => "application/json"})
+      puts last_response.errors if last_response.status == 500
+      assert_equal 201, last_response.status
+      output = JSON.parse(last_response.body)
+      assert output["id"] != nil, "Expected id to be populated"
+      assert_equal @list1.name, output["name"]
     end
 
     it "create | bad request | empty" do
@@ -65,6 +63,18 @@ describe Api do
       assert output["message"] != nil, "Expected error message to be populated"
     end
     
+  end
+
+  describe "#list api delete" do
+      
+    it "delete | happy path" do
+      List.stubs(:delete).returns(nil).once
+      delete('/api/lists/1')
+      puts last_response.errors if last_response.status == 500
+      assert_equal 200, last_response.status
+      assert_equal "", last_response.body
+    end
+
   end
 
 end

@@ -18,6 +18,10 @@ class BaseService
     @file_name
   end
 
+  def self.file_name=(value)
+    @file_name = value
+  end
+
   def self.get(id)
     list if @loaded_objs == nil
     return @loaded_objs[id]
@@ -36,6 +40,12 @@ class BaseService
     @loaded_objs[clazzObj.id] = clazzObj.to_hash
     save(@loaded_objs.to_json)
     return @loaded_objs[clazzObj.id]
+  end
+
+  def self.delete(id)
+    list if @loaded_objs == nil
+    @loaded_objs.delete(id)
+    save(@loaded_objs.to_json)
   end
 
   def self.load

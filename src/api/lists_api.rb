@@ -19,6 +19,12 @@ class Api < Sinatra::Base
     body created_list.to_json
   end
 
+  delete '/api/lists/:id' do
+    id = params['id']
+    List.delete(id)
+    status 200
+  end
+
   def createAndValidate(name)
     begin
       List.new(name)

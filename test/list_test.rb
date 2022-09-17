@@ -4,7 +4,12 @@ require './src/list'
 
 describe List do
 
-  def setup
+  before do
+    List.file_name = "lists_test.json"
+  end
+
+  after do
+    File.delete(List.file_name) if File.exist?(List.file_name)
   end
   
   describe "#new" do
@@ -25,16 +30,21 @@ describe List do
 
   end
 
-  describe "#create" do
+  describe "#integration" do
     
-    it "list create - success" do
+    it "list - create, delete" do
       name = "A Name"
       list = List.new(name)
       result = List.create(list)
 
+      id = result["id"]
+
       assert result != nil
-      assert result["id"] != nil
-      assert List.get(result["id"]) != nil
+      assert id != nil
+      assert List.get(id) != nil
+
+      List.delete(id)
+      assert_nil List.get(id)
     end
 
   end

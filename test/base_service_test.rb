@@ -102,6 +102,22 @@ describe BaseService do
 
   end
 
+  describe "#delete" do
+
+    it "delete - success" do
+      BaseServiceTest.delete("1")
+      assert_equal 1, BaseServiceTest.get_loaded.size
+      assert_nil BaseServiceTest.get_loaded["1"]
+    end
+
+    it "delete - success, doesn't exist" do
+      BaseServiceTest.delete("3")
+      assert_equal 2, BaseServiceTest.get_loaded.size
+      assert_nil BaseServiceTest.get_loaded["3"]
+    end
+
+  end
+
   describe "#full integration" do
 
     it "create | get | list integration test" do
