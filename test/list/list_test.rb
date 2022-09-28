@@ -19,6 +19,8 @@ class ListTest < Minitest::Test
     assert list.methods.include?(:id=)
     assert list.methods.include?(:name)
     assert list.methods.include?(:name=)
+    assert list.methods.include?(:items)
+    assert list.methods.include?(:items=)
   end
 
   ## List initalize (generic test)
@@ -122,6 +124,47 @@ class ListTest < Minitest::Test
     assert_raises do
       list.delete!
     end
+  end
+
+  ## List Add Item
+
+  def test_list_add_item_invalid_list
+    list = List.new
+    list.items = nil
+    assert_raises do
+      list.validate
+    end
+    list.items = ""
+    assert_raises do
+      list.validate
+    end
+  end
+
+  def test_list_add_item_success
+    # Stub and assert list is empty
+    list = List.new
+    Item.stubs(:exist?).with("1").returns(true).once
+    Item.stubs(:exist?).with("2").returns(true).once
+    assert_equal 0, list.items.size
+    # Add 1 item to the list and make sure it was added
+    item1 = Item.new({"id" => "1", "name" => "One"})
+    list.add_item(item1)
+    assert_equal 1, list.items.size
+    # Add another item to the list and make sure it's added to the end
+    item2 = Item.new({"id" => "2", "name" => "Two"})
+    list.add_item(item2)
+    assert_equal 2, list.items.size
+    assert_equal "1", list.items[0].id
+    assert_equal "2", list.items[1].id
+  end
+
+  def test_list_add_item_new_item
+    Item.stubs(:exist?).with("1").returns(false).once
+    list = List.new
+    item = Item.new({"id" => "1", "name" => "One"})
+    item.stubs(:save!).once
+    list.add_item(item)
+    assert_equal 1, list.items.size
   end
 
 end

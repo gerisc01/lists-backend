@@ -19,6 +19,13 @@ class Item
     @json["id"] = SecureRandom.uuid if @json["id"].nil?
   end
 
+  def validate
+    raise ValidationError, "Invalid Item: id cannot be empty" if self.id.to_s.empty?
+    raise ValidationError, "Invalid Item (#{self.id}): name cannot be empty" if self.name.to_s.empty?
+  end
+
+  ## Generic Methods
+
   def self.from_object(json)
     Item.new(json)
   end
@@ -31,13 +38,12 @@ class Item
     @json = @json.merge(json)
   end
 
-  def validate
-    raise ValidationError, "Invalid Item: id cannot be empty" if self.id.to_s.empty?
-    raise ValidationError, "Invalid Item (#{self.id}): name cannot be empty" if self.name.to_s.empty?
-  end
-
   def self.get(id)
     return @@item_db.get(id)
+  end
+
+  def self.exist?(id)
+    return @@item_db.get(id) != nil
   end
 
   def self.list

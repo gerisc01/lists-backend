@@ -65,7 +65,7 @@ class ApiTest < Minitest::Test
       
   def test_list_update_valid
     put('/api/lists/1', {"name" => "Updated"}.to_json, {"Content-Type" => "application/json"})
-    expected_update_body = {"id" => @list1.id, "name" => "Updated"}.to_json
+    expected_update_body = {"id" => @list1.id, "name" => "Updated", "items" => []}.to_json
     assert_equal 200, last_response.status
     assert_equal expected_update_body, last_response.body
   end
