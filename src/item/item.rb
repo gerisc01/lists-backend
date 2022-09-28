@@ -1,11 +1,11 @@
 require 'securerandom'
 require 'json'
-require_relative './list_db'
+require_relative './item_db'
 require_relative '../helpers/exceptions.rb'
 
-class List
+class Item
 
-  @@list_db = ListDb
+  @@item_db = ItemDb
   @@keys = ["id", "name"]
   @@keys.each do |key|
     define_method(key.to_sym) { return @json[key] }
@@ -20,7 +20,7 @@ class List
   end
 
   def self.from_object(json)
-    List.new(json)
+    Item.new(json)
   end
 
   def to_object
@@ -32,30 +32,30 @@ class List
   end
 
   def validate
-    raise ValidationError, "Invalid List: id cannot be empty" if self.id.to_s.empty?
-    raise ValidationError, "Invalid List (#{self.id}): name cannot be empty" if self.name.to_s.empty?
+    raise ValidationError, "Invalid Item: id cannot be empty" if self.id.to_s.empty?
+    raise ValidationError, "Invalid Item (#{self.id}): name cannot be empty" if self.name.to_s.empty?
   end
 
   def self.get(id)
-    return @@list_db.get(id)
+    return @@item_db.get(id)
   end
 
   def self.list
-    return @@list_db.list()
+    return @@item_db.list()
   end
 
   def save!
     validate()
-    @@list_db.save(self)
+    @@item_db.save(self)
   end
 
   def delete!
-    raise BadRequestError, "Invalid List: id cannot be nil" if self.id.to_s.empty?
-    @@list_db.delete(self.id)
+    raise BadRequestError, "Invalid Item: id cannot be nil" if self.id.to_s.empty?
+    @@item_db.delete(self.id)
   end
 
   def self.set_db_class(clazz)
-    @@list_db = clazz
+    @@item_db = clazz
   end
 
 end

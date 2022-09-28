@@ -1,6 +1,6 @@
-class ListDb
+class ItemDb
 
-  @@file_name = "lists.json"
+  @@file_name = "items.json"
   @@loaded_objs = nil ## When initialized, is a {}
 
   def self.cache_loaded?
@@ -19,14 +19,14 @@ class ListDb
     json = file_load()
     @@loaded_objs = {}
     json.each do |id, json|
-      @@loaded_objs[id] = List.from_object(json)
+      @@loaded_objs[id] = Item.from_object(json)
     end
   end
 
   def self.persist
     persist_objs = {}
-    @@loaded_objs.each do |id, list|
-      persist_objs[id] = list.to_object
+    @@loaded_objs.each do |id, item|
+      persist_objs[id] = item.to_object
     end
   end
 
@@ -40,9 +40,9 @@ class ListDb
     @@loaded_objs.values
   end
 
-  def self.save(list)
+  def self.save(item)
     load unless cache_loaded?()
-    @@loaded_objs[list.id] = list
+    @@loaded_objs[item.id] = item
     persist()
   end
 

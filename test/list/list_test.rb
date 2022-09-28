@@ -1,7 +1,7 @@
 require 'minitest/autorun'
 require 'mocha/minitest'
-require '../src/list/list'
-require '../src/list/list_db'
+require_relative '../../src/list/list'
+require_relative '../../src/list/list_db'
 
 class ListTest < Minitest::Test
 
@@ -11,7 +11,7 @@ class ListTest < Minitest::Test
   def teardown
   end
 
-  ## List generate keys
+  ## List generate keys (generic test)
 
   def test_list_keysAsMethods_success
     list = List.new
@@ -21,7 +21,7 @@ class ListTest < Minitest::Test
     assert list.methods.include?(:name=)
   end
 
-  ## List initalize
+  ## List initalize (generic test)
 
   def test_list_init_emptyParam
     list = List.new
@@ -108,6 +108,20 @@ class ListTest < Minitest::Test
     lists = List.list
     assert lists.is_a? Array
     assert_equal 2, lists.size
+  end
+
+  def test_list_delete_success
+    ListDb.stubs(:delete).with("10").returns(nil).once
+    list = List.new({"id" => "10"})
+    list.delete!
+  end
+
+  def test_list_delete_failure
+    list = List.new
+    list.id = nil
+    assert_raises do
+      list.delete!
+    end
   end
 
 end
