@@ -1,9 +1,71 @@
 require 'securerandom'
 require 'json'
+require 'date'
 require_relative './item_db'
 require_relative '../helpers/exceptions.rb'
 
 class Item
+
+  @@fields = [
+    {
+      "key" => "starred",
+      "type" => "boolean"
+    },
+    {
+      "key" => "tags",
+      "type" => "array",
+      "subkey" => "tag",
+      "subtype" => "string"
+    },
+    {
+      "key" => "finished",
+      "type" => "date"
+    }
+  ]
+
+  @@fields.each do |field|
+    define_method(field["key"].to_sym) { return @json[field["key"]] }
+    define_method("#{field["key"]}=".to_sym) { |value| @json[field["key"]] = value }
+
+    if field["type"].to_s.downcase == "boolean"
+      define_method "is_#{field["key"]}".to_sym do
+        return @json[field["key"]]
+      end
+
+      define_method "set_#{field["key"]}".to_sym do |value|
+        raise ValidationError, "Invalid Field: value '#{value}' is not a boolean type" if !(value.is_a?(TrueClass) || value.is_a?(FalseClass))
+        @json[field["key"]] = value
+      end
+    elsif field["type"].to_s.downcase == "date"
+      define_method "set_#{field["key"]}".to_sym do |value|
+        if value.is_a?(Date)
+          date = value
+        elsif value.is_a?(String)
+          begin
+            date = Date.parse(value)
+          rescue
+            raise ValidationError, "Invalid Field: value '#{value}' is not a valid date string (yyyy-mm-dd)"
+          end
+        else
+          raise ValidationError, "Invalid Field: value '#{value}' is not a date or date string"
+        end
+        @json[field["key"]] = date
+      end
+    elsif field["type"].to_s.downcase == "array"
+      define_method "add_#{field["subkey"]}".to_sym do |value|
+        if field["subtype"].to_s.downcase == "string" && !value.is_a?(String)
+          raise ValidationError, "Invalid Field: array value '#{value}' is not a string"
+        end
+        @json[field["key"]] = [] if @json[field["key"]].nil?
+        @json[field["key"]] << value
+      end
+
+      define_method "remove_#{field["subkey"]}".to_sym do |value|
+        return if @json[field["key"]].nil?
+        @json[field["key"]].select! { |it| it != value }
+      end
+    end
+  end
 
   @@item_db = ItemDb
   @@keys = ["id", "name"]

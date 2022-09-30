@@ -117,4 +117,70 @@ class ItemTest < Minitest::Test
     end
   end
 
+  ## Item Generic Template
+  
+  def test_item_boolean_success
+    item = Item.new
+    item.set_starred(true)
+    assert_equal true, item.is_starred
+  end
+
+  def test_item_boolean_failed_validation
+    item = Item.new
+    assert_raises do
+      item.set_starred("string")
+    end
+  end
+
+  def test_item_date_success
+    item = Item.new
+    item.set_finished('2022-09-29')
+    assert_equal Date.new(2022, 9, 29), item.finished
+  end
+
+  def test_item_date_failed_validation
+    item = Item.new
+    assert_raises do
+      item.set_finished('9999-40-40')
+    end
+    assert_raises do
+      item.set_finished(10)
+    end
+  end
+
+  def test_item_array_add_success
+    item = Item.new
+    item.add_tag('PS5')
+    item.add_tag('Switch')
+    assert_equal 2, item.tags.size
+    assert_equal 'PS5', item.tags[0]
+    assert_equal 'Switch', item.tags[1]
+  end
+
+  def test_item_array_add_failed_validation
+    item = Item.new
+    assert_raises do
+      item.add_tag(10)
+    end
+  end
+
+  def test_item_array_remove_success
+    item = Item.new
+    item.tags = ['PS5', 'Switch']
+    item.remove_tag('Switch')
+    assert_equal 1, item.tags.size
+    assert_equal 'PS5', item.tags[0]
+  end
+
+  def test_item_array_remove_successfully_ignored
+    item = Item.new
+    # Nil Array
+    item.remove_tag('Switch')
+    # Not in List
+    item.remove_tag('Switch')
+    # Bad Type
+    item.tags = ['PS5', 'Switch']
+    item.remove_tag(10)
+  end
+
 end
