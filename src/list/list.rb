@@ -30,7 +30,14 @@ class List
   def add_item(item)
     raise ValidationError, "Invalid List State: items is not type list" if self.items.nil? || !self.items.is_a?(Array)
     item.save! if !Item.exist?(item.id)
-    items << item
+    items << item.id
+  end
+
+  def remove_item(item)
+    return unless item.is_a?(Item) || item.is_a?(String)
+    raise ValidationError, "Invalid List State: items is not type list" if self.items.nil? || !self.items.is_a?(Array)
+    itemId = item.is_a?(Item) ? item.id : item
+    items.select! { |it| it != itemId }
   end
 
   ## Generic Methods

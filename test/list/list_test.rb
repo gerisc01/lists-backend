@@ -154,8 +154,8 @@ class ListTest < Minitest::Test
     item2 = Item.new({"id" => "2", "name" => "Two"})
     list.add_item(item2)
     assert_equal 2, list.items.size
-    assert_equal "1", list.items[0].id
-    assert_equal "2", list.items[1].id
+    assert_equal "1", list.items[0]
+    assert_equal "2", list.items[1]
   end
 
   def test_list_add_item_new_item
@@ -165,6 +165,31 @@ class ListTest < Minitest::Test
     item.stubs(:save!).once
     list.add_item(item)
     assert_equal 1, list.items.size
+  end
+
+  def test_list_remove_item_success
+    list = List.new
+    list.items = ["1", "2"]
+    item = Item.new({"id" => "1", "name" => "One"})
+    list.remove_item(item)
+    assert_equal 1, list.items.size
+    assert_equal "2", list.items[0]
+  end
+
+  def test_list_remove_item_with_id_success
+    list = List.new
+    list.items = ["1", "2"]
+    list.remove_item("2")
+    assert_equal 1, list.items.size
+    assert_equal "1", list.items[0]
+  end
+
+  def test_list_remove_item_successfully_ignored
+    list = List.new
+    list.items = ["1", "2"]
+    item = Item.new({"id" => "3", "name" => "Three"})
+    list.remove_item(item)
+    assert_equal 2, list.items.size
   end
 
 end
