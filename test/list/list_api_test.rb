@@ -6,7 +6,7 @@ require_relative '../../src/list/list_api'
 require_relative '../helpers/test_list_db'
 require_relative '../../src/list/list'
 
-class ApiTest < Minitest::Test
+class ListApiTest < Minitest::Test
   include Rack::Test::Methods
 
   def app
