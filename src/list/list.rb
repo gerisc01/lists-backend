@@ -18,7 +18,7 @@ class List
   def initialize(json = nil)
     @json = json.nil? ? {} : json
     @json["id"] = SecureRandom.uuid if @json["id"].nil?
-    @json["items"] = []
+    @json["items"] = [] if @json["items"].nil?
   end
 
   def validate
