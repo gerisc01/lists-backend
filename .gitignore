@@ -1,0 +1,7 @@
+# Mac
+.DS_Store
+
+# Persist files
+collections.json
+lists.json
+items.json

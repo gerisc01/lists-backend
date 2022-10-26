@@ -28,6 +28,7 @@ class ListDb
     @@loaded_objs.each do |id, list|
       persist_objs[id] = list.to_object
     end
+    File.write(@@file_name, persist_objs.to_json)
   end
 
   def self.get(id)

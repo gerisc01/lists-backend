@@ -28,6 +28,7 @@ class CollectionDb
     @@loaded_objs.each do |id, collection|
       persist_objs[id] = collection.to_object
     end
+    File.write(@@file_name, persist_objs.to_json)
   end
 
   def self.get(id)
