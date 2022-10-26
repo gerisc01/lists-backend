@@ -1,5 +1,8 @@
-require_relative './src/item_db.rb'
-require_relative './src/item.rb'
+require_relative './item/item_db'
+require_relative './item/item'
 
-require_relative './src/list.rb'
-require_relative './src/list_db.rb'
+require_relative './list/list'
+require_relative './list/list_db'
+
+require_relative './collection/collection'
+require_relative './collection/collection_db'
