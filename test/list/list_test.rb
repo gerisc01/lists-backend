@@ -126,7 +126,7 @@ class ListTest < Minitest::Test
     end
   end
 
-  ## List Add Item
+  ## List Items
 
   def test_list_add_item_invalid_list
     list = List.new
@@ -190,6 +190,21 @@ class ListTest < Minitest::Test
     item = Item.new({"id" => "3", "name" => "Three"})
     list.remove_item(item)
     assert_equal 2, list.items.size
+  end
+
+  ## List Templates
+
+  def test_list_add_template
+    list = List.new
+    list.add_template('aKey')
+    assert_equal 'aKey', list.template
+  end
+
+  def test_list_add_template
+    list = List.new
+    list.template = 'aKey'
+    list.remove_template
+    assert_nil list.template
   end
 
 end

@@ -2,12 +2,13 @@ require 'securerandom'
 require 'json'
 require_relative './collection_db'
 require_relative '../list/list'
+require_relative '../template/template'
 require_relative '../helpers/exceptions.rb'
 
 class Collection
 
   @@collection_db = CollectionDb
-  @@keys = ["id", "key", "name", "lists"]
+  @@keys = ["id", "key", "name", "lists", "templates"]
   @@keys.each do |key|
     define_method(key.to_sym) { return @json[key] }
     define_method("#{key}=".to_sym) { |value| @json[key] = value }
@@ -23,8 +24,10 @@ class Collection
 
   def validate
     raise ValidationError, "Invalid Collection: id cannot be empty" if self.id.to_s.empty?
+    raise ValidationError, "Invalid Collection (#{self.id}): key cannot be empty" if self.name.to_s.empty?
     raise ValidationError, "Invalid Collection (#{self.id}): name cannot be empty" if self.name.to_s.empty?
     raise ValidationError, "Invalid Collection (#{self.id}): lists needs to be a list" if self.lists.nil? || !self.lists.is_a?(Array)
+    raise ValidationError, "Invalid Collection (#{self.id}): templates needs to be a hash" if !self.templates.nil? && !self.templates.is_a?(Hash)
   end
 
   def add_list(list)
@@ -38,6 +41,21 @@ class Collection
     raise ValidationError, "Invalid Collection State: lists is not type list" if self.lists.nil? || !self.lists.is_a?(Array)
     listId = list.is_a?(List) ? list.id : list
     lists.select! { |it| it != listId }
+  end
+
+  def add_template(template)
+    template.validate
+    self.templates = {} if self.templates.nil?
+    raise BadRequestError, "Bad Request: expecting template to be a Template instance" if !template.is_a?(Template)
+    raise ValidationError, "Invalid Collection State: templates is not type hash" if !self.templates.is_a?(Hash)
+    key = template.key
+    raise BadRequestError, "Bad Request: Cannot add template to collection because key already exists" if self.templates.has_key?(key)
+    templates[key] = template
+  end
+
+  def remove_template(key)
+    return if self.templates.nil?
+    self.templates.delete(key)
   end
 
   ## Generic Methods
@@ -56,6 +74,10 @@ class Collection
 
   def self.get(id)
     return @@collection_db.get(id)
+  end
+
+  def self.get_by_key(key)
+    return list().select { |col| col.key == key }
   end
 
   def self.list

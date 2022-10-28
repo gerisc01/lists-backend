@@ -7,7 +7,7 @@ require_relative '../helpers/exceptions.rb'
 class List
 
   @@list_db = ListDb
-  @@keys = ["id", "name", "items"]
+  @@keys = ["id", "name", "items", "template"]
   @@keys.each do |key|
     define_method(key.to_sym) { return @json[key] }
     define_method("#{key}=".to_sym) { |value| @json[key] = value }
@@ -25,6 +25,7 @@ class List
     raise ValidationError, "Invalid List: id cannot be empty" if self.id.to_s.empty?
     raise ValidationError, "Invalid List (#{self.id}): name cannot be empty" if self.name.to_s.empty?
     raise ValidationError, "Invalid List (#{self.id}): items needs to be a list" if self.items.nil? || !self.items.is_a?(Array)
+    raise ValidationError, "Invalid List (#{self.id}): template needs to be a string" if !self.template.nil? && !self.template.is_a?(String)
   end
 
   def add_item(item)
@@ -38,6 +39,15 @@ class List
     raise ValidationError, "Invalid List State: items is not type list" if self.items.nil? || !self.items.is_a?(Array)
     itemId = item.is_a?(Item) ? item.id : item
     items.select! { |it| it != itemId }
+  end
+
+  def set_template(key)
+    raise BadRequest, "Template key needs to be a string" if !key.nil? || key.is_a?(String)
+    self.template = key
+  end
+
+  def remove_template
+    self.template = nil
   end
 
   ## Generic Methods

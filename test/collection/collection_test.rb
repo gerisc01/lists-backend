@@ -2,6 +2,7 @@ require 'minitest/autorun'
 require 'mocha/minitest'
 require_relative '../../src/collection/collection'
 require_relative '../../src/collection/collection_db'
+require_relative '../../src/template/template'
 
 class CollectionTest < Minitest::Test
 
@@ -70,12 +71,25 @@ class CollectionTest < Minitest::Test
   ## Collection to/from object
 
   def test_collection_json_successfulLoad
-    json = {"id" => "15", "key" => "fifteen", "name" => "Fifteen", "lists" => ["1"]}
+    json = {
+      "id" => "15",
+      "key" => "fifteen",
+      "name" => "Fifteen",
+      "lists" => ["1"],
+      "templates" => {
+        "test" => {
+          "key" => "test",
+          "fields" => {"name" => "string", "replay" => "boolean"}
+        }
+      }
+    }
     collection = Collection.from_object(json)
     assert_equal "15", collection.id
     assert_equal "fifteen", collection.key
     assert_equal "Fifteen", collection.name
     assert_equal "1", collection.lists[0]
+    assert_equal 1, collection.templates.size
+    assert_equal "boolean", collection.templates["test"]["fields"]["replay"]
   end
 
   def test_collection_json_successfulOutput
@@ -134,6 +148,24 @@ class CollectionTest < Minitest::Test
     assert_raises do
       collection.delete!
     end
+  end
+
+  ## Collection Add Template
+  def test_collection_add_template
+    template = Template.new({"key" => "test", "fields" => {"name" => "string", "replay" => "boolean"}})
+    collection = Collection.new
+    collection.add_template(template)
+    assert_equal 1, collection.templates.size
+    assert_equal "test", collection.templates["test"].key
+  end
+
+  def test_collection_remove_template
+    collection = Collection.new({"templates" => {"test" => {"key" => "test", "fields" => {}}}})
+    assert_equal 1, collection.templates.size
+    collection.remove_template("test")
+    assert_equal 0, collection.templates.size
+    collection.remove_template("empty")
+    assert_equal 0, collection.templates.size
   end
 
   ## Collection Add List
