@@ -3,18 +3,25 @@ require 'json'
 require_relative './collection_db'
 require_relative '../list/list'
 require_relative '../template/template'
-require_relative '../helpers/exceptions.rb'
+require_relative '../helpers/exceptions'
+require_relative '../schema/schema'
 
 class Collection
 
   @@collection_db = CollectionDb
-  @@keys = ["id", "key", "name", "lists", "templates"]
-  @@keys.each do |key|
-    define_method(key.to_sym) { return @json[key] }
-    define_method("#{key}=".to_sym) { |value| @json[key] = value }
-  end
+  attr_accessor :json
 
-  attr_reader :json
+  @@schema = Schema.new
+  @@schema.key = "collection"
+  @@schema.display_name = "Collection"
+  @@schema.fields = {
+    "id" => {:required => true, :type => String, :display_name => 'Id'},
+    "key" => {:required => false, :type => String, :display_name => 'Key'},
+    "name" => {:required => true, :type => String, :display_name => 'Name'},
+    "lists" => {:required => false, :type => Array, :display_name => 'Lists'},
+    "templates" => {:required => false, :type => Hash, :display_name => 'Templates'}
+  }
+  @@schema.apply_schema(self)
 
   def initialize(json = nil)
     @json = json.nil? ? {} : json
@@ -23,11 +30,7 @@ class Collection
   end
 
   def validate
-    raise ValidationError, "Invalid Collection: id cannot be empty" if self.id.to_s.empty?
-    raise ValidationError, "Invalid Collection (#{self.id}): key cannot be empty" if self.name.to_s.empty?
-    raise ValidationError, "Invalid Collection (#{self.id}): name cannot be empty" if self.name.to_s.empty?
-    raise ValidationError, "Invalid Collection (#{self.id}): lists needs to be a list" if self.lists.nil? || !self.lists.is_a?(Array)
-    raise ValidationError, "Invalid Collection (#{self.id}): templates needs to be a hash" if !self.templates.nil? && !self.templates.is_a?(Hash)
+    @@schema.validate(self)
   end
 
   def add_list(list)

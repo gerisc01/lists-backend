@@ -3,17 +3,23 @@ require 'json'
 require_relative './list_db'
 require_relative '../item/item'
 require_relative '../helpers/exceptions.rb'
+require_relative '../schema/schema'
 
 class List
 
   @@list_db = ListDb
-  @@keys = ["id", "name", "items", "template"]
-  @@keys.each do |key|
-    define_method(key.to_sym) { return @json[key] }
-    define_method("#{key}=".to_sym) { |value| @json[key] = value }
-  end
+  attr_accessor :json
 
-  attr_reader :json
+  @@schema = Schema.new
+  @@schema.key = "list"
+  @@schema.display_name = "List"
+  @@schema.fields = {
+    "id" => {:required => true, :type => String, :display_name => 'Id'},
+    "name" => {:required => true, :type => String, :display_name => 'Name'},
+    "items" => {:required => false, :type => Array, :display_name => 'Items'},
+    "template" => {:required => false, :type => String, :display_name => 'Template'}
+  }
+  @@schema.apply_schema(self)
 
   def initialize(json = nil)
     @json = json.nil? ? {} : json
@@ -22,10 +28,7 @@ class List
   end
 
   def validate
-    raise ValidationError, "Invalid List: id cannot be empty" if self.id.to_s.empty?
-    raise ValidationError, "Invalid List (#{self.id}): name cannot be empty" if self.name.to_s.empty?
-    raise ValidationError, "Invalid List (#{self.id}): items needs to be a list" if self.items.nil? || !self.items.is_a?(Array)
-    raise ValidationError, "Invalid List (#{self.id}): template needs to be a string" if !self.template.nil? && !self.template.is_a?(String)
+    @@schema.validate(self)
   end
 
   def add_item(item)
@@ -42,7 +45,7 @@ class List
   end
 
   def set_template(key)
-    raise BadRequest, "Template key needs to be a string" if !key.nil? || key.is_a?(String)
+    raise BadRequestError, "Template key needs to be a string" if key.nil? || !key.is_a?(String)
     self.template = key
   end
 

@@ -196,11 +196,11 @@ class ListTest < Minitest::Test
 
   def test_list_add_template
     list = List.new
-    list.add_template('aKey')
+    list.set_template('aKey')
     assert_equal 'aKey', list.template
   end
 
-  def test_list_add_template
+  def test_list_remove_template
     list = List.new
     list.template = 'aKey'
     list.remove_template
