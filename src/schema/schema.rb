@@ -1,4 +1,5 @@
-require_relative './field.rb'
+require_relative './field'
+require_relative './custom_types'
 
 class Schema
 
