@@ -25,6 +25,7 @@ class Schema
     field.key = key
     field.display_name = field_def['display_name'] || field_def[:display_name]
     field.type = field_def['type'] || field_def[:type]
+    field.subtype = field_def['subtype'] || field_def[:subtype]
     field.required = field_def['required'] || field_def[:required]
     return field
   end

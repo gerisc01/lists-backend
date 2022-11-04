@@ -3,7 +3,7 @@ require 'mocha/minitest'
 require_relative '../../src/schema/schema'
 require_relative '../../src/template/template'
 
-class SchemaTest < Minitest::Test
+class SchemaTypesTest < Minitest::Test
 
   class TypeTestClass
     attr_accessor :json
@@ -16,8 +16,9 @@ class SchemaTest < Minitest::Test
       "length" => {:required => false, :type => Integer, :display_name => 'Length'},
       "finished" => {:required => false, :type => SchemaType::Date, :display_name => 'Finished'},
       "replay" => {:required => false, :type => SchemaType::Boolean, :display_name => 'Replay'},
+      "ingredients" => {:required => false, :type => Array, :subtype => String, :display_name => 'Ingredients'},
       "lists" => {:required => false, :type => Array, :display_name => 'Lists'},
-      "templates" => {:required => false, :type => Hash, :display_name => 'Templates'}
+      "templates" => {:required => false, :type => Hash, :subtype => String, :display_name => 'Templates'}
     }
     @@schema.apply_schema(self)
 
@@ -36,16 +37,24 @@ class SchemaTest < Minitest::Test
   def teardown
   end
 
-  ## Test different types
+  ## Test standard types
 
   def test_schema_string
     gc = TypeTestClass.new({"key" => "12345"})
     TypeTestClass.get_schema.validate(gc)
+    gc = TypeTestClass.new({"key" => 12345})
+    assert_raises(ValidationError) do
+      TypeTestClass.get_schema.validate(gc)
+    end
   end
 
   def test_schema_integer
     gc = TypeTestClass.new({"length" => 12345})
     TypeTestClass.get_schema.validate(gc)
+    gc = TypeTestClass.new({"length" => "12345"})
+    assert_raises(ValidationError) do
+      TypeTestClass.get_schema.validate(gc)
+    end
   end
 
   def test_schema_boolean
@@ -53,12 +62,52 @@ class SchemaTest < Minitest::Test
     TypeTestClass.get_schema.validate(gc)
     gc = TypeTestClass.new({"replay" => false})
     TypeTestClass.get_schema.validate(gc)
+    gc = TypeTestClass.new({"replay" => "true"})
+    assert_raises(ValidationError) do
+      TypeTestClass.get_schema.validate(gc)
+    end
   end
 
   def test_schema_date
     gc = TypeTestClass.new({"finished" => "2022-05-19"})
     TypeTestClass.get_schema.validate(gc)
     gc = TypeTestClass.new({"finished" => Date.new(2022, 5, 19)})
+    TypeTestClass.get_schema.validate(gc)
+    gc = TypeTestClass.new({"finished" => 15})
+    assert_raises(ValidationError) do
+      TypeTestClass.get_schema.validate(gc)
+    end
+  end
+
+  ## Test array types
+
+  def test_schema_array_string
+    gc = TypeTestClass.new({"ingredients" => ["1", "2", "3"]})
+    TypeTestClass.get_schema.validate(gc)
+    gc = TypeTestClass.new({"ingredients" => ["1", "2", "3", 4]})
+    assert_raises(ValidationError) do
+      TypeTestClass.get_schema.validate(gc)
+    end
+  end
+
+  def test_schema_array_string_empty
+    gc = TypeTestClass.new({"ingredients" => []})
+    TypeTestClass.get_schema.validate(gc)
+  end
+
+  ## Test hash types
+
+  def test_schema_hash_string
+    gc = TypeTestClass.new({"templates" => {"1" => "One", "2" => "Two"}})
+    TypeTestClass.get_schema.validate(gc)
+    gc = TypeTestClass.new({"templates" => {"1" => "One", "2" => "Two", "3" => 3}})
+    assert_raises(ValidationError) do
+      TypeTestClass.get_schema.validate(gc)
+    end
+  end
+
+  def test_schema_hash_string_empty
+    gc = TypeTestClass.new({"templates" => {}})
     TypeTestClass.get_schema.validate(gc)
   end
 
