@@ -17,6 +17,23 @@ class Schema
         clazz.define_method(field.key.to_sym) { return self.json[field.key] }
         clazz.define_method("#{field.key}=".to_sym) { |value| self.json[field.key] = value }
       end
+
+      # Array methods
+      @fields.select { |f| [Array, Set].include?(f.type) }.each do |field|
+        singular_key = field.key[-1] == "s" ? field.key[0...-1] : field.key
+
+        clazz.define_method("add_#{singular_key}".to_sym) do |value|
+          field.validate_collection_element(value, field.subtype)
+          self.json[field.key] = [] if self.json[field.key].nil?
+          self.json[field.key] << value
+        end
+
+        clazz.define_method("remove_#{singular_key}".to_sym) do |value|
+          return if self.json[field.key].nil?
+          self.json[field.key].delete(value)
+        end
+        
+      end
     end
   end
 

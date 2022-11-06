@@ -95,6 +95,33 @@ class SchemaTypesTest < Minitest::Test
     TypeTestClass.get_schema.validate(gc)
   end
 
+  ## Test Add Collection
+  def test_schema_array_add_element
+    gc = TypeTestClass.new()
+    # Add to a null collection
+    gc.add_ingredient("1 onion")
+    assert_equal "1 onion", gc.ingredients[0]
+    # Add to an existing collection
+    gc.add_ingredient("2 cloves garlic")
+    assert_equal "2 cloves garlic", gc.ingredients[1]
+    gc = TypeTestClass.new()
+    assert_raises(ValidationError) do
+      gc.add_ingredient(1)
+    end
+  end
+
+  def test_schema_array_remove_element
+    # Ignore removing an item when an array is null
+    gc = TypeTestClass.new()
+    gc.remove_ingredient("32 oz penne pasta")
+    # Remove an item that is present
+    gc = TypeTestClass.new({"ingredients" => ["1 onion"]})
+    gc.remove_ingredient("1 onion")
+    # Ignore removing an item that doesn't exist
+    gc = TypeTestClass.new({"ingredients" => ["1 onion"]})
+    gc.remove_ingredient("32 oz penne pasta")
+  end
+
   ## Test hash types
 
   def test_schema_hash_string
