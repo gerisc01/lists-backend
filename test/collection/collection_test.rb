@@ -152,7 +152,7 @@ class CollectionTest < Minitest::Test
 
   ## Collection Add Template
   def test_collection_add_template
-    template = Template.new({"key" => "test", "fields" => {"name" => "string", "replay" => "boolean"}})
+    template = Template.new({"id" => "test", "key" => "test", "fields" => {"name" => "string", "replay" => "boolean"}})
     collection = Collection.new
     collection.add_template(template)
     assert_equal 1, collection.templates.size

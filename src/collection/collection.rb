@@ -18,8 +18,8 @@ class Collection
     "id" => {:required => true, :type => String, :display_name => 'Id'},
     "key" => {:required => false, :type => String, :display_name => 'Key'},
     "name" => {:required => true, :type => String, :display_name => 'Name'},
-    "lists" => {:required => false, :type => Array, :display_name => 'Lists'},
-    "templates" => {:required => false, :type => Hash, :display_name => 'Templates'}
+    "lists" => {:required => false, :type => Array, :subtype => List, :type_ref => true, :display_name => 'Lists'},
+    "templates" => {:required => false, :type => Hash, :subtype => Template, :display_name => 'Templates'}
   }
   @@schema.apply_schema(self)
 
@@ -31,34 +31,6 @@ class Collection
 
   def validate
     @@schema.validate(self)
-  end
-
-  def add_list(list)
-    raise ValidationError, "Invalid Collection State: lists is not type list" if self.lists.nil? || !self.lists.is_a?(Array)
-    list.save! if !List.exist?(list.id)
-    lists << list.id
-  end
-
-  def remove_list(list)
-    return unless list.is_a?(List) || list.is_a?(String)
-    raise ValidationError, "Invalid Collection State: lists is not type list" if self.lists.nil? || !self.lists.is_a?(Array)
-    listId = list.is_a?(List) ? list.id : list
-    lists.select! { |it| it != listId }
-  end
-
-  def add_template(template)
-    template.validate
-    self.templates = {} if self.templates.nil?
-    raise BadRequestError, "Bad Request: expecting template to be a Template instance" if !template.is_a?(Template)
-    raise ValidationError, "Invalid Collection State: templates is not type hash" if !self.templates.is_a?(Hash)
-    key = template.key
-    raise BadRequestError, "Bad Request: Cannot add template to collection because key already exists" if self.templates.has_key?(key)
-    templates[key] = template
-  end
-
-  def remove_template(key)
-    return if self.templates.nil?
-    self.templates.delete(key)
   end
 
   ## Generic Methods

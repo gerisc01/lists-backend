@@ -16,7 +16,7 @@ class List
   @@schema.fields = {
     "id" => {:required => true, :type => String, :display_name => 'Id'},
     "name" => {:required => true, :type => String, :display_name => 'Name'},
-    "items" => {:required => false, :type => Array, :display_name => 'Items'},
+    "items" => {:required => false, :type => Array, :subtype => Item, :type_ref => true, :display_name => 'Items'},
     "template" => {:required => false, :type => String, :display_name => 'Template'}
   }
   @@schema.apply_schema(self)
@@ -31,18 +31,12 @@ class List
     @@schema.validate(self)
   end
 
-  def add_item(item)
-    raise ValidationError, "Invalid List State: items is not type list" if self.items.nil? || !self.items.is_a?(Array)
-    item.save! if !Item.exist?(item.id)
-    items << item.id
-  end
-
-  def remove_item(item)
-    return unless item.is_a?(Item) || item.is_a?(String)
-    raise ValidationError, "Invalid List State: items is not type list" if self.items.nil? || !self.items.is_a?(Array)
-    itemId = item.is_a?(Item) ? item.id : item
-    items.select! { |it| it != itemId }
-  end
+  # def remove_item(item)
+  #   return unless item.is_a?(Item) || item.is_a?(String)
+  #   raise ValidationError, "Invalid List State: items is not type list" if self.items.nil? || !self.items.is_a?(Array)
+  #   itemId = item.is_a?(Item) ? item.id : item
+  #   items.select! { |it| it != itemId }
+  # end
 
   def set_template(key)
     raise BadRequestError, "Template key needs to be a string" if key.nil? || !key.is_a?(String)

@@ -5,6 +5,10 @@ require_relative '../../src/template/template'
 
 class SchemaTypesTest < Minitest::Test
 
+  class RefObj
+    attr_accessor :id
+  end
+
   class TypeTestClass
     attr_accessor :json
 
@@ -17,7 +21,7 @@ class SchemaTypesTest < Minitest::Test
       "finished" => {:required => false, :type => SchemaType::Date, :display_name => 'Finished'},
       "replay" => {:required => false, :type => SchemaType::Boolean, :display_name => 'Replay'},
       "ingredients" => {:required => false, :type => Array, :subtype => String, :display_name => 'Ingredients'},
-      "lists" => {:required => false, :type => Array, :display_name => 'Lists'},
+      "ref_objs" => {:required => false, :type => Array, :subtype => RefObj, :type_ref => true, :display_name => 'Ref Objs'},
       "templates" => {:required => false, :type => Hash, :subtype => String, :display_name => 'Templates'}
     }
     @@schema.apply_schema(self)
@@ -110,6 +114,24 @@ class SchemaTypesTest < Minitest::Test
     end
   end
 
+  def test_schema_array_add_type_ref
+    RefObj.stubs(:exist?).with("12345").returns(true).once
+    RefObj.stubs(:exist?).with("54321").returns(true).once
+    gc = TypeTestClass.new()
+    # Successfully add RefObj
+    obj = RefObj.new
+    obj.id = "12345"
+    gc.add_ref_obj(obj)
+    assert_equal "12345", gc.ref_objs[0]
+    # Successfully add RefObj id
+    gc.add_ref_obj("54321")
+    assert_equal "54321", gc.ref_objs[1]
+    # Failed to add RefObj id
+    assert_raises(ValidationError) do
+      gc.add_ref_obj(54321)
+    end
+  end
+
   def test_schema_array_remove_element
     # Ignore removing an item when an array is null
     gc = TypeTestClass.new()
@@ -120,6 +142,19 @@ class SchemaTypesTest < Minitest::Test
     # Ignore removing an item that doesn't exist
     gc = TypeTestClass.new({"ingredients" => ["1 onion"]})
     gc.remove_ingredient("32 oz penne pasta")
+  end
+
+  def test_schema_array_remove_type_ref
+    gc = TypeTestClass.new()
+    gc.ref_objs = ["12345", "54321"]
+    # Successfully add RefObj
+    obj = RefObj.new
+    obj.id = "12345"
+    gc.remove_ref_obj(obj)
+    assert_nil gc.ref_objs.find { |id| id == "12345" } 
+    gc.remove_ref_obj("54321")
+    assert_nil gc.ref_objs.find { |id| id == "54321" }
+    assert_equal 0,  gc.ref_objs.size
   end
 
   ## Test hash types
