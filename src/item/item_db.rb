@@ -1,6 +1,7 @@
 class ItemDb
 
-  @@file_name = "items.json"
+  @@file_name = "data/items.json"
+  @@mutex = Mutex.new
   @@loaded_objs = nil ## When initialized, is a {}
 
   def self.cache_loaded?
@@ -24,11 +25,14 @@ class ItemDb
   end
 
   def self.persist
-    persist_objs = {}
-    @@loaded_objs.each do |id, item|
-      persist_objs[id] = item.to_object
+    @@mutex.synchronize do
+      persist_objs = {}
+      @@loaded_objs.each do |id, item|
+        persist_objs[id] = item.to_object
+      end
+      Dir.mkdir('data') if !Dir.exist?('data')
+      File.write(@@file_name, persist_objs.to_json)
     end
-    File.write(@@file_name, persist_objs.to_json)
   end
 
   def self.get(id)

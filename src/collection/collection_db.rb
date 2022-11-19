@@ -1,6 +1,7 @@
 class CollectionDb
 
-  @@file_name = "collections.json"
+  @@file_name = "data/collections.json"
+  @@mutex = Mutex.new
   @@loaded_objs = nil ## When initialized, is a {}
 
   def self.cache_loaded?
@@ -24,11 +25,14 @@ class CollectionDb
   end
 
   def self.persist
-    persist_objs = {}
-    @@loaded_objs.each do |id, collection|
-      persist_objs[id] = collection.to_object
+    @@mutex.synchronize do
+      persist_objs = {}
+      @@loaded_objs.each do |id, collection|
+        persist_objs[id] = collection.to_object
+      end
+      Dir.mkdir('data') if !Dir.exist?('data')
+      File.write(@@file_name, persist_objs.to_json)
     end
-    File.write(@@file_name, persist_objs.to_json)
   end
 
   def self.get(id)

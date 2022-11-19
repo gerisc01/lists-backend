@@ -59,6 +59,7 @@ class Api < Sinatra::Base
     item = Item.new(json)
     list = List.get(listId)
     list.add_item(item)
+    list.save!
     status 201
     body item.json.to_json
   end

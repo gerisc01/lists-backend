@@ -31,13 +31,6 @@ class List
     @@schema.validate(self)
   end
 
-  # def remove_item(item)
-  #   return unless item.is_a?(Item) || item.is_a?(String)
-  #   raise ValidationError, "Invalid List State: items is not type list" if self.items.nil? || !self.items.is_a?(Array)
-  #   itemId = item.is_a?(Item) ? item.id : item
-  #   items.select! { |it| it != itemId }
-  # end
-
   def set_template(key)
     raise BadRequestError, "Template key needs to be a string" if key.nil? || !key.is_a?(String)
     self.template = key
