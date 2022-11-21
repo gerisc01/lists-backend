@@ -64,6 +64,22 @@ class Api < Sinatra::Base
     body item.json.to_json
   end
 
+  put '/api/items/:itemId/moveItem' do
+    itemId = params['itemId']
+    item = Item.get(itemId)
+    json = JSON.parse(request.body.read)
+    fromListId = json['fromList']
+    toListId = json['toList']
+    throw BadRequestError, "Need a listId for both fromList and toList in payload" if fromListId.to_s.empty? || toListId.to_s.empty?
+    fromList = List.get(fromListId)
+    fromList.remove_item(item)
+    toList = List.get(toListId)
+    toList.add_item(item)
+    fromList.save!
+    toList.save!
+    status 200
+  end
+
   error JSON::ParserError do
     error_body = {"error" => "Bad Request", "type" => "Invalid JSON", "message" => env['sinatra.error'].message}
     status 400

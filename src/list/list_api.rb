@@ -45,6 +45,26 @@ class Api < Sinatra::Base
     status 204
   end
 
+  put '/api/lists/:listId/addItem/:itemId' do
+    itemId = params['itemId']
+    listId = params['listId']
+    item = Item.get(itemId)
+    list = List.get(listId)
+    list.add_item(item)
+    list.save!
+    status 200
+  end
+
+  put '/api/lists/:listId/removeItem/:itemId' do
+    itemId = params['itemId']
+    listId = params['listId']
+    item = Item.get(itemId)
+    list = List.get(listId)
+    list.remove_item(item)
+    list.save!
+    status 200
+  end
+
   error JSON::ParserError do
     error_body = {"error" => "Bad Request", "type" => "Invalid JSON", "message" => env['sinatra.error'].message}
     status 400

@@ -21,10 +21,16 @@ class ListApiTest < Minitest::Test
     @lists_loaded = {@list1.id => @list1.to_object, @list2.id => @list2.to_object}
     TestListDb.stubs(:file_load).returns(@lists_loaded)
     TestListDb.stubs(:persist).returns(nil)
+    Item.set_db_class(TestItemDb)
+    @item1 = Item.from_object({"id" => "1", "name" => "An Item"})
+    TestItemDb.stubs(:exist?).with('1').returns(true)
+    TestItemDb.stubs(:file_load).returns({@item1.id => @item1.to_object})
+    TestItemDb.stubs(:persist).returns(nil)
   end
 
   def teardown
     TestListDb.teardown
+    TestItemDb.teardown
   end
 
   ## List tests
@@ -101,6 +107,24 @@ class ListApiTest < Minitest::Test
     puts last_response.errors if last_response.status == 500
     assert_equal 204, last_response.status
     assert_equal "", last_response.body
+  end
+
+  ## List move item
+
+  def test_list_add_item
+    put('/api/lists/1/addItem/1')
+    assert_equal 200, last_response.status
+    assert_equal "", last_response.body
+    assert_equal "1", @list1.items[0]
+  end
+
+  def test_list_remove_item
+    @list1.add_item(@item1)
+    assert_equal "1", @list1.items[0]
+    put('/api/lists/1/removeItem/1')
+    assert_equal 200, last_response.status
+    assert_equal "", last_response.body
+    assert_equal 0, @list1.items.size
   end
 
 end

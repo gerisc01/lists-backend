@@ -145,4 +145,19 @@ class ItemApiTest < Minitest::Test
     assert_equal itemId, List.get("1").items[0]
   end
 
+  # List Item move
+
+  def test_list_move_item
+    @list2 = List.from_object({"id" => "2", "name" => "Two"})
+    TestListDb.stubs(:file_load).returns({@list.id => @list.to_object, @list2.id => @list2.to_object})
+    @list.add_item(@item1)
+    assert_equal "1", @list.items[0]
+    put('/api/items/1/moveItem', {'fromList' => '1', 'toList' => '2'}.to_json, {"Content-Type" => "application/json"})
+    assert_equal 200, last_response.status
+    assert_equal "", last_response.body
+    assert_equal 0, @list.items.size
+    assert_equal 1, @list2.items.size
+    assert_equal '1', @list2.items[0]
+  end
+
 end
