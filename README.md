@@ -2,6 +2,9 @@
 A project used for making a wide range of lists with a standard style and API to be
 used across these different types of lists.
 
+## Installation
+`bundle install`
+
 ## Tests
 Run all tests
 `rake test`
