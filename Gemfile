@@ -9,3 +9,4 @@ gem 'pry-nav', :require => false
 gem 'rack-test', :require => false
 gem 'mocha', :require => false
 gem 'sinatra'
+gem 'sinatra-cors', '~> 1.0'
