@@ -12,6 +12,8 @@ class Api < Sinatra::Base
   set :allow_methods, 'GET,POST,PUT,DELETE'
   set :allow_headers, 'Content-Type, Accept'
 
+  set :port, 9090
+  set :bind, '0.0.0.0'
 end
 
 Api.run!
