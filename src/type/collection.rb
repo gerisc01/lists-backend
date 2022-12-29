@@ -1,10 +1,10 @@
 require 'securerandom'
 require 'json'
-require_relative './collection_db'
-require_relative '../list/list'
-require_relative '../template/template'
-require_relative '../helpers/exceptions'
+require_relative '../db/collection_db'
 require_relative '../schema/schema'
+require_relative './list'
+require_relative './template'
+require_relative '../exceptions'
 
 class Collection
 

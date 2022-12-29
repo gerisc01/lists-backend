@@ -1,8 +1,7 @@
-require_relative './item/item_db'
-require_relative './item/item'
+require_relative './type/item'
+require_relative './type/list'
+require_relative './type/collection'
 
-require_relative './list/list'
-require_relative './list/list_db'
-
-require_relative './collection/collection'
-require_relative './collection/collection_db'
+require_relative './db/item_db'
+require_relative './db/list_db'
+require_relative './db/collection_db'

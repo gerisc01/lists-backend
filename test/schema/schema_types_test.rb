@@ -1,7 +1,7 @@
 require 'minitest/autorun'
 require 'mocha/minitest'
 require_relative '../../src/schema/schema'
-require_relative '../../src/template/template'
+require_relative '../../src/type/template'
 
 class SchemaTypesTest < Minitest::Test
 

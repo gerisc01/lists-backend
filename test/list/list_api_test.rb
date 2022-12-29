@@ -2,9 +2,9 @@ require 'sinatra/base'
 require 'minitest/autorun'
 require 'mocha/minitest'
 require 'rack/test'
-require_relative '../../src/list/list_api'
+require_relative '../../src/api/list_api'
 require_relative '../helpers/test_list_db'
-require_relative '../../src/list/list'
+require_relative '../../src/type/list'
 
 class ListApiTest < Minitest::Test
   include Rack::Test::Methods

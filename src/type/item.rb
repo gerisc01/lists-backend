@@ -1,8 +1,8 @@
 require 'securerandom'
 require 'json'
 require 'date'
-require_relative './item_db'
-require_relative '../helpers/exceptions.rb'
+require_relative '../db/item_db'
+require_relative '../exceptions.rb'
 
 class Item
 

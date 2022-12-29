@@ -1,7 +1,7 @@
 require 'securerandom'
 require 'json'
-require_relative '../list/list'
-require_relative '../helpers/exceptions.rb'
+require_relative './list'
+require_relative '../exceptions'
 require_relative '../schema/schema'
 
 class Template
@@ -17,13 +17,6 @@ class Template
     "fields" => {:required => true, :type => Hash, :display_name => 'Templates'}
   }
   @@schema.apply_schema(self)
-  # @@keys = ["id", "key", "fields"]
-  # @@keys.each do |key|
-  #   define_method(key.to_sym) { return @json[key] }
-  #   define_method("#{key}=".to_sym) { |value| @json[key] = value }
-  # end
-
-  # attr_reader :json
 
   def initialize(json = nil)
     @json = json.nil? ? {} : json
@@ -32,9 +25,6 @@ class Template
 
   def validate
     @@schema.validate(self)
-    # raise ValidationError, "Invalid Template: id cannot be empty" if self.id.to_s.empty?
-    # raise ValidationError, "Invalid Template (#{self.id}): key cannot be empty" if self.key.to_s.empty?
-    # raise ValidationError, "Invalid Template (#{self.id}): fields cannot be empty and must be a hash" if self.fields.nil? || !self.fields.is_a?(Hash)
   end
 
   ## Generic Methods

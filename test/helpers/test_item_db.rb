@@ -1,4 +1,4 @@
-require_relative '../../src/item/item_db'
+require_relative '../../src/db/item_db'
 
 class TestItemDb < ItemDb
   @@file_name = "integration_test_item.json"

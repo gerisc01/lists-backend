@@ -1,7 +1,7 @@
 require 'minitest/autorun'
 require 'mocha/minitest'
-require_relative '../../src/item/item'
-require_relative '../../src/item/item_db'
+require_relative '../../src/type/item'
+require_relative '../../src/db/item_db'
 
 class ItemTest < Minitest::Test
 

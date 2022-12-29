@@ -1,7 +1,7 @@
 require 'restclient'
 require 'json'
 
-url = "http://localhost:4567"
+url = "http://192.168.1.150:9090"
 
 ## Collection
 RestClient.post "#{url}/api/collections", {"name" => "Games"}.to_json

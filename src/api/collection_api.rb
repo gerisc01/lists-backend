@@ -1,7 +1,7 @@
 require 'sinatra/base'
-require_relative './list'
-require_relative '../helpers/api_helpers.rb'
-require_relative '../helpers/exceptions.rb'
+require_relative '../type/collection'
+require_relative './helpers.rb'
+require_relative '../exceptions.rb'
 
 class Api < Sinatra::Base
 
@@ -11,58 +11,38 @@ class Api < Sinatra::Base
     content_type 'application/json'
   end
 
-  get '/api/lists' do
-    lists = List.list.map { |list| list.to_object }
+  get '/api/collections' do
+    collections = Collection.list.map { |collection| collection.to_object }
     status 200
-    body lists.to_json
+    body collections.to_json
   end
   
-  post '/api/lists' do
+  post '/api/collections' do
     json = JSON.parse(request.body.read)
-    list = List.new(json)
-    list.validate
-    list.save!
+    collection = Collection.new(json)
+    collection.validate
+    collection.save!
     status 201
-    body list.json.to_json
+    body collection.json.to_json
   end
 
-  put '/api/lists/:id' do
+  put '/api/collections/:id' do
     id = params['id']
-    list = List.get(id)
-    raise NotFoundError, "List (#{id}) Not Found" if list.nil?
+    collection = Collection.get(id)
+    raise NotFoundError, "Collection (#{id}) Not Found" if collection.nil?
     json = JSON.parse(request.body.read)
-    list.merge!(json)
-    list.validate
-    list.save!
+    collection.merge!(json)
+    collection.validate
+    collection.save!
     status 200
-    body list.json.to_json
+    body collection.json.to_json
   end
 
-  delete '/api/lists/:id' do
+  delete '/api/collections/:id' do
     id = params['id']
-    list = List.get(id)
-    list.delete! unless list.nil?
+    collection = Collection.get(id)
+    collection.delete! unless collection.nil?
     status 204
-  end
-
-  put '/api/lists/:listId/addItem/:itemId' do
-    itemId = params['itemId']
-    listId = params['listId']
-    item = Item.get(itemId)
-    list = List.get(listId)
-    list.add_item(item)
-    list.save!
-    status 200
-  end
-
-  put '/api/lists/:listId/removeItem/:itemId' do
-    itemId = params['itemId']
-    listId = params['listId']
-    item = Item.get(itemId)
-    list = List.get(listId)
-    list.remove_item(item)
-    list.save!
-    status 200
   end
 
   error JSON::ParserError do

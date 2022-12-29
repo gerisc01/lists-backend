@@ -1,8 +1,8 @@
 require 'minitest/autorun'
 require 'mocha/minitest'
-require_relative '../../src/collection/collection'
-require_relative '../../src/collection/collection_db'
-require_relative '../../src/template/template'
+require_relative '../../src/type/template'
+require_relative '../../src/type/collection'
+require_relative '../../src/db/collection_db'
 
 class CollectionTest < Minitest::Test
 

@@ -1,6 +1,6 @@
 require 'minitest/autorun'
 require 'mocha/minitest'
-require_relative '../../src/list/list'
+require_relative '../../src/type/list'
 require_relative '../helpers/test_list_db'
 
 class ListDbTest < Minitest::Test

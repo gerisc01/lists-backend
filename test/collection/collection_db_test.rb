@@ -1,6 +1,6 @@
 require 'minitest/autorun'
 require 'mocha/minitest'
-require_relative '../../src/collection/collection'
+require_relative '../../src/type/collection'
 require_relative '../helpers/test_collection_db'
 
 class CollectionDbTest < Minitest::Test

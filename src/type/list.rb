@@ -1,9 +1,9 @@
 require 'securerandom'
 require 'json'
-require_relative './list_db'
-require_relative '../item/item'
-require_relative '../helpers/exceptions.rb'
+require_relative '../db/list_db'
+require_relative './item'
 require_relative '../schema/schema'
+require_relative '../exceptions'
 
 class List
 

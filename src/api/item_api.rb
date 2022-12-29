@@ -1,7 +1,7 @@
 require 'sinatra/base'
-require_relative './item'
-require_relative '../helpers/api_helpers.rb'
-require_relative '../helpers/exceptions.rb'
+require_relative '../type/item'
+require_relative './helpers.rb'
+require_relative '../exceptions.rb'
 
 class Api < Sinatra::Base
 

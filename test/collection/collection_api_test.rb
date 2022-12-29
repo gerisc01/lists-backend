@@ -2,9 +2,9 @@ require 'sinatra/base'
 require 'minitest/autorun'
 require 'mocha/minitest'
 require 'rack/test'
-require_relative '../../src/collection/collection_api'
+require_relative '../../src/api/collection_api'
 require_relative '../helpers/test_collection_db'
-require_relative '../../src/collection/collection'
+require_relative '../../src/type/collection'
 
 class CollectionApiTest < Minitest::Test
   include Rack::Test::Methods
@@ -66,8 +66,8 @@ class CollectionApiTest < Minitest::Test
   def test_collection_update_valid
     put('/api/collections/1', {"name" => "Updated"}.to_json, {"Content-Type" => "application/json"})
     expected_update_body = {"id" => @collection1.id, "name" => "Updated", "lists" => []}.to_json
-    assert_equal 200, last_response.status
     assert_equal expected_update_body, last_response.body
+    assert_equal 200, last_response.status
   end
 
   def test_collection_update_invalidId
