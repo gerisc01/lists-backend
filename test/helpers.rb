@@ -1,0 +1,54 @@
+require_relative '../src/schema/schema'
+
+class TypeRefClass
+
+  attr_accessor :id
+
+  def initialize(id)
+    self.id = id
+  end
+
+  def self.exist?(id)
+    return id == "1"
+  end
+
+  def save!
+  end
+
+end
+
+class GenericClass
+  attr_accessor :json
+end
+
+class GenericSchemaClass
+  attr_accessor :json
+
+  @@schema = Schema.new
+  @@schema.key = "test"
+  @@schema.display_name = "Test Schema"
+  @@schema.fields = {
+    # Required
+    "field_required" => {:required => true},
+    "field_not_required" => {:required => false},
+    # Type
+    "field_type_string" => {:type => String},
+    "field_type_int" => {:type => Integer},
+    "field_type_custom" => {:type => SchemaType::Boolean},
+    # Subtype Array
+    "field_type_array_int" => {:type => Array, :subtype => Integer},
+    "field_type_array_custom" => {:type => Array, :subtype => SchemaType::Boolean},
+    # Subtype Hash
+    "field_type_hash_int" => {:type => Hash, :subtype => Integer},
+    "field_type_hash_custom" => {:type => Hash, :subtype => SchemaType::Boolean},
+    # Type Ref
+    "field_typeref" => {:type => TypeRefClass},
+    "field_array_typeref" => {:type => Array, :subtype => TypeRefClass},
+    "field_hash_typeref" => {:type => Hash, :subtype => TypeRefClass}
+  }
+  @@schema.apply_schema(self)
+
+  def self.get_schema
+    return @@schema
+  end
+end
