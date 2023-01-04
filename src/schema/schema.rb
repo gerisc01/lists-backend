@@ -30,8 +30,6 @@ class Schema
   #                       HELPER METHODS                            #
   ###################################################################
 
-  private
-
   def convert_fields_to_field_classes
     converted_fields = []
     @fields.each do |key, field_def|
