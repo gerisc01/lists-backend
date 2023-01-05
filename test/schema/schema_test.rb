@@ -150,9 +150,9 @@ class SchemaTest < Minitest::Test
   def test_schema_validation_failure
     gc = GenericSchemaClass.new
     schema = GenericSchemaClass.get_schema
-    schema.fields.each { |field| field.stubs(:validate).raises(ValidationError).never }
-    schema.fields[0].stubs(:validate).raises(ValidationError).once
-    assert_raises(ValidationError) do
+    schema.fields.each { |field| field.stubs(:validate).raises(ListError::Validation).never }
+    schema.fields[0].stubs(:validate).raises(ListError::Validation).once
+    assert_raises(ListError::Validation) do
       schema.validate(gc)
     end
   end

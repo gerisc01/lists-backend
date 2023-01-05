@@ -62,7 +62,7 @@ end
 
 def define_delete!(clazz)
   clazz.define_method(:delete!) do
-    raise BadRequestError, "Invalid #{clazz}: id cannot be nil" if self.json['id'].to_s.empty?
+    raise ListError::BadRequest, "Invalid #{clazz}: id cannot be nil" if self.json['id'].to_s.empty?
     clazz::Database.delete(self.json['id'])
   end
 end

@@ -46,7 +46,7 @@ class Field
   def validate_required(value)
     return if !@required
     if (value.nil? || (value.respond_to?(:empty?) && value.empty?))
-      raise ValidationError, "'#{@key}' is a required field and wasn't found"
+      raise ListError::Validation, "'#{@key}' is a required field and wasn't found"
     end
   end
 
@@ -58,7 +58,7 @@ class Field
     # Checking if it's a custom type from SchemaType
     return if @type.respond_to?(:type_match?) && @type.type_match?(value)
     # If it isn't nil or match a standard type or custom type, raise an error
-    raise ValidationError, "'#{@key}' is expecting type '#{@type}' but found '#{value.class.to_s}'"
+    raise ListError::Validation, "'#{@key}' is expecting type '#{@type}' but found '#{value.class.to_s}'"
   end
 
   def validate_subtypes(value)
@@ -79,7 +79,7 @@ class Field
     message += "type refs of ids or objects for " if @type_ref
     message += "'#{@subtype}' types but found '#{value.class.to_s}'"
     message += " at '#{hash_key}'" if !hash_key.nil?
-    raise ValidationError, message
+    raise ListError::Validation, message
   end
 
   def type_ref_passes(value, value_type)

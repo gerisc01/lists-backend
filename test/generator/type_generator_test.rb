@@ -53,8 +53,8 @@ class TypeGeneratorTest < Minitest::Test
 
   def test_schema_validate_failure
     instance = TypeGeneratorTestClass.new
-    @test_schema.stubs(:validate).with(instance).raises(ValidationError).once
-    assert_raises(ValidationError) do
+    @test_schema.stubs(:validate).with(instance).raises(ListError::Validation).once
+    assert_raises(ListError::Validation) do
       instance.validate
     end
   end
@@ -146,8 +146,8 @@ class TypeGeneratorTest < Minitest::Test
   def test_save_fail
     instance = TypeGeneratorTestClass.new({'id' => '1'})
     TypeGeneratorTestClass::Database.stubs(:save).with(instance).never
-    instance.stubs(:validate).raises(ValidationError).once
-    assert_raises(ValidationError) do
+    instance.stubs(:validate).raises(ListError::Validation).once
+    assert_raises(ListError::Validation) do
       instance.save!
     end
   end
@@ -163,7 +163,7 @@ class TypeGeneratorTest < Minitest::Test
     instance = TypeGeneratorTestClass.new
     instance.json['id'] = nil
     TypeGeneratorTestClass::Database.stubs(:delete).never
-    assert_raises(BadRequestError) do
+    assert_raises(ListError::BadRequest) do
       instance.delete!
     end
   end

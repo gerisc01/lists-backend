@@ -9,8 +9,8 @@ class Schema
     @fields.each do |field|
       begin
         field.validate(instance.public_send(field.key))
-      rescue ValidationError => e
-        raise ValidationError, "Invalid #{@display_name}: #{e.message}"
+      rescue ListError::Validation => e
+        raise ListError::Validation, "Invalid #{@display_name}: #{e.message}"
       end
     end
   end
@@ -86,8 +86,8 @@ class Schema
         end
         self.json = {} if self.json.nil?
         self.json[field.key] = {} if self.json[field.key].nil?
-        raise BadRequestError, "Bad Request: Cannot add #{singular_key} to hash because key already exists" if self.json[field.key].has_key?(k)
-        raise ValidationError, "Validation Error: Cannot add #{singular_key} because it doesn't have an id" if k.nil?
+        raise ListError::BadRequest, "Bad Request: Cannot add #{singular_key} to hash because key already exists" if self.json[field.key].has_key?(k)
+        raise ListError::Validation, "Validation Error: Cannot add #{singular_key} because it doesn't have an id" if k.nil?
         field.validate({k => v})
         v = schema_self.process_type_ref(v, type) if field.type_ref
         self.json[field.key][k] = v
@@ -101,7 +101,7 @@ class Schema
         self.json = {} if self.json.nil?
         self.json[field.key] = {} if self.json[field.key].nil?
         field.validate({k => v})
-        raise ValidationError, "Validation Error: Cannot add #{singular_key} because it doesn't have an id" if k.nil?
+        raise ListError::Validation, "Validation Error: Cannot add #{singular_key} because it doesn't have an id" if k.nil?
         v = schema_self.process_type_ref(v, type) if field.type_ref
         self.json[field.key][k] = v
       end
@@ -116,14 +116,14 @@ class Schema
   end
 
   def process_type_ref(value, type_ref)
-    raise ValidationError, "Invalid Type Ref: Expecting '#{type_ref.to_s}' but received '#{value.class.to_s}'" if !value.is_a?(type_ref) && !value.is_a?(String)
+    raise ListError::Validation, "Invalid Type Ref: Expecting '#{type_ref.to_s}' but received '#{value.class.to_s}'" if !value.is_a?(type_ref) && !value.is_a?(String)
     if value.is_a?(type_ref)
-      raise ValidationError, "Invalid Type Ref: Received a type ref instance of type '#{type_ref.to_s}' without an :id method" if !value.respond_to?(:id)
+      raise ListError::Validation, "Invalid Type Ref: Received a type ref instance of type '#{type_ref.to_s}' without an :id method" if !value.respond_to?(:id)
       value.save! if !type_ref.public_send(:exist?, value.id)
       id = value.id
     else
       id = value
-      raise ValidationError, "Invalid Type Ref: Can't add type ref instance with id '#{id}' because an object matching the id doesn't exist" if !type_ref.public_send(:exist?, id)
+      raise ListError::Validation, "Invalid Type Ref: Can't add type ref instance with id '#{id}' because an object matching the id doesn't exist" if !type_ref.public_send(:exist?, id)
     end
     return id
   end
