@@ -1,8 +1,22 @@
-class BadRequestError < StandardError
-end
+class ListError
 
-class ValidationError < StandardError
-end
+  # General Errors
+  class Generic < StandardError
+  end
 
-class NotFoundError < StandardError
+  # Bad Request Errors
+  class BadRequest < Generic
+  end
+
+  class Validation < BadRequest
+  end
+
+  # Not Found Errors
+  class NotFound < Generic
+  end
+
+  # Internal Server Errors
+  class InternalServer < Generic
+  end
+
 end

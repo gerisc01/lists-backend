@@ -1,14 +1,14 @@
 require 'securerandom'
 require 'json'
-require_relative '../db/list_db'
-require_relative './item'
+# require_relative '../db/collection_db'
 require_relative '../schema/schema'
+require_relative './item'
+# require_relative './template'
 require_relative '../exceptions'
+require_relative '../generator/type_generator'
+require_relative '../generator/db_generator'
 
 class List
-
-  @@list_db = ListDb
-  attr_accessor :json
 
   @@schema = Schema.new
   @@schema.key = "list"
@@ -21,59 +21,24 @@ class List
   }
   @@schema.apply_schema(self)
 
-  def initialize(json = nil)
-    @json = json.nil? ? {} : json
-    @json["id"] = SecureRandom.uuid if @json["id"].nil?
-    @json["items"] = [] if @json["items"].nil?
-  end
+  setup_type_model(self)
 
-  def validate
-    @@schema.validate(self)
-  end
+  define_get(self)
+  define_list(self)
+  define_save!(self)
+  define_delete!(self)
 
-  def set_template(key)
-    raise BadRequestError, "Template key needs to be a string" if key.nil? || !key.is_a?(String)
-    self.template = key
-  end
+  module Database
 
-  def remove_template
-    self.template = nil
-  end
-
-  ## Generic Methods
-
-  def self.from_object(json)
-    List.new(json)
-  end
-
-  def to_object
-    return @json
-  end
-
-  def merge!(json)
-    @json = @json.merge(json)
-  end
-
-  def self.get(id)
-    return @@list_db.get(id)
-  end
-
-  def self.list
-    return @@list_db.list()
-  end
-
-  def save!
-    validate()
-    @@list_db.save(self)
-  end
-
-  def delete!
-    raise BadRequestError, "Invalid List: id cannot be nil" if self.id.to_s.empty?
-    @@list_db.delete(self.id)
-  end
-
-  def self.set_db_class(clazz)
-    @@list_db = clazz
+    @@file_name = 'data/lists.json'
+  
+    file_based_db_and_cache(self, List)
+  
+    define_db_get(self)
+    define_db_list(self)
+    define_db_save(self)
+    define_db_delete(self)
+    
   end
 
 end

@@ -1,12 +1,17 @@
 require 'sinatra/base'
 require 'sinatra/cors'
-require_relative './src/lists'
-require_relative './src/api/collection_api'
-require_relative './src/api/list_api'
-require_relative './src/api/item_api'
+require_relative './src/api/list_api_framework'
+require_relative './src/exceptions_api'
 
 class Api < Sinatra::Base
   register Sinatra::Cors
+
+  # Setup
+  set :show_exceptions => :after_handler
+
+  before do
+    content_type 'application/json'
+  end
 
   set :allow_origin, '*'
   set :allow_methods, 'GET,POST,PUT,DELETE'

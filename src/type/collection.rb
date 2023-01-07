@@ -1,15 +1,14 @@
 require 'securerandom'
 require 'json'
-require_relative '../db/collection_db'
+# require_relative '../db/collection_db'
 require_relative '../schema/schema'
 require_relative './list'
-require_relative './template'
+# require_relative './template'
 require_relative '../exceptions'
+require_relative '../generator/type_generator'
+require_relative '../generator/db_generator'
 
 class Collection
-
-  @@collection_db = CollectionDb
-  attr_accessor :json
 
   @@schema = Schema.new
   @@schema.key = "collection"
@@ -23,54 +22,25 @@ class Collection
   }
   @@schema.apply_schema(self)
 
-  def initialize(json = nil)
-    @json = json.nil? ? {} : json
-    @json["id"] = SecureRandom.uuid if @json["id"].nil?
-    @json["lists"] = [] if @json["lists"].nil?
-  end
+  setup_type_model(self)
 
-  def validate
-    @@schema.validate(self)
-  end
+  define_get(self)
+  define_get_by_key(self)
+  define_list(self)
+  define_save!(self)
+  define_delete!(self)
 
-  ## Generic Methods
+  module Database
 
-  def self.from_object(json)
-    Collection.new(json)
-  end
-
-  def to_object
-    return @json
-  end
-
-  def merge!(json)
-    @json = @json.merge(json)
-  end
-
-  def self.get(id)
-    return @@collection_db.get(id)
-  end
-
-  def self.get_by_key(key)
-    return list().select { |col| col.key == key }
-  end
-
-  def self.list
-    return @@collection_db.list()
-  end
-
-  def save!
-    validate()
-    @@collection_db.save(self)
-  end
-
-  def delete!
-    raise BadRequestError, "Invalid Collection: id cannot be nil" if self.id.to_s.empty?
-    @@collection_db.delete(self.id)
-  end
-
-  def self.set_db_class(clazz)
-    @@collection_db = clazz
+    @@file_name = 'data/collections.json'
+  
+    file_based_db_and_cache(self, Collection)
+  
+    define_db_get(self)
+    define_db_list(self)
+    define_db_save(self)
+    define_db_delete(self)
+    
   end
 
 end
