@@ -5,7 +5,6 @@ require_relative './src/exceptions_api'
 
 class Api < Sinatra::Base
   register Sinatra::Cors
-  register Sinatra::ListApiFramework
 
   # Setup
   set :show_exceptions => :after_handler

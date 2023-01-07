@@ -14,7 +14,8 @@ class Item
   @@schema.display_name = "Item"
   @@schema.fields = {
     "id" => {:required => true, :type => String, :display_name => 'Id'},
-    "name" => {:required => true, :type => String, :display_name => 'Name'}
+    "name" => {:required => true, :type => String, :display_name => 'Name'},
+    "schema" => {:required => false, :type => Schema, :display_name => 'Schema'} 
   }
   @@schema.apply_schema(self)
 
