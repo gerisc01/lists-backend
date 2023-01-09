@@ -25,14 +25,25 @@ class Field
     # set and type_ref == true. Also, type class should have following fields: [:id, :exist?, :save!]
   end
 
+  def to_obj
+    {
+      'key' => key,
+      'display_name' => display_name,
+      'type' => type,
+      'subtype' => subtype,
+      'required' => required,
+      'type_ref' => type_ref
+    }
+  end
+
   def self.from_obj(key, obj)
     field = Field.new
     field.key = key
     field.display_name = obj['display_name'] || obj[:display_name]
-    field.type = obj['type'] || obj[:type]
-    field.subtype = obj['subtype'] || obj[:subtype]
-    field.required = obj['required'] || obj[:required]
-    field.type_ref = obj['type_ref'] || obj[:type_ref]
+    field.type = Field.from_type(obj, 'type')
+    field.subtype = Field.from_type(obj, 'subtype')
+    field.required = Field.from_boolean(obj, 'required')
+    field.type_ref = Field.from_boolean(obj, 'type_ref')
     field.validate_def
     return field
   end
@@ -84,6 +95,18 @@ class Field
 
   def type_ref_passes(value, value_type)
     return @type_ref && value_type.respond_to?(:exist?) && value_type.exist?(value)
+  end
+
+  def self.from_type(obj, field_name)
+    value = obj[field_name] || obj[field_name.to_sym]
+    value = Module.const_get(value) if value.is_a?(String)
+    return value
+  end
+
+  def self.from_boolean(obj, field_name)
+    value = obj[field_name] || obj[field_name.to_sym]
+    value = false if value.nil? && (obj[field_name] == false || obj[field_name.to_sym] == false)
+    return value
   end
 
 end

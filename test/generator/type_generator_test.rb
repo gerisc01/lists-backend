@@ -9,6 +9,7 @@ class TypeGeneratorTest < Minitest::Test
 
     define_get(self)
     define_get_by_key(self)
+    define_exist?(self)
     define_list(self)
     define_save!(self)
     define_delete!(self)
@@ -116,6 +117,18 @@ class TypeGeneratorTest < Minitest::Test
     TypeGeneratorTestClass::Database.stubs(:list).returns([db_instance_1, db_instance_2]).once
     instance = TypeGeneratorTestClass.get_by_key('three')
     assert_nil instance
+  end
+
+  # exist?()
+  def test_exist_found
+    db_instance = TypeGeneratorTestClass.new({'id' => '1', 'name' => 'A Name'})
+    TypeGeneratorTestClass::Database.stubs(:get).with('1').returns(db_instance).once
+    assert_equal true, TypeGeneratorTestClass.exist?('1')
+  end
+
+  def test_exist_not_found
+    TypeGeneratorTestClass::Database.stubs(:get).with('3').returns(nil).once
+    assert_equal false, TypeGeneratorTestClass.exist?('3')
   end
 
   # list()

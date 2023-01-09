@@ -47,6 +47,12 @@ def define_get_by_key(clazz)
   end
 end
 
+def define_exist?(clazz)
+  clazz.define_singleton_method(:exist?) do |id|
+    clazz::Database.get(id) != nil
+  end
+end
+
 def define_list(clazz)
   clazz.define_singleton_method(:list) do
     clazz::Database.list

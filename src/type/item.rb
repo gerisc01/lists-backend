@@ -22,6 +22,7 @@ class Item
   setup_type_model(self)
 
   define_get(self)
+  define_exist?(self)
   define_list(self)
   define_save!(self)
   define_delete!(self)

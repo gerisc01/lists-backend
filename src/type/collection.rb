@@ -25,6 +25,7 @@ class Collection
 
   define_get(self)
   define_get_by_key(self)
+  define_exist?(self)
   define_list(self)
   define_save!(self)
   define_delete!(self)

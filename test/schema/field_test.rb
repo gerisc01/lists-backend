@@ -13,6 +13,19 @@ class FieldTest < Minitest::Test
   def teardown
   end
 
+  ########## From Obj ##########
+  def test_from_obj_boolean
+    obj = {'required' => false, 'type_ref' => true}
+    field = Field.from_obj('key', obj)
+    assert_equal false, field.required
+    assert_equal true, field.type_ref
+
+    obj = {:type_ref => false}
+    field = Field.from_obj('key', obj)
+    assert_nil field.required
+    assert_equal false, field.type_ref
+  end
+
   ########## Required ##########
 
   def test_field_required

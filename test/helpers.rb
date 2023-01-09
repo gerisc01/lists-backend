@@ -52,3 +52,12 @@ class GenericSchemaClass
     return @@schema
   end
 end
+
+class EmptySchemaClass
+  attr_accessor :json
+  @@schema = Schema.new
+
+  def self.get_schema
+    return @@schema
+  end
+end

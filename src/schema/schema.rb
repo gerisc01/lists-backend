@@ -5,6 +5,10 @@ class Schema
 
   attr_accessor :key, :display_name, :fields
 
+  def initialize
+    @fields = []
+  end
+
   def validate(instance)
     @fields.each do |field|
       begin
