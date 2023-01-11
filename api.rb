@@ -2,6 +2,7 @@ require 'sinatra/base'
 require 'sinatra/cors'
 require_relative './src/api/list_api_framework'
 require_relative './src/exceptions_api'
+require_relative './src/api/lists_api'
 
 class Api < Sinatra::Base
   register Sinatra::Cors

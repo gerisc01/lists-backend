@@ -142,24 +142,24 @@ class FieldTest < Minitest::Test
 
   def test_field_typeref
     field = Field.from_obj("field", {:type => TypeRefClass, :type_ref => true})
-    typeref = TypeRefClass.new("1")
+    typeref = TypeRefClass.new({'id' => '1'})
     # type instance success
     field.validate(typeref)
     # matching id (1) success
     field.validate("1")
     # other type fail
     assert_raises do
-      field.validate(1)
+      field.validate(100)
     end
     # non-matching id fail
     assert_raises do
-      field.validate("2")
+      field.validate("200")
     end
   end
 
   def test_field_array_typeref_pass
     field = Field.from_obj("field", {:type => Array, :subtype => TypeRefClass, :type_ref => true})
-    typeref = TypeRefClass.new("1")
+    typeref = TypeRefClass.new({'id' => '1'})
     # type instance fail
     assert_raises do
       field.validate(typeref)
@@ -170,17 +170,17 @@ class FieldTest < Minitest::Test
     field.validate(["1"])
     # other type fail
     assert_raises do
-      field.validate([1])
+      field.validate([100])
     end
     # non-matching id fail
     assert_raises do
-      field.validate(["2"])
+      field.validate(["200"])
     end
   end
 
   def test_field_hash_typeref_pass
     field = Field.from_obj("field", {:type => Hash, :subtype => TypeRefClass, :type_ref => true})
-    typeref = TypeRefClass.new("1")
+    typeref = TypeRefClass.new({'id' => '1'})
     # type instance fail
     assert_raises do
       field.validate(typeref)
@@ -191,11 +191,11 @@ class FieldTest < Minitest::Test
     field.validate({"a" => "1"})
     # other type fail
     assert_raises do
-      field.validate({"a" => 1})
+      field.validate({"a" => 100})
     end
     # non-matching id fail
     assert_raises do
-      field.validate({"a" => "2"})
+      field.validate({"a" => "200"})
     end
   end
 

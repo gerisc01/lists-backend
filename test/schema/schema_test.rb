@@ -2,6 +2,7 @@ require 'minitest/autorun'
 require 'mocha/minitest'
 require_relative '../helpers'
 require_relative '../../src/schema/schema'
+require_relative '../../src/generator/type_generator'
 
 class SchemaTest < Minitest::Test
 
@@ -109,7 +110,7 @@ class SchemaTest < Minitest::Test
     gc.remove_field_type_array_int(1)
     assert_equal [2], gc.field_type_array_int
     # Test value with id
-    type_ref = TypeRefClass.new("1")
+    type_ref = TypeRefClass.new({'id' => '1'})
     gc.add_field_array_typeref(type_ref)
     assert_equal([type_ref], gc.field_array_typeref)
     gc.remove_field_array_typeref(type_ref)
@@ -128,7 +129,7 @@ class SchemaTest < Minitest::Test
     gc.remove_field_type_hash_int("1")
     assert_equal({"2" => 3}, gc.field_type_hash_int)
     # Test value with id
-    type_ref = TypeRefClass.new("2")
+    type_ref = TypeRefClass.new({'id' => '2'})
     gc.upsert_field_hash_typeref(type_ref)
     assert_equal(type_ref, gc.field_hash_typeref["2"])
     gc.remove_field_hash_typeref(type_ref)
@@ -162,4 +163,83 @@ class SchemaTest < Minitest::Test
     schema.validate(empty_schema_instance)
   end
 
+  ########## Field accessors translate to schema types ##########
+
+  def test_schema_accessor_transform
+    @type_clazz = Class.new(GenericClass)
+    setup_type_model(@type_clazz)
+    typeschema = Schema.new
+    typeschema.fields = {
+      "id" => {:required => true, :type => String},
+      "number" => {:required => true, :type => Integer}
+    }
+    typeschema.apply_schema(@type_clazz)
+
+    @clazz = Class.new(GenericClass)
+    schema = Schema.new
+    schema.fields = {
+      "string_field" => {:type => String},
+      "type_field" => {:type => @type_clazz},
+      "array_field" => {:type => Array, :subtype => @type_clazz},
+      "hash_field" => {:type => Hash, :subtype => @type_clazz}
+    }
+    schema.apply_schema(@clazz)
+
+    json = {
+      'string_field' => 'Something Good!',
+      'type_field' => {'id' => '1', 'number' => 11},
+      'array_field' => [{'id' => '2', 'number' => 22},{'id' => '3', 'number' => 33}],
+      'hash_field' => {'4' => {'id' => '4', 'number' => 44}, '5' => {'id' => '5', 'number' => 55}}
+    }
+
+    c = @clazz.new
+    c.json = json
+    assert_equal 'Something Good!', c.string_field
+    assert c.type_field.is_a?(@type_clazz)
+    assert_equal '1', c.type_field.id
+    assert_equal 11, c.type_field.number
+    assert c.array_field[0].is_a?(@type_clazz)
+    assert_equal '2', c.array_field[0].id
+    assert_equal 22, c.array_field[0].number
+    assert c.array_field[1].is_a?(@type_clazz)
+    assert_equal '3', c.array_field[1].id
+    assert_equal 33, c.array_field[1].number
+    assert c.hash_field['4'].is_a?(@type_clazz)
+    assert_equal '4', c.hash_field['4'].id
+    assert_equal 44, c.hash_field['4'].number
+    assert c.hash_field['5'].is_a?(@type_clazz)
+    assert_equal '5', c.hash_field['5'].id
+    assert_equal 55, c.hash_field['5'].number
+    assert_equal json, c.json
+  end
+
+  def test_schema_accessor_transform_typeref_toplevel
+    @clazz = Class.new(GenericClass)
+    schema = Schema.new
+    schema.fields = {
+      "type_field" => {:type => TypeRefClass, :type_ref => true}
+    }
+    schema.apply_schema(@clazz)
+
+    c = @clazz.new
+    c.json = {'type_field' => {'id' => '1', 'number' => 11}}
+    assert c.type_field.is_a?(String)
+    assert_equal '1', c.type_field
+  end
+
+  def test_schema_accessor_transform_typeref_array
+    @clazz = Class.new(GenericClass)
+    schema = Schema.new
+    schema.fields = {
+      "array_field" => {:type => Array, :subtype => TypeRefClass, :type_ref => true}
+    }
+    schema.apply_schema(@clazz)
+
+    c = @clazz.new
+    c.json = {'array_field' => [{'id' => '2', 'number' => 22},{'id' => '3', 'number' => 33}]}
+    assert c.array_field[0].is_a?(String)
+    assert_equal '2', c.array_field[0]
+    assert c.array_field[1].is_a?(String)
+    assert_equal '3', c.array_field[1]
+  end
 end

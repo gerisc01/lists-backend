@@ -2,17 +2,23 @@ require_relative '../src/schema/schema'
 
 class TypeRefClass
 
-  attr_accessor :id
+  attr_accessor :id, :json
 
-  def initialize(id)
-    self.id = id
+  def initialize(json = nil)
+    @json = json
+    @json['id'] = '1' if @json['id'].nil?
+    self.id = @json['id']
   end
 
   def self.exist?(id)
-    return id == "1"
+    return id.to_i < 99
   end
 
   def save!
+  end
+
+  def self.is_schema_class?
+    true
   end
 
 end

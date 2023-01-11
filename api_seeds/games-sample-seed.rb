@@ -1,7 +1,8 @@
 require 'restclient'
 require 'json'
 
-url = "http://192.168.1.150:9090"
+# url = "http://192.168.1.150:9090"
+url = "http://127.0.0.1:9090"
 
 ## Collection
 RestClient.post "#{url}/api/collections", {"name" => "Games"}.to_json
@@ -9,18 +10,31 @@ RestClient.post "#{url}/api/collections", {"name" => "Games"}.to_json
 ## Lists
 
 # Playthrough Lists
-list_ids = []
+playthrough_ids = []
 ["Retired", "Completed", "In Progress"].each do |name|
-  list_ids << JSON.parse(RestClient.post("#{url}/api/lists", {"name" => name}.to_json).body)['id']
+  playthrough_ids << JSON.parse(RestClient.post("#{url}/api/lists", {"name" => name}.to_json).body)['id']
 end
 # To Play Lists
+to_play_ids = []
 ["Story Focused", "In Between", "Gameplay Focused", "Only Gameplay"].each do |name|
-  list_ids << JSON.parse(RestClient.post("#{url}/api/lists", {"name" => name}.to_json).body)['id']
+  to_play_ids << JSON.parse(RestClient.post("#{url}/api/lists", {"name" => name}.to_json).body)['id']
 end
 
 ## Add list ids to collection
 collection = JSON.parse(RestClient.get("#{url}/api/collections").body)[0]
-collection['lists'] = list_ids
+collection['lists'] = to_play_ids + playthrough_ids
+collection['groups'] = [
+  {
+    'key' => 'to-play',
+    'name' => 'To Play',
+    'lists' => to_play_ids
+  },
+  {
+    'key' => 'playthrough',
+    'name' => 'Playthrough',
+    'lists' => playthrough_ids
+  }
+]
 RestClient.put("#{url}/api/collections/#{collection['id']}", collection.to_json)
 
 ## Items

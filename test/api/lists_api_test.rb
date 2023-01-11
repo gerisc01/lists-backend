@@ -70,7 +70,9 @@ class ListApiTest < Minitest::Test
   def test_list_get_items
     List.stubs(:get).with('b').returns(@list2).once
     Item.stubs(:get).with('1').returns(@item).once
+    Item.stubs(:exist?).with('1').returns(true).once
     Item.stubs(:get).with('2').returns(@item2).once
+    Item.stubs(:exist?).with('2').returns(true).once
     get '/api/lists/b/items'
     assert_equal 200, last_response.status
     assert_equal [@item.json, @item2.json].to_json, last_response.body

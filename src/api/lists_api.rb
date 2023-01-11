@@ -2,6 +2,7 @@ require 'sinatra/base'
 require_relative '../type/collection'
 require_relative '../type/list'
 require_relative '../type/item'
+require_relative '../../src/api/list_api_framework'
 
 class Api < Sinatra::Base
   register Sinatra::ListApiFramework
