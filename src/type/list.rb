@@ -32,8 +32,9 @@ class List
     item.validate
     template.validate(item) unless template.nil?
     item_id = @@schema.process_type_ref(item, Item)
-    items = [] if items.nil?
-    items << item_id
+    self.items = [] if self.items.nil?
+    items.push(item_id)
+    self.items = items
   end
 
   module Database

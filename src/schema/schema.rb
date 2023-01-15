@@ -183,14 +183,14 @@ class Schema
   def convert_type_to_json_val(field, type_val)
     result = type_val
     if field.type.respond_to?(:is_schema_class?) && field.type.is_schema_class? && type_val.is_a?(field.type)
-      result = type_val.json
+      result = is_schema_class?(it.class) ? type_val.json : type_val
     elsif type_val.is_a?(Hash) && field.type == Hash && field.subtype.respond_to?(:is_schema_class?) && field.subtype.is_schema_class?
       result = {}
-      value.each do |key, subvalue|
-        result[key] = subvalue.json
+      type_val.each do |key, subvalue|
+        result[key] = is_schema_class?(it.class) ? subvalue.json : subvalue
       end
-    elsif type_val.is_a?(Array) && field.type == Array && field.subtype.respond_to?(:is_schema_class?) && field.subtype.is_schema_class?
-      result = value.map { |it| it.json }
+    elsif type_val.is_a?(Array) && field.type == Array && is_schema_class?(field.subtype)
+      result = type_val.map { |it| is_schema_class?(it.class) ? it.json : it }
     end
     return result
   end
