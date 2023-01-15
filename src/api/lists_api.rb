@@ -48,7 +48,8 @@ class Api < Sinatra::Base
   get '/api/lists/:listId/items' do
     listId = params['listId']
     list = List.get(listId)
-    items = list.items.map { |itemId| Item.get(itemId).json }
+    item_ids = list.items
+    items = item_ids.nil? ? [] : item_ids.map { |itemId| Item.get(itemId).json }
     status 200
     body items.to_json
   end
