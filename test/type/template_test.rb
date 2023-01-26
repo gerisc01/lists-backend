@@ -24,13 +24,13 @@ class TemplateTest < Minitest::Test
     assert_equal @template.key, result['key']
     assert_equal @template.display_name, result['display_name']
 
-    anything_goes = {"key"=>"anything-goes", "display_name"=>nil, "type"=>nil, "subtype"=>nil, "required"=>nil, "type_ref"=>nil}
+    anything_goes = {"key"=>"anything-goes", "display_name"=>nil, "type"=>nil, "subtype"=>nil, "required"=>nil, "type_ref"=>nil, "no_dups" => nil}
     assert_equal anything_goes, result['fields']['anything-goes']
 
-    everything_sym = {"key"=>"everything-sym", "display_name"=>"Items", "type"=>Array, "subtype"=>String, "required"=>false, "type_ref"=>true}
+    everything_sym = {"key"=>"everything-sym", "display_name"=>"Items", "type"=>Array, "subtype"=>String, "required"=>false, "type_ref"=>true, "no_dups" => nil}
     assert_equal everything_sym, result['fields']['everything-sym']
 
-    everything_str = {"key"=>"everything-str", "display_name"=>"Items", "type"=>Array, "subtype"=>String, "required"=>false, "type_ref"=>true}
+    everything_str = {"key"=>"everything-str", "display_name"=>"Items", "type"=>Array, "subtype"=>String, "required"=>false, "type_ref"=>true, "no_dups" => nil}
     assert_equal everything_str, result['fields']['everything-str']
   end
   

@@ -1,13 +1,14 @@
 require 'securerandom'
 require 'json'
-# require_relative '../db/collection_db'
 require_relative '../schema/schema'
-# require_relative './template'
+require_relative '../type/tag'
+require_relative '../type/template'
 require_relative '../exceptions'
+require_relative '../base/base_type'
 require_relative '../generator/type_generator'
 require_relative '../generator/db_generator'
 
-class Item
+class Item < BaseType
 
   @@schema = Schema.new
   @@schema.key = "item"
@@ -15,17 +16,23 @@ class Item
   @@schema.fields = {
     "id" => {:required => true, :type => String, :display_name => 'Id'},
     "name" => {:required => true, :type => String, :display_name => 'Name'},
-    "schema" => {:required => false, :type => Schema, :display_name => 'Schema'} 
+    "templates" => {:required => false, :type => Array, :subtype => Template, :type_ref => true, :set => true, :display_name => 'Template'},
+    "tags" => {:required => false, :type => Array, :subtype => Tag, :type_ref => true, :display_name => 'Tags'}
   }
   @@schema.apply_schema(self)
 
-  setup_type_model(self)
+  def self.schema
+    return @@schema
+  end
 
-  define_get(self)
-  define_exist?(self)
-  define_list(self)
-  define_save!(self)
-  define_delete!(self)
+  def validate
+    @@schema.validate(self)
+    unless self.templates.nil?
+      self.templates.each do |template_id|
+        Template.get(template_id).validate(self)
+      end
+    end
+  end
 
   module Database
 
