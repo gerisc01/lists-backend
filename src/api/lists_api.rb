@@ -2,6 +2,8 @@ require 'sinatra/base'
 require_relative '../type/collection'
 require_relative '../type/list'
 require_relative '../type/item'
+require_relative '../type/tag'
+require_relative '../type/template'
 require_relative '../../src/api/list_api_framework'
 
 class Api < Sinatra::Base
@@ -11,6 +13,8 @@ class Api < Sinatra::Base
   generate_crud_methods 'collections', Collection
   generate_crud_methods 'lists', List
   generate_crud_methods 'items', Item
+  generate_crud_methods 'tags', Tag
+  generate_crud_methods 'templates', Template
 
   put '/api/lists/:listId/addItem/:itemId' do
     item = Item.get(params['itemId'])

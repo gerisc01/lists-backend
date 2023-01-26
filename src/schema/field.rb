@@ -3,7 +3,7 @@ require_relative '../exceptions'
 
 class Field
 
-  attr_accessor :key, :display_name, :type, :subtype, :required, :type_ref
+  attr_accessor :key, :display_name, :type, :subtype, :required, :type_ref, :no_dups
 
   ## key:           unique identifying string with no spaces
   ## display_name:  a display name optionally used by downstream systems
@@ -12,6 +12,7 @@ class Field
   ## required:      boolean
   ## type_ref:      boolean; :type (or :subtype if field is a collection) needs to be an object with
     # the following fields if [:id, :exist?, :save!]. Stores the id instead of the whole object.
+  ## no_dups:       boolean; a quick fix for not having a functional set. TODO: fix when typing is better fixed
 
   def validate(value)
     validate_required(value)
@@ -32,7 +33,8 @@ class Field
       'type' => type,
       'subtype' => subtype,
       'required' => required,
-      'type_ref' => type_ref
+      'type_ref' => type_ref,
+      'no_dups' => no_dups
     }
   end
 
@@ -44,6 +46,7 @@ class Field
     field.subtype = Field.from_type(obj, 'subtype')
     field.required = Field.from_boolean(obj, 'required')
     field.type_ref = Field.from_boolean(obj, 'type_ref')
+    field.no_dups = Field.from_boolean(obj, 'no_dups')
     field.validate_def
     return field
   end

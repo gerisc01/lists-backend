@@ -12,7 +12,8 @@ class Schema
   def validate(instance)
     @fields.each do |field|
       begin
-        field.validate(instance.public_send(field.key))
+        v = instance.respond_to?(field.key) ? instance.public_send(field.key) : convert_json_val_to_type(field, instance.json[field.key])
+        field.validate(v)
       rescue ListError::Validation => e
         raise ListError::Validation, "Invalid #{@display_name}: #{e.message}"
       end
@@ -39,6 +40,10 @@ class Schema
   def convert_fields_to_field_classes
     converted_fields = []
     @fields.each do |key, field_def|
+      if key.is_a?(Hash)
+        field_def = key
+        key = field_def['key'] || field_def[:key]
+      end
       converted_fields.push(!key.is_a?(Field) ? Field.from_obj(key, field_def) : key)
     end
     @fields = converted_fields
@@ -74,16 +79,25 @@ class Schema
       type = field.subtype || field.type
 
       clazz.define_method("add_#{singular_key}".to_sym) do |value|
+        if self.is_a?(List) && !self.template.nil?
+          list_template = Template.get(self.template)
+          value.add_template(self.template) if value.respond_to?(:add_template)
+          ## TODO: Clean this up, are both validates needed
+          value.validate
+        end
         field.validate([value])
         value = schema_self.process_type_ref(value, type) if field.type_ref
         self.json = {} if self.json.nil?
         self.json[field.key] = [] if self.json[field.key].nil?
-        self.json[field.key] << value
+        self.json[field.key] << value unless field.no_dups && self.json[field.key].include?(value)
         self.instance_variable_set("@#{field.key.to_sym}", self.json[field.key])
       end
 
       clazz.define_method("remove_#{singular_key}".to_sym) do |value|
         return if self.json[field.key].nil?
+        if self.is_a?(List) && !self.template.nil? && value.respond_to?(:remove_template)
+          value.remove_template(self.template)
+        end
         value = value.id if field.type_ref && value != nil && value.respond_to?(:id)
         self.json[field.key].delete(value)
         self.instance_variable_set("@#{field.key.to_sym}", self.json[field.key])

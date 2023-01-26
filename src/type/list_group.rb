@@ -3,10 +3,11 @@ require 'json'
 require_relative '../schema/schema'
 require_relative './list'
 require_relative '../exceptions'
+require_relative '../base/base_type'
 require_relative '../generator/type_generator'
 require_relative '../generator/db_generator'
 
-class ListGroup
+class ListGroup < BaseType
 
   @@schema = Schema.new
   @@schema.key = "list-group"
@@ -19,6 +20,8 @@ class ListGroup
   }
   @@schema.apply_schema(self)
 
-  setup_type_model(self)
+  def self.schema
+    return @@schema
+  end
 
 end

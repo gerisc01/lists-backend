@@ -5,10 +5,11 @@ require_relative './list'
 require_relative './template'
 require_relative './list_group'
 require_relative '../exceptions'
+require_relative '../base/base_type'
 require_relative '../generator/type_generator'
 require_relative '../generator/db_generator'
 
-class Collection
+class Collection < BaseType
 
   @@schema = Schema.new
   @@schema.key = "collection"
@@ -23,14 +24,9 @@ class Collection
   }
   @@schema.apply_schema(self)
 
-  setup_type_model(self)
-
-  define_get(self)
-  define_get_by_key(self)
-  define_exist?(self)
-  define_list(self)
-  define_save!(self)
-  define_delete!(self)
+  def self.schema
+    return @@schema
+  end
 
   module Database
 
