@@ -19,7 +19,7 @@ class Collection < BaseType
     "key" => {:required => false, :type => String, :display_name => 'Key'},
     "name" => {:required => true, :type => String, :display_name => 'Name'},
     "lists" => {:required => false, :type => Array, :subtype => List, :type_ref => true, :display_name => 'Lists'},
-    "templates" => {:required => false, :type => Hash, :subtype => Template, :display_name => 'Templates'},
+    "templates" => {:required => false, :type => Array, :subtype => Template, :type_ref => true, :display_name => 'Templates'},
     "groups" => {:required => false, :type => Array, :subtype => ListGroup, :display_name => 'List Groups' }
   }
   @@schema.apply_schema(self)
