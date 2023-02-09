@@ -62,10 +62,10 @@ class Template < Schema
       'id' => @id,
       'key' => @key,
       'display_name' => @display_name,
-      'fields' => {}
+      'fields' => []
     }
     @fields.each do |field|
-      result['fields'][field.key] = field.to_obj
+      result['fields'] << field.to_obj
     end
     return result
   end
@@ -77,6 +77,10 @@ class Template < Schema
     result.display_name = obj['display_name']
     result.fields = []
     obj['fields'].each do |key, field_obj|
+      if key.is_a?(Hash)
+        field_obj = key
+        key = field_obj['key'] || field_obj[:key]
+      end
       result.fields << Field.from_obj(key, field_obj)
     end
     return result

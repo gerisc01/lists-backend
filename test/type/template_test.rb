@@ -25,13 +25,13 @@ class TemplateTest < Minitest::Test
     assert_equal @template.display_name, result['display_name']
 
     anything_goes = {"key"=>"anything-goes", "display_name"=>nil, "type"=>nil, "subtype"=>nil, "required"=>nil, "type_ref"=>nil, "no_dups" => nil}
-    assert_equal anything_goes, result['fields']['anything-goes']
+    assert_equal anything_goes, result['fields'][0]
 
     everything_sym = {"key"=>"everything-sym", "display_name"=>"Items", "type"=>Array, "subtype"=>String, "required"=>false, "type_ref"=>true, "no_dups" => nil}
-    assert_equal everything_sym, result['fields']['everything-sym']
+    assert_equal everything_sym, result['fields'][1]
 
     everything_str = {"key"=>"everything-str", "display_name"=>"Items", "type"=>Array, "subtype"=>String, "required"=>false, "type_ref"=>true, "no_dups" => nil}
-    assert_equal everything_str, result['fields']['everything-str']
+    assert_equal everything_str, result['fields'][2]
   end
   
   def test_tempate_from_object
@@ -39,17 +39,17 @@ class TemplateTest < Minitest::Test
     obj = {
       'key' => 'test',
       'display_name' => 'Test',
-      'fields' => {
-        'anything-goes' => {"key"=>"anything-goes", "display_name"=>nil, "type"=>nil, "subtype"=>nil, "required"=>nil, "type_ref"=>nil},
-        'everything-sym' => {"key"=>"everything-sym", "display_name"=>"Items", "type"=>Array, "subtype"=>String, "required"=>false, "type_ref"=>true},
-        'everything-str' => {"key"=>"everything-str", "display_name"=>"Items", "type"=>Array, "subtype"=>String, "required"=>false, "type_ref"=>true}
-      }
+      'fields' => [
+        {"key"=>"anything-goes", "display_name"=>nil, "type"=>nil, "subtype"=>nil, "required"=>nil, "type_ref"=>nil},
+        {"key"=>"everything-sym", "display_name"=>"Items", "type"=>Array, "subtype"=>String, "required"=>false, "type_ref"=>true},
+        {"key"=>"everything-str", "display_name"=>"Items", "type"=>Array, "subtype"=>String, "required"=>false, "type_ref"=>true}
+      ]
     }
     output = Template.from_object(obj)
     assert_equal @template.key, output.key
     assert_equal @template.display_name, output.display_name
 
-    anything_goes = output.fields.find { |f| f.key == 'anything-goes' }
+    anything_goes = output.fields[0]
     assert_equal 'anything-goes', anything_goes.key
     assert_nil anything_goes.display_name
     assert_nil anything_goes.type
@@ -57,7 +57,7 @@ class TemplateTest < Minitest::Test
     assert_nil anything_goes.required
     assert_nil anything_goes.type_ref
 
-    everything_sym = output.fields.find { |f| f.key == 'everything-sym' }
+    everything_sym = output.fields[1]
     assert_equal 'everything-sym', everything_sym.key
     assert_equal 'Items', everything_sym.display_name
     assert_equal Array, everything_sym.type
@@ -65,7 +65,7 @@ class TemplateTest < Minitest::Test
     assert_equal false, everything_sym.required
     assert_equal true, everything_sym.type_ref
 
-    everything_str = output.fields.find { |f| f.key == 'everything-str' }
+    everything_str = output.fields[2]
     assert_equal 'everything-str', everything_str.key
     assert_equal 'Items', everything_str.display_name
     assert_equal Array, everything_str.type
