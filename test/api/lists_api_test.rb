@@ -15,6 +15,7 @@ class ListApiTest < Minitest::Test
   def setup
     @item = Item.new({'id' => '1'})
     @item2 = Item.new({'id' => '2'})
+    @group = ItemGroup.new({'id' => 'one', 'name' => 'Group', 'group' => ['2']})
     @list = List.new({'id' => 'a'})
     @list2 = List.new({'id' => 'b', 'items' => ['1', '2']})
   end
@@ -70,9 +71,7 @@ class ListApiTest < Minitest::Test
   def test_list_get_items
     List.stubs(:get).with('b').returns(@list2).once
     Item.stubs(:get).with('1').returns(@item).once
-    Item.stubs(:exist?).with('1').returns(true).once
     Item.stubs(:get).with('2').returns(@item2).once
-    Item.stubs(:exist?).with('2').returns(true).once
     get '/api/lists/b/items'
     assert_equal 200, last_response.status
     assert_equal [@item.json, @item2.json].to_json, last_response.body
@@ -87,6 +86,24 @@ class ListApiTest < Minitest::Test
     post('/api/lists/a/items', @item2.json.to_json, {"Content-Type" => "application/json"})
     assert_equal 201, last_response.status
     assert_equal  @item2.json.to_json, last_response.body
+  end
+
+  # get items from collection, including groups
+  def test_collection_get_items
+    Item.stubs(:get).with('1').returns(@item).once
+    Item.stubs(:get).with('2').returns(@item2).once
+    Item.stubs(:exist?).with('2').returns(true).once # needed because list.items calls exist? to verify the type_ref
+    Item.stubs(:get).with('one').returns(nil).once
+    ItemGroup.stubs(:get).with('one').returns(@group).once
+    group_list = List.new({'id' => 'gr_list', 'items' => ['1', 'one']})
+    List.stubs(:get).with('gr_list').returns(group_list).once
+    List.stubs(:exist?).with('gr_list').returns(true).once # needed because collection.lists calls exist? to verify the type_ref
+    collection = Collection.new({'id' => '1', 'lists' => ['gr_list']})
+    Collection.stubs(:get).with('1').returns(collection).once
+
+    get('/api/collections/1/listItems')
+    assert_equal 200, last_response.status
+    assert_equal  [@item.json, @group.json, @item2.json].to_json, last_response.body
   end
 
 end

@@ -1,7 +1,7 @@
 require 'securerandom'
 require 'json'
 require_relative '../schema/schema'
-require_relative './item'
+require_relative './item_generic'
 require_relative './template'
 require_relative '../exceptions'
 require_relative '../base/base_type'
@@ -16,7 +16,7 @@ class List < BaseType
   @@schema.fields = {
     "id" => {:required => true, :type => String, :display_name => 'Id'},
     "name" => {:required => true, :type => String, :display_name => 'Name'},
-    "items" => {:required => false, :type => Array, :subtype => Item, :type_ref => true, :display_name => 'Items'},
+    "items" => {:required => false, :type => Array, :subtype => ItemGeneric, :type_ref => true, :display_name => 'Items'},
     "template" => {:required => false, :type => Template, :type_ref => true, :display_name => 'Template'}
   }
   @@schema.apply_schema(self)

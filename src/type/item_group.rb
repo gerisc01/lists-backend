@@ -9,16 +9,15 @@ require_relative '../generator/type_generator'
 require_relative '../generator/db_generator'
 require_relative './item_generic'
 
-class Item < BaseType
+class ItemGroup < BaseType
 
   @@schema = Schema.new
-  @@schema.key = "item"
-  @@schema.display_name = "Item"
+  @@schema.key = "item_group"
+  @@schema.display_name = "Item Group"
   @@schema.fields = {
     "id" => {:required => true, :type => String, :display_name => 'Id'},
     "name" => {:required => true, :type => String, :display_name => 'Name'},
-    "templates" => {:required => false, :type => Array, :subtype => Template, :type_ref => true, :set => true, :display_name => 'Template'},
-    "tags" => {:required => false, :type => Array, :subtype => Tag, :type_ref => true, :display_name => 'Tags'}
+    "group" => {:required => true, :type => Array, :subtype => Item, :type_ref => true, :display_name => 'Grouped Items'}
   }
   @@schema.apply_schema(self)
 
@@ -26,20 +25,27 @@ class Item < BaseType
     return @@schema
   end
 
-  def validate
-    @@schema.validate(self)
-    unless self.templates.nil?
-      self.templates.each do |template_id|
-        Template.get(template_id).validate(self)
-      end
+  def add_template(template)
+    self.group.each do |item_id|
+      it = Item.get(item_id)
+      it.add_template(template)
+      it.save!
+    end
+  end
+
+  def remove_template(template)
+    self.group.each do |item_id|
+      it = Item.get(item_id)
+      it.remove_template(template)
+      it.save!
     end
   end
 
   module Database
 
-    @@file_name = 'data/items.json'
+    @@file_name = 'data/item-groups.json'
   
-    file_based_db_and_cache(self, Item)
+    file_based_db_and_cache(self, ItemGroup)
   
     define_db_get(self)
     define_db_list(self)

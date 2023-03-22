@@ -15,7 +15,7 @@ class Api < Sinatra::Base
   end
 
   set :allow_origin, '*'
-  set :allow_methods, 'GET,POST,PUT,DELETE'
+  set :allow_methods, 'GET,POST,PUT,DELETE,OPTIONS'
   set :allow_headers, 'Content-Type, Accept'
 
   set :port, 9090
