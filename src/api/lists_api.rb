@@ -1,7 +1,9 @@
 require 'sinatra/base'
 require_relative '../type/collection'
 require_relative '../type/list'
+require_relative '../type/item_generic'
 require_relative '../type/item'
+require_relative '../type/item_group'
 require_relative '../type/tag'
 require_relative '../type/template'
 require_relative '../../src/api/list_api_framework'
@@ -13,11 +15,12 @@ class Api < Sinatra::Base
   generate_crud_methods 'collections', Collection
   generate_crud_methods 'lists', List
   generate_crud_methods 'items', Item
+  generate_crud_methods 'itemGroups', ItemGroup
   generate_crud_methods 'tags', Tag
   generate_crud_methods 'templates', Template
 
   put '/api/lists/:listId/addItem/:itemId' do
-    item = Item.get(params['itemId'])
+    item = ItemGeneric.get(params['itemId'])
     list = List.get(params['listId'])
     list.add_item(item)
     list.save!
@@ -25,7 +28,7 @@ class Api < Sinatra::Base
   end
 
   put '/api/lists/:listId/removeItem/:itemId' do
-    item = Item.get(params['itemId'])
+    item = ItemGeneric.get(params['itemId'])
     list = List.get(params['listId'])
     list.remove_item(item)
     list.save!
@@ -39,7 +42,7 @@ class Api < Sinatra::Base
     throw BadRequestError, "Need a listId for both fromList and toList in payload" if fromListId.to_s.empty? || toListId.to_s.empty?
     
     itemId = params['itemId']
-    item = Item.get(itemId)
+    item = ItemGeneric.get(itemId)
     fromList = List.get(fromListId)
     fromList.remove_item(item)
     toList = List.get(toListId)
@@ -49,11 +52,51 @@ class Api < Sinatra::Base
     status 200
   end
 
+  get '/api/collections/:collectionId/listItems' do
+    collection_id = params['collectionId']
+    collection = Collection.get(collection_id)
+    items = []
+    collection.lists.each do |list_id|
+      list = List.get(list_id)
+      item_ids = list.items
+      if !item_ids.nil?
+        item_ids.each do |item_id|
+          it = ItemGeneric.get(item_id)
+          if it.is_a?(Item)
+            items.push(it.to_object)
+          elsif it.is_a?(ItemGroup)
+            items.push(it.to_object)
+            it.group.each do |group_id|
+              group_it = Item.get(group_id)
+              items.push(group_it.to_object)
+            end
+          end
+        end
+      end
+    end
+    status 200
+    body items.to_json
+  end
+
   get '/api/lists/:listId/items' do
     listId = params['listId']
     list = List.get(listId)
     item_ids = list.items
-    items = item_ids.nil? ? [] : item_ids.map { |itemId| Item.get(itemId).json }
+    items = []
+    if !item_ids.nil?
+      item_ids.each do |item_id|
+        it = ItemGeneric.get(item_id)
+        if it.is_a?(Item)
+          items.push(it.to_object)
+        elsif it.is_a?(ItemGroup)
+          items.push(it.to_object)
+          it.group.each do |group_id|
+            group_it = Item.get(group_id)
+            items.push(group_it.to_object)
+          end
+        end
+      end
+    end
     status 200
     body items.to_json
   end
@@ -61,7 +104,7 @@ class Api < Sinatra::Base
   post '/api/lists/:listId/items' do
     json = JSON.parse(request.body.read)
     listId = params['listId']
-    item = Item.new(json)
+    item = ItemGeneric.from_object(json)
     list = List.get(listId)
     list.add_item(item)
     list.save!
