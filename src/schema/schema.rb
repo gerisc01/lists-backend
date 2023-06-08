@@ -52,9 +52,9 @@ class Schema
   def add_base_fields_to_class(clazz, schema_self)
     @fields.each do |field|
       clazz.define_method(field.key.to_sym) do
-        self.instance_variable_set("@#{field.key.to_sym}", nil) if !self.instance_variable_defined?("@#{field.key.to_sym}")
-        result = self.instance_variable_get("@#{field.key.to_sym}")
-        return result if result != nil
+        # self.instance_variable_set("@#{field.key.to_sym}", nil) if !self.instance_variable_defined?("@#{field.key.to_sym}")
+        # result = self.instance_variable_get("@#{field.key.to_sym}")
+        # return result if result != nil
 
         self.json = {} if json.nil?
         value = self.json[field.key]
@@ -68,7 +68,7 @@ class Schema
         json_val = schema_self.convert_type_to_json_val(field, value)
         self.json[field.key] = json_val
         result = schema_self.convert_json_val_to_type(field, value)
-        self.instance_variable_set("@#{field.key.to_sym}", result)
+        # self.instance_variable_set("@#{field.key.to_sym}", result)
       end
     end
   end

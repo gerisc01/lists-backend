@@ -16,7 +16,7 @@ class ItemGroup < BaseType
   @@schema.display_name = "Item Group"
   @@schema.fields = {
     "id" => {:required => true, :type => String, :display_name => 'Id'},
-    "name" => {:required => true, :type => String, :display_name => 'Name'},
+    "name" => {:required => false, :type => String, :display_name => 'Name'},
     "group" => {:required => true, :type => Array, :subtype => Item, :type_ref => true, :display_name => 'Grouped Items'}
   }
   @@schema.apply_schema(self)

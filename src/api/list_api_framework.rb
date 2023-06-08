@@ -9,7 +9,7 @@ module Sinatra
       begin
         json = JSON.parse(request.body.read)
       rescue JSON::ParserError
-        raise ListError::BadRequest "Request payload must be valid JSON"
+        raise ListError::BadRequest, "Request payload must be valid JSON"
       end
       return json
     end
