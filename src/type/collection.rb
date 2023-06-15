@@ -20,6 +20,7 @@ class Collection < BaseType
     "name" => {:required => true, :type => String, :display_name => 'Name'},
     "lists" => {:required => false, :type => Array, :subtype => List, :type_ref => true, :display_name => 'Lists'},
     "templates" => {:required => false, :type => Array, :subtype => Template, :type_ref => true, :display_name => 'Templates'},
+    "tags" => {:required => false, :type => Array, :subtype => Tag, :type_ref => true, :display_name => 'Tags'},
     "groups" => {:required => false, :type => Array, :subtype => ListGroup, :display_name => 'List Groups' }
   }
   @@schema.apply_schema(self)

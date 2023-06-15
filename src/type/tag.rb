@@ -14,7 +14,8 @@ class Tag < BaseType
   @@schema.fields = {
     "id" => {:required => true, :type => String, :display_name => 'Id'},
     "key" => {:required => false, :type => String, :display_name => 'Key'},
-    "name" => {:required => false, :type => String, :display_name => 'Name'}
+    "name" => {:required => false, :type => String, :display_name => 'Name'},
+    "color" => {:required => false, :type => String, :display_name => 'Color'},
   }
   @@schema.apply_schema(self)
 
