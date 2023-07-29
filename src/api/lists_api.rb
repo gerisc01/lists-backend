@@ -8,6 +8,8 @@ require_relative '../type/tag'
 require_relative '../type/template'
 require_relative '../../src/api/list_api_framework'
 
+require_relative '../actions/item_actions'
+
 class Api < Sinatra::Base
   register Sinatra::ListApiFramework
 
@@ -53,18 +55,7 @@ class Api < Sinatra::Base
 
   put '/api/items/:itemId/moveItem' do
     json = JSON.parse(request.body.read)
-    fromListId = json['fromList']
-    toListId = json['toList']
-    throw ListError::BadRequest, "Need a listId for both fromList and toList in payload" if fromListId.to_s.empty? || toListId.to_s.empty?
-    
-    itemId = params['itemId']
-    item = ItemGeneric.get(itemId)
-    fromList = List.get(fromListId)
-    fromList.remove_item(item)
-    toList = List.get(toListId)
-    toList.add_item(item)
-    fromList.save!
-    toList.save!
+    move_item(params['itemId'], json['fromList'], json['toList'])
     status 200
   end
 
