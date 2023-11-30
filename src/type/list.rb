@@ -16,7 +16,8 @@ class List
   schema.fields = [
     {:key => 'name', :required => true, :type => String, :display_name => 'Name'},
     {:key => 'items', :required => false, :type => Array, :subtype => ItemGeneric, :type_ref => true, :display_name => 'Items'},
-    {:key => 'template', :required => false, :type => Template, :type_ref => true, :display_name => 'Template'}
+    {:key => 'template', :required => false, :type => Template, :type_ref => true, :display_name => 'Template'},
+    {:key => 'actions', :required => false, :type => Array, :subtype => Action, :type_ref => true, :display_name => 'Actions'}
   ]
   apply_schema schema
 

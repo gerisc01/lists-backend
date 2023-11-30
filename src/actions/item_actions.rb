@@ -20,3 +20,12 @@ def copy_item(id, to_list)
   to.add_item(item)
   to.save!
 end
+
+def remove_item(id, list_id)
+  throw ListError::BadRequest, "Can't remove an item without a list_id" if list.to_s.empty?
+  
+  item = ItemGeneric.get(id)
+  list = List.get(list_id)
+  list.remove_item(item)
+  list.save!
+end
