@@ -1,41 +1,33 @@
-require 'securerandom'
-require 'json'
-require_relative '../schema/schema'
+require 'ruby-schema'
+require 'ruby-schema-storage'
+
+require_relative '../storage'
+
 require_relative './item_generic'
 require_relative './template'
-require_relative '../exceptions'
-require_relative '../base/base_type'
-require_relative '../generator/type_generator'
-require_relative '../generator/db_generator'
 
-class List < BaseType
+class List
 
-  @@schema = Schema.new
-  @@schema.key = "list"
-  @@schema.display_name = "List"
-  @@schema.fields = {
-    "id" => {:required => true, :type => String, :display_name => 'Id'},
-    "name" => {:required => true, :type => String, :display_name => 'Name'},
-    "items" => {:required => false, :type => Array, :subtype => ItemGeneric, :type_ref => true, :display_name => 'Items'},
-    "template" => {:required => false, :type => Template, :type_ref => true, :display_name => 'Template'}
-  }
-  @@schema.apply_schema(self)
+  schema = Schema.new
+  schema.key = "list"
+  schema.display_name = "List"
+  schema.storage = TypeStorage.global_storage
+  schema.accessors = [:get, :list, :exist?, :save!, :delete!]
+  schema.fields = [
+    {:key => 'name', :required => true, :type => String, :display_name => 'Name'},
+    {:key => 'items', :required => false, :type => Array, :subtype => ItemGeneric, :type_ref => true, :display_name => 'Items'},
+    {:key => 'template', :required => false, :type => Template, :type_ref => true, :display_name => 'Template'}
+  ]
+  apply_schema schema
 
-  def self.schema
-    return @@schema
+  def add_item_with_template_ref(item)
+    item.add_template(self.template) if !template.nil? || !template.empty?
+    add_item(item)
   end
 
-  module Database
-
-    @@file_name = 'data/lists.json'
-  
-    file_based_db_and_cache(self, List)
-  
-    define_db_get(self)
-    define_db_list(self)
-    define_db_save(self)
-    define_db_delete(self)
-    
+  def remove_item_with_template_ref(item)
+    item.remove_template(self.template) if !template.nil? || !template.empty?
+    remove_item(item)
   end
 
 end

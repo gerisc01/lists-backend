@@ -1,6 +1,8 @@
 require 'minitest/autorun'
 require 'mocha/minitest'
 require_relative '../helpers'
+require_relative '../../src/type/item'
+require_relative '../../src/type/item_group'
 require_relative '../../src/type/list'
 require_relative '../../src/type/template'
 
@@ -10,12 +12,13 @@ class ListTest < Minitest::Test
     @template = Template.new
     @template.key = 'test'
     @template.display_name = 'Test'
-    @template.fields = {
-      'field1' => {:required => true},
-      'field2' => {:type => String},
-    }
+    @template.fields = [
+      {:key => 'field1', :required => true},
+      {:key => 'field2', :type => String},
+    ]
 
     @list = List.new({'name' => 'Test List'})
+    @list.template = @template
   end
 
   def teardown
@@ -28,7 +31,9 @@ class ListTest < Minitest::Test
       'field2' => 'anything'
     }
     item = Item.new(item_json)
-    @list.add_item(item)
+    assert @list.items.nil? || @list.items.empty?
+    @list.add_item_with_template_ref(item)
+    assert @list.items.include?(item.id)
   end
 
   def test_list_add_item_failure 
@@ -37,7 +42,9 @@ class ListTest < Minitest::Test
       'field2' => 'anything'
     }
     item = Item.new(item_json)
-    @list.add_item(item)
+    assert_raises(Schema::ValidationError) do
+      @list.add_item_with_template_ref(item)
+    end
   end
 
 end

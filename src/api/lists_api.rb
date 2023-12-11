@@ -70,12 +70,12 @@ class Api < Sinatra::Base
         item_ids.each do |item_id|
           it = ItemGeneric.get(item_id)
           if it.is_a?(Item)
-            items.push(it.to_object)
+            items.push(it.to_schema_object)
           elsif it.is_a?(ItemGroup)
-            items.push(it.to_object)
+            items.push(it.to_schema_object)
             it.group.each do |group_id|
               group_it = Item.get(group_id)
-              items.push(group_it.to_object)
+              items.push(group_it.to_schema_object)
             end
           end
         end
@@ -94,12 +94,12 @@ class Api < Sinatra::Base
       item_ids.each do |item_id|
         it = ItemGeneric.get(item_id)
         if it.is_a?(Item)
-          items.push(it.to_object)
+          items.push(it.to_schema_object)
         elsif it.is_a?(ItemGroup)
-          items.push(it.to_object)
+          items.push(it.to_schema_object)
           it.group.each do |group_id|
             group_it = Item.get(group_id)
-            items.push(group_it.to_object)
+            items.push(group_it.to_schema_object)
           end
         end
       end
@@ -111,7 +111,7 @@ class Api < Sinatra::Base
   post '/api/lists/:listId/items' do
     json = JSON.parse(request.body.read)
     listId = params['listId']
-    item = ItemGeneric.from_object(json)
+    item = ItemGeneric.from_schema_object(json)
     list = List.get(listId)
     list.add_item(item)
     list.save!

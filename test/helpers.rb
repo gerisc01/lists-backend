@@ -1,4 +1,4 @@
-require_relative '../src/schema/schema'
+require 'ruby-schema'
 
 class TypeRefClass
 
@@ -52,7 +52,7 @@ class GenericSchemaClass
     "field_array_typeref" => {:type => Array, :subtype => TypeRefClass},
     "field_hash_typeref" => {:type => Hash, :subtype => TypeRefClass}
   }
-  @@schema.apply_schema(self)
+  apply_schema @@schema
 
   def self.get_schema
     return @@schema

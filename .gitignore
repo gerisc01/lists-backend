@@ -3,3 +3,7 @@
 
 # Persist files
 data/
+
+# IntelliJ
+*.iml
+.idea

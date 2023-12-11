@@ -89,15 +89,13 @@ class ListApiTest < Minitest::Test
   end
 
   # get items from collection, including groups
-  def test_collection_get_items
+   def test_collection_get_items
     Item.stubs(:get).with('1').returns(@item).once
     Item.stubs(:get).with('2').returns(@item2).once
-    Item.stubs(:exist?).with('2').returns(true).once # needed because list.items calls exist? to verify the type_ref
     Item.stubs(:get).with('one').returns(nil).once
     ItemGroup.stubs(:get).with('one').returns(@group).once
     group_list = List.new({'id' => 'gr_list', 'items' => ['1', 'one']})
     List.stubs(:get).with('gr_list').returns(group_list).once
-    List.stubs(:exist?).with('gr_list').returns(true).once # needed because collection.lists calls exist? to verify the type_ref
     collection = Collection.new({'id' => '1', 'lists' => ['gr_list']})
     Collection.stubs(:get).with('1').returns(collection).once
 
