@@ -1,9 +1,8 @@
-require 'minitest/autorun'
-require 'mocha/minitest'
+require_relative '../minitest_wrapper'
 require_relative '../../src/type/collection'
 require_relative '../../src/filter/filter'
 
-class FilterTest < Minitest::Test
+class FilterTest < MinitestWrapper
 
   def setup
     collection = {

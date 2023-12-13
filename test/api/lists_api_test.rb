@@ -1,10 +1,12 @@
 require 'sinatra/base'
 require 'minitest/autorun'
 require 'mocha/minitest'
+# require_relative '../minitest_wrapper'
 require 'rack/test'
 require_relative '../../src/api/lists_api'
 
 class ListApiTest < Minitest::Test
+# class ListApiTest < MinitestWrapper
   include Rack::Test::Methods
 
   def app

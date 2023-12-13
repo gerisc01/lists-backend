@@ -6,7 +6,7 @@ require_relative '../type/item'
 require_relative '../type/item_group'
 require_relative '../type/tag'
 require_relative '../type/template'
-require_relative '../../src/api/list_api_framework'
+require_relative '../../src/api/helpers/list_api_framework'
 
 require_relative '../actions/item_actions'
 
@@ -14,12 +14,11 @@ class Api < Sinatra::Base
   register Sinatra::ListApiFramework
 
   # Api Methods
-  generate_crud_methods 'collections', Collection
-  generate_crud_methods 'lists', List
-  generate_crud_methods 'items', Item
-  generate_crud_methods 'itemGroups', ItemGroup
-  generate_crud_methods 'tags', Tag
-  generate_crud_methods 'templates', Template
+  generate_schema_crud_methods 'collections', Collection
+  generate_schema_crud_methods 'lists', List
+  generate_schema_crud_methods 'itemGroups', ItemGroup
+  generate_schema_crud_methods 'tags', Tag
+  generate_schema_crud_methods 'templates', Template
 
   put '/api/lists/:listId/addItem/:itemId' do
     item = ItemGeneric.get(params['itemId'])

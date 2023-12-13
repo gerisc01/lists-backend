@@ -1,9 +1,8 @@
-require 'minitest/autorun'
-require 'mocha/minitest'
+require_relative '../minitest_wrapper'
 require_relative '../helpers'
 require_relative '../../src/type/template'
 
-class TemplateTest < Minitest::Test
+class TemplateTest < MinitestWrapper
 
   def setup
     @template = Template.new

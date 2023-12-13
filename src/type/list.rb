@@ -22,6 +22,7 @@ class List
 
   def add_item_with_template_ref(item)
     item.add_template(self.template) if !template.nil? || !template.empty?
+    item.validate
     add_item(item)
   end
 
