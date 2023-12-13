@@ -1,12 +1,9 @@
 require 'sinatra/base'
-require 'minitest/autorun'
-require 'mocha/minitest'
-# require_relative '../minitest_wrapper'
+require_relative '../minitest_wrapper'
 require 'rack/test'
 require_relative '../../src/api/lists_api'
 
-class ListApiTest < Minitest::Test
-# class ListApiTest < MinitestWrapper
+class ListApiTest < MinitestWrapper
   include Rack::Test::Methods
 
   def app
@@ -23,6 +20,7 @@ class ListApiTest < Minitest::Test
   end
 
   def teardown
+    mocha_teardown
   end
 
   # add item
@@ -91,7 +89,7 @@ class ListApiTest < Minitest::Test
   end
 
   # get items from collection, including groups
-   def test_collection_get_items
+  def test_collection_get_items
     Item.stubs(:get).with('1').returns(@item).once
     Item.stubs(:get).with('2').returns(@item2).once
     Item.stubs(:get).with('one').returns(nil).once

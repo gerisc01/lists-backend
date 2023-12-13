@@ -3,6 +3,7 @@ require 'ruby-schema-storage'
 module TypeStorage
 
   attr_accessor :instance
+  @instance = nil
 
   def self.global_storage
     if @instance.nil? && test_var_set
@@ -18,10 +19,10 @@ module TypeStorage
   end
 
   def self.clear_test_storage
-    # Dir.glob('data-test/*').each do |file|
-    #   File.delete(file)
-    # end
-    # Dir.delete('data-test') if Dir.exist?('data-test')
+    Dir.glob('data-test/*').each do |file|
+      File.delete(file)
+    end
+    Dir.delete('data-test') if Dir.exist?('data-test')
   end
 
 end

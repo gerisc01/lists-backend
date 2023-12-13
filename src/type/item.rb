@@ -21,6 +21,8 @@ class Item
   ]
   apply_schema schema
 
+  # Remove the old validate method and apply the new one that validates the schema and templates
+  remove_method :validate if method_defined? :validate
   def validate
     self.class.schema.validate(self)
     unless self.templates.nil?
