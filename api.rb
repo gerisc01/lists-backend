@@ -2,9 +2,10 @@ require 'sinatra/base'
 require 'sinatra/cors'
 require_relative './src/api/helpers/list_api_framework'
 require_relative './src/exceptions_api'
-require_relative './src/api/lists_api'
-require_relative './src/api/items_api'
-require_relative './src/api/actions_api'
+# Require all files in a directory ending with _api.rb
+Dir[File.dirname(__FILE__) + '/src/api/*_api.rb'].each do |path|
+  require_relative "./src/api/#{path.split('/')[-1]}"
+end
 
 class Api < Sinatra::Base
   register Sinatra::Cors

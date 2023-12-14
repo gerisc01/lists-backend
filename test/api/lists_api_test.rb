@@ -2,6 +2,8 @@ require 'sinatra/base'
 require_relative '../minitest_wrapper'
 require 'rack/test'
 require_relative '../../src/api/lists_api'
+require_relative '../../src/api/collections_api'
+require_relative '../../src/api/items_api'
 
 class ListApiTest < MinitestWrapper
   include Rack::Test::Methods

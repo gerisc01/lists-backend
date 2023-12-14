@@ -1,14 +1,15 @@
 require_relative '../type/item'
+require_relative '../actions/item_actions'
 
 class Api < Sinatra::Base
+  register Sinatra::ListApiFramework
 
-  schema_type = Item
+  generate_schema_crud_methods 'items', Item
 
-  ## Standard Crud Endpoints
-  generate_schema_endpoint(:list, 'items', schema_type)
-  generate_schema_endpoint(:get, 'items', schema_type)
-  generate_schema_endpoint(:create, 'items', schema_type)
-  generate_schema_endpoint(:update, 'items', schema_type)
-  generate_schema_endpoint(:delete, 'items', schema_type)
+  put '/api/items/:itemId/moveItem' do
+    json = JSON.parse(request.body.read)
+    move_item(params['itemId'], json['fromList'], json['toList'])
+    status 200
+  end
 
 end

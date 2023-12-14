@@ -1,32 +1,26 @@
-require_relative './helpers/sinatra_crud_helpers'
+require 'sinatra/base'
 require_relative '../type/item_group'
+require_relative '../../src/api/helpers/list_api_framework'
 
 class Api < Sinatra::Base
+  register Sinatra::ListApiFramework
 
-  schema_type = ItemGroup
+  generate_schema_crud_methods 'itemGroups', ItemGroup
 
-  ## Standard Crud Endpoints
-  get "/api/items" do
-    schema_endpoint_list(schema_type)
+  put '/api/itemGroups/:groupId/addItem/:itemId' do
+    item_group = ItemGroup.get(params['groupId'])
+    throw ListError::BadRequest, "Can't add a group item for an item that doesn't exist" if !Item.exist?(params['itemId'])
+    item_group.add_group(params['itemId'])
+    item_group.save!
+    status 200
   end
 
-  get "/api/items/:id" do
-    schema_endpoint_get(schema_type, params['id'])
+  put '/api/itemGroups/:groupId/removeItem/:itemId' do
+    item_group = ItemGroup.get(params['groupId'])
+    throw ListError::BadRequest, "Can't remove an item if it is the only item remaining in the group" if item_group.group.length == 1
+    item_group.remove_group(params['itemId'])
+    item_group.save!
+    status 200
   end
-
-  post "/api/items" do
-    schema_endpoint_create(schema_type, request)
-  end
-
-  put "/api/items/:id" do
-    schema_endpoint_update(schema_type, params['id'], request)
-  end
-
-  delete "/api/items/:id" do
-    schema_endpoint_delete(schema_type, params['id'])
-  end
-
-
-
 
 end
