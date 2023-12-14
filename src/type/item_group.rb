@@ -1,29 +1,24 @@
-require 'securerandom'
-require 'json'
-require_relative '../schema/schema'
-require_relative '../type/tag'
-require_relative '../type/template'
-require_relative '../exceptions'
-require_relative '../base/base_type'
-require_relative '../generator/type_generator'
-require_relative '../generator/db_generator'
-require_relative './item_generic'
+require 'ruby-schema'
+require 'ruby-schema-storage'
 
-class ItemGroup < BaseType
+require_relative '../storage'
 
-  @@schema = Schema.new
-  @@schema.key = "item_group"
-  @@schema.display_name = "Item Group"
-  @@schema.fields = {
-    "id" => {:required => true, :type => String, :display_name => 'Id'},
-    "name" => {:required => false, :type => String, :display_name => 'Name'},
-    "group" => {:required => true, :type => Array, :subtype => Item, :type_ref => true, :display_name => 'Grouped Items'}
-  }
-  @@schema.apply_schema(self)
+require_relative './item'
+require_relative './tag'
+require_relative './template'
 
-  def self.schema
-    return @@schema
-  end
+class ItemGroup
+
+  schema = Schema.new
+  schema.key = "item_group"
+  schema.display_name = "Item Group"
+  schema.storage = TypeStorage.global_storage
+  schema.accessors = [:get, :list, :exist?, :save!, :delete!]
+  schema.fields = [
+    {:key => 'name', :required => false, :type => String, :display_name => 'Name'},
+    {:key => 'group', :required => true, :type => Array, :subtype => Item, :type_ref => true, :display_name => 'Grouped Items'}
+  ]
+  apply_schema schema
 
   def add_template(template)
     self.group.each do |item_id|
@@ -39,19 +34,6 @@ class ItemGroup < BaseType
       it.remove_template(template)
       it.save!
     end
-  end
-
-  module Database
-
-    @@file_name = 'data/item-groups.json'
-  
-    file_based_db_and_cache(self, ItemGroup)
-  
-    define_db_get(self)
-    define_db_list(self)
-    define_db_save(self)
-    define_db_delete(self)
-    
   end
 
 end

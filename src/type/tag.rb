@@ -1,38 +1,20 @@
-require 'securerandom'
-require 'json'
-require_relative '../schema/schema'
+require 'ruby-schema'
+require 'ruby-schema-storage'
+
 require_relative '../exceptions'
-require_relative '../base/base_type'
-require_relative '../generator/type_generator'
-require_relative '../generator/db_generator'
+require_relative '../storage'
 
-class Tag < BaseType
+class Tag
 
-  @@schema = Schema.new
-  @@schema.key = "tag"
-  @@schema.display_name = "Tag"
-  @@schema.fields = {
-    "id" => {:required => true, :type => String, :display_name => 'Id'},
-    "key" => {:required => false, :type => String, :display_name => 'Key'},
-    "name" => {:required => false, :type => String, :display_name => 'Name'}
-  }
-  @@schema.apply_schema(self)
-
-  def self.schema
-    return @@schema
-  end
-
-  module Database
-
-    @@file_name = 'data/tags.json'
-  
-    file_based_db_and_cache(self, Tag)
-  
-    define_db_get(self)
-    define_db_list(self)
-    define_db_save(self)
-    define_db_delete(self)
-    
-  end
+  schema = Schema.new
+  schema.key = "tag"
+  schema.display_name = "Tag"
+  schema.storage = TypeStorage.global_storage
+  schema.accessors = [:get, :list, :exist?, :save!, :delete!]
+  schema.fields = [
+    {:key => 'key', :required => false, :type => String, :display_name => 'Key'},
+    {:key => 'name', :required => false, :type => String, :display_name => 'Name'}
+  ]
+  apply_schema schema
 
 end

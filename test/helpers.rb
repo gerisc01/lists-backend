@@ -1,4 +1,4 @@
-require_relative '../src/schema/schema'
+require 'ruby-schema'
 
 class TypeRefClass
 
@@ -28,12 +28,10 @@ class GenericClass
 end
 
 class GenericSchemaClass
-  attr_accessor :json
-
-  @@schema = Schema.new
-  @@schema.key = "test"
-  @@schema.display_name = "Test Schema"
-  @@schema.fields = {
+  schema = Schema.new
+  schema.key = "test"
+  schema.display_name = "Test Schema"
+  schema.fields = {
     # Required
     "field_required" => {:required => true},
     "field_not_required" => {:required => false},
@@ -52,18 +50,10 @@ class GenericSchemaClass
     "field_array_typeref" => {:type => Array, :subtype => TypeRefClass},
     "field_hash_typeref" => {:type => Hash, :subtype => TypeRefClass}
   }
-  @@schema.apply_schema(self)
-
-  def self.get_schema
-    return @@schema
-  end
+  apply_schema schema
 end
 
 class EmptySchemaClass
-  attr_accessor :json
-  @@schema = Schema.new
-
-  def self.get_schema
-    return @@schema
-  end
+  schema = Schema.new
+  apply_schema schema
 end

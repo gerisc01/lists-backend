@@ -1,10 +1,10 @@
 require 'sinatra/base'
-require 'minitest/autorun'
-require 'mocha/minitest'
+require_relative '../minitest_wrapper'
 require 'rack/test'
-require_relative '../../src/api/list_api_framework'
+require_relative '../../src/api/helpers/list_api_framework'
 
-class ListApiFrameworkTest < Minitest::Test
+# class ListApiFrameworkTest < Minitest::Test
+class ListApiFrameworkTest < MinitestWrapper
   include Rack::Test::Methods
 
   def app
@@ -14,8 +14,8 @@ class ListApiFrameworkTest < Minitest::Test
   
   def setup
     @items = {
-      '1' => GenericClass.new({'id' => '1', 'name' => 'One'}),
-      '2' => GenericClass.new({'id' => '2', 'name' => 'Two'})
+      '1' => ListApiFrameworkTest::GenericClass.new({'id' => '1', 'name' => 'One'}),
+      '2' => ListApiFrameworkTest::GenericClass.new({'id' => '2', 'name' => 'Two'})
     }
     @objs = {
       '1' => @items['1'].json,
@@ -24,11 +24,12 @@ class ListApiFrameworkTest < Minitest::Test
   end
 
   def teardown
+    mocha_teardown
   end
 
   # create
   def test_create_success
-    GenericClass.stubs(:new).with(@objs['1']).returns(@items['1']).once
+    ListApiFrameworkTest::GenericClass.stubs(:new).with(@objs['1']).returns(@items['1']).once
     @items['1'].stubs(:validate).returns(nil).once
     @items['1'].stubs(:save!).returns(nil).once
     post('/api/objects', @objs['1'].to_json, {"Content-Type" => "application/json"})
@@ -37,7 +38,7 @@ class ListApiFrameworkTest < Minitest::Test
   end
 
   def test_create_validation_fail
-    GenericClass.stubs(:new).with(@objs['1']).returns(@items['1']).once
+    ListApiFrameworkTest::GenericClass.stubs(:new).with(@objs['1']).returns(@items['1']).once
     @items['1'].stubs(:validate).raises(ListError::Validation).once
     @items['1'].stubs(:save!).returns(nil).never
     post('/api/objects', @objs['1'].to_json, {"Content-Type" => "application/json"})
@@ -45,14 +46,14 @@ class ListApiFrameworkTest < Minitest::Test
 
   # get
   def test_get_success
-    GenericClass.stubs(:get).with('1').returns(@items['1']).once
+    ListApiFrameworkTest::GenericClass.stubs(:get).with('1').returns(@items['1']).once
     get '/api/objects/1'
     assert_equal 200, last_response.status
     assert_equal @objs['1'].to_json, last_response.body
   end
 
   def test_get_empty
-    GenericClass.stubs(:get).returns(nil).once
+    ListApiFrameworkTest::GenericClass.stubs(:get).returns(nil).once
     get '/api/objects/3'
     assert_equal 404, last_response.status
     assert_equal "", last_response.body
@@ -60,14 +61,14 @@ class ListApiFrameworkTest < Minitest::Test
 
   # list
   def test_list_success
-    GenericClass.stubs(:list).returns(@items.values).once
+    ListApiFrameworkTest::GenericClass.stubs(:list).returns(@items.values).once
     get '/api/objects'
     assert_equal 200, last_response.status
     assert_equal @objs.values.to_json, last_response.body
   end
 
   def test_list_empty
-    GenericClass.stubs(:list).returns([]).once
+    ListApiFrameworkTest::GenericClass.stubs(:list).returns([]).once
     get '/api/objects'
     assert_equal 200, last_response.status
     assert_equal [].to_json, last_response.body
@@ -76,7 +77,7 @@ class ListApiFrameworkTest < Minitest::Test
   # update
   def test_update_success
     updated_input = {'name' => 'New Name'}
-    GenericClass.stubs(:get).with('1').returns(@items['1']).once
+    ListApiFrameworkTest::GenericClass.stubs(:get).with('1').returns(@items['1']).once
     @items['1'].stubs(:merge!).returns(nil).once
     @items['1'].stubs(:validate).returns(nil).once
     @items['1'].stubs(:save!).returns(nil).once
@@ -89,7 +90,7 @@ class ListApiFrameworkTest < Minitest::Test
 
   def test_update_validation_fail
     updated_input = {'name' => 'New Name'}
-    GenericClass.stubs(:get).with('1').returns(@items['1']).once
+    ListApiFrameworkTest::GenericClass.stubs(:get).with('1').returns(@items['1']).once
     @items['1'].stubs(:merge!).returns(nil).once
     @items['1'].stubs(:validate).raises(ListError::Validation).once
     @items['1'].stubs(:save!).returns(nil).never
@@ -99,14 +100,14 @@ class ListApiFrameworkTest < Minitest::Test
 
   # delete
   def test_delete_success
-    GenericClass.stubs(:get).with('1').returns(@items['1']).once
+    ListApiFrameworkTest::GenericClass.stubs(:get).with('1').returns(@items['1']).once
     @items['1'].stubs(:delete!).returns(nil).once
     delete '/api/objects/1'
     assert_equal 204, last_response.status
   end
 
   def test_delete_empty
-    GenericClass.stubs(:get).with('1').returns(nil).once
+    ListApiFrameworkTest::GenericClass.stubs(:get).with('1').returns(nil).once
     @items['1'].stubs(:delete!).returns(nil).never
     delete '/api/objects/1'
     assert_equal 204, last_response.status
@@ -119,7 +120,7 @@ class ListApiFrameworkTest < Minitest::Test
       @json = json
     end
 
-    def to_object
+    def to_schema_object
       return @json
     end
   end
@@ -127,7 +128,7 @@ class ListApiFrameworkTest < Minitest::Test
   class TestSinatraApp < Sinatra::Base
     register Sinatra::ListApiFramework
 
-    generate_crud_methods 'objects', GenericClass
+    generate_schema_crud_methods 'objects', ListApiFrameworkTest::GenericClass
   end
 
 end
