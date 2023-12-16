@@ -3,6 +3,7 @@ require 'ruby-schema-storage'
 
 require_relative '../storage'
 
+require_relative './action'
 require_relative './item_generic'
 require_relative './template'
 

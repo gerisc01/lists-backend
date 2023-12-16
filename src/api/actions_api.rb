@@ -3,7 +3,7 @@ require_relative '../actions/item_actions'
 
 class Api < Sinatra::Base
 
-  actions = ['moveItem', 'copyItem']
+  actions = ['moveItem', 'copyItem', 'removeItem']
 
   get '/api/actions' do
     status 200
@@ -19,6 +19,9 @@ class Api < Sinatra::Base
       status 200
     elsif action == 'copyItem'
       copy_item(json['item_id'], json['to_list'])
+      status 200
+    elsif action == 'removeItem'
+      remove_item(json['item_id'], json['from_list'], json['item_index'])
       status 200
     end
   end
