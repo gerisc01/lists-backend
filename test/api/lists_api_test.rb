@@ -19,6 +19,17 @@ class ListApiTest < MinitestWrapper
     @group = ItemGroup.new({'id' => 'one', 'name' => 'Group', 'group' => ['2']})
     @list = List.new({'id' => 'a'})
     @list2 = List.new({'id' => 'b', 'items' => ['1', '2']})
+    @action = Action.new({
+      'id' => 'a',
+      'name' => 'action',
+      'steps' => [
+        {'type' => 'moveItem', 'fixed_params' => {'to_list' => 'a'}}
+      ],
+      'inputs' => {
+        'item_id' => 'ItemGeneric',
+        'from_list' => 'List'
+      }
+    })
   end
 
   def teardown
@@ -43,30 +54,6 @@ class ListApiTest < MinitestWrapper
     @list.stubs(:save!).once
     put('/api/lists/a/removeItem/1')
     assert_equal 200, last_response.status
-  end
-
-  # move item
-  def test_list_move_item_success
-    Item.stubs(:get).with('1').returns(@item).once
-    List.stubs(:get).with('a').returns(@list).once
-    List.stubs(:get).with('b').returns(@list2).once
-    @list.stubs(:remove_item).with(@item).once
-    @list.stubs(:save!).once
-    @list2.stubs(:add_item).with(@item).once
-    @list2.stubs(:save!).once
-    put('/api/items/1/moveItem', {'fromList' => 'a', 'toList' => 'b'}.to_json, {"Content-Type" => "application/json"})
-    assert_equal 200, last_response.status
-  end
-
-  def test_list_move_item_fail
-    put('/api/items/1/moveItem', {'fromList' => 'a'}.to_json, {"Content-Type" => "application/json"})
-    assert last_response.status != 200
-
-    put('/api/items/1/moveItem', {'toList' => 'a'}.to_json, {"Content-Type" => "application/json"})
-    assert last_response.status != 200
-
-    put '/api/items/1/moveItem'
-    assert last_response.status != 200
   end
 
   # get items from list
@@ -104,6 +91,17 @@ class ListApiTest < MinitestWrapper
     get('/api/collections/1/listItems')
     assert_equal 200, last_response.status
     assert_equal  [@item.json, @group.json, @item2.json].to_json, last_response.body
+  end
+
+  def test_list_add_action
+    List.stubs(:get).with('a').returns(@list).once
+    Action.stubs(:new).with(@action.json).returns(@action).once
+    @action.stubs(:save!).once
+    @list.stubs(:add_action).with(@action).once
+    @list.stubs(:save!).once
+    post('/api/lists/a/actions', @action.json.to_json, {"Content-Type" => "application/json"})
+    assert_equal 201, last_response.status
+    assert_equal  @list.json.to_json, last_response.body
   end
 
 end

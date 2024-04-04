@@ -29,8 +29,8 @@ class Api < Sinatra::Base
   end
 
   get '/api/lists/:listId/items' do
-    listId = params['listId']
-    list = List.get(listId)
+    list_id = params['listId']
+    list = List.get(list_id)
     item_ids = list.items
     items = ApiHelpers.convert_item_ids_to_items(item_ids)
     status 200
@@ -39,13 +39,25 @@ class Api < Sinatra::Base
 
   post '/api/lists/:listId/items' do
     json = JSON.parse(request.body.read)
-    listId = params['listId']
+    list_id = params['listId']
     item = ItemGeneric.from_schema_object(json)
-    list = List.get(listId)
+    list = List.get(list_id)
     list.add_item(item)
     list.save!
     status 201
     body item.json.to_json
+  end
+
+  post '/api/lists/:listId/actions' do
+    json = JSON.parse(request.body.read)
+    list_id = params['listId']
+    list = List.get(list_id)
+    action = Action.new(json)
+    action.save!
+    list.add_action(action)
+    list.save!
+    status 201
+    body list.json.to_json
   end
 
 end

@@ -10,7 +10,7 @@ require_relative './template'
 class ItemGroup
 
   schema = Schema.new
-  schema.key = "item_group"
+  schema.key = "item-group"
   schema.display_name = "Item Group"
   schema.storage = TypeStorage.global_storage
   schema.accessors = [:get, :list, :exist?, :save!, :delete!]
