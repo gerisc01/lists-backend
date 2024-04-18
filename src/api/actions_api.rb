@@ -12,6 +12,20 @@ class Api < Sinatra::Base
     body actions.to_json
   end
 
+  post '/api/actions/ad-hoc/:action_type' do
+    action = Action.new
+    action.name = 'Ad Hoc Action'
+    action.steps = [ActionStep.new({
+      'type' => params['action_type'],
+      'fixed_params' => {}
+    })]
+    json = JSON.parse(request.body.read)
+    action.steps.each do |step|
+      step.process(json)
+    end
+    status 200
+  end
+
   post '/api/actions/:action_id' do
     action = Action.get(params['action_id'])
     raise ListError::NotFound, "Action '#{params['action_id']}' not found." if action.nil?

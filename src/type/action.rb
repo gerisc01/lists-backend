@@ -44,7 +44,7 @@ class Action
   schema.fields = [
     {:key => 'name', :required => true, :type => String, :display_name => 'Name'},
     {:key => 'steps', :required => true, :type => Array, :subtype => ActionStep, :display_name => 'Action Steps'},
-    {:key => 'inputs', :required => true, :type => Hash, :subtype => String, :display_name => 'Action Inputs'}
+    {:key => 'inputs', :required => false, :type => Hash, :subtype => String, :display_name => 'Action Inputs'}
   ]
   apply_schema schema
 

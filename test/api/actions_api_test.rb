@@ -31,6 +31,14 @@ class ActionsApiTest < MinitestWrapper
     mocha_teardown
   end
 
+  def test_ad_hoc_action_success
+    payload = {'item_id' => @item.id, 'from_list' => @list.id, 'to_list' => @list2.id}.to_json
+    post("/api/actions/ad-hoc/moveItem", payload, {"Content-Type" => "application/json"})
+    assert_equal 200, last_response.status
+    assert_equal [@item2.id], @list.items
+    assert_equal [@item.id], @list2.items
+  end
+
   def test_move_item_success
     action = move_item_action
     action.save!
