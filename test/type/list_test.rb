@@ -50,4 +50,18 @@ class ListTest < MinitestWrapper
     end
   end
 
+  def test_list_attributes
+    attributes = { 'card-fields' => { 'top' => [{ 'key' => 'field1' }, { 'key' => 'field2' }], 'bottom' => [{ 'key' => 'field2' }] } }
+    @list.attributes = attributes
+    assert_equal attributes, @list.attributes
+
+    empty_attributes = {}
+    @list.attributes = empty_attributes
+    assert_equal empty_attributes, @list.attributes
+
+    nil_attributes = nil
+    @list.attributes = nil_attributes
+    assert_nil @list.attributes
+  end
+
 end
