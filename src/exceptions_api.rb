@@ -3,6 +3,8 @@ require_relative './exceptions.rb'
 
 class Api < Sinatra::Base
 
+  set :show_exceptions => :after_handler
+
   error JSON::ParserError do
     error_body = {"error" => "Bad Request", "type" => "Invalid JSON", "message" => env['sinatra.error'].message}
     status 400

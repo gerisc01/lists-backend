@@ -24,13 +24,19 @@ class List
   apply_schema schema
 
   def add_item_with_template_ref(item)
-    item.add_template(self.template) if !template.nil? || !template.empty?
-    item.validate
+    if !template.nil? && !template.empty?
+      item.add_template(self.template)
+      item.validate
+      item.save!
+    end
     add_item(item)
   end
 
   def remove_item_with_template_ref(item)
-    item.remove_template(self.template) if !template.nil? || !template.empty?
+    if !template.nil? && !template.empty?
+      item.remove_template(self.template) if !template.nil? && !template.empty?
+      item.save!
+    end
     remove_item(item)
   end
 

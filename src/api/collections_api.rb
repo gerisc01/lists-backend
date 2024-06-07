@@ -20,4 +20,31 @@ class Api < Sinatra::Base
     status 200
     body items.to_json
   end
+
+  delete '/api/collections/:collectionId/templates/:templateId' do
+    collection_id = params['collectionId']
+    collection = Collection.get(collection_id)
+    if collection.nil?
+      status 404
+    elsif collection.templates.nil? || !collection.templates.include?(params['templateId'])
+      status 400
+    else
+      items = []
+      collection.lists.each do |list_id|
+        list = List.get(list_id)
+        if list.template == params['templateId']
+          list.template = nil
+          list.items.each do |item_id|
+            item = ItemGeneric.get(item_id)
+            item.remove_template(params['templateId'])
+            item.save!
+          end
+          list.save!
+        end
+      end
+      collection.templates.delete(params['templateId'])
+      collection.save!
+      status 204
+    end
+  end
 end

@@ -15,7 +15,7 @@ class Api < Sinatra::Base
   put '/api/lists/:listId/addItem/:itemId' do
     item = ItemGeneric.get(params['itemId'])
     list = List.get(params['listId'])
-    list.add_item(item)
+    list.add_item_with_template_ref(item)
     list.save!
     status 200
   end
@@ -23,7 +23,7 @@ class Api < Sinatra::Base
   put '/api/lists/:listId/removeItem/:itemId' do
     item = ItemGeneric.get(params['itemId'])
     list = List.get(params['listId'])
-    list.remove_item(item)
+    list.remove_item_with_template_ref(item)
     list.save!
     status 200
   end
@@ -40,9 +40,13 @@ class Api < Sinatra::Base
   post '/api/lists/:listId/items' do
     json = JSON.parse(request.body.read)
     list_id = params['listId']
+    if !json['id'].nil?
+      item = ItemGeneric.get(json['id'])
+      raise ListError::BadRequest, "Item with id '#{json['id']}' already exists" if !item.nil?
+    end
     item = ItemGeneric.from_schema_object(json)
     list = List.get(list_id)
-    list.add_item(item)
+    list.add_item_with_template_ref(item)
     list.save!
     status 201
     body item.json.to_json
