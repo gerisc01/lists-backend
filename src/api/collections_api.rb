@@ -42,7 +42,7 @@ class Api < Sinatra::Base
           list.save!
         end
       end
-      collection.templates.delete(params['templateId'])
+      collection.remove_template(params['templateId'])
       collection.save!
       status 204
     end
