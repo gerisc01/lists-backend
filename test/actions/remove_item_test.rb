@@ -35,6 +35,11 @@ class RemoveItemTest < MinitestWrapper
     assert_equal [@item.id, @item.id, @item2.id], @list.items
   end
 
+  def test_remove_item_index_empty
+    remove_item(@item.id, @list.id, '')
+    assert_equal [@group.id, @item2.id], @list.items
+  end
+
   def test_remove_item_empty_list
     assert_raises(ListError::BadRequest) { remove_item('1', @list_empty.id) }
   end

@@ -6,7 +6,7 @@ def remove_item(id, list_id, item_index = nil)
   begin
     list = List.get(list_id)
     raise "list_id id '#{list_id}' not found" if list.nil?
-    if item_index
+    if !item_index.nil? && !item_index.to_s.empty?
       list_items = list.items
       if id != list.items[item_index]
         raise ListError::BadRequest, "Can't remove the item at index '#{item_index}' because it doesn't match the id '#{id}'"
