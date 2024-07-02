@@ -1,13 +1,30 @@
-require_relative '../type/list'
+require_relative './move_item'
+require_relative './copy_item'
+require_relative './remove_item'
+require_relative './promote_group_item'
+require_relative './set_field'
 
-def move_item(id, from_list, to_list)
-  throw ListError::BadRequest, "Can't move item without a from_list and a to_list" if from_list.to_s.empty? || to_list.to_s.empty?
-  
-  item = ItemGeneric.get(id)
-  from = List.get(from_list)
-  from.remove_item(item)
-  to = List.get(to_list)
-  to.add_item(item)
-  from.save!
-  to.save!
+def action_methods
+  {
+    'moveItem' => {
+      'method' => :move_item,
+      'params' => ['item_id', 'from_list', 'to_list']
+    },
+    'copyItem' => {
+      'method' => :copy_item,
+      'params' => ['item_id', 'to_list']
+    },
+    'removeItem' => {
+      'method' => :remove_item,
+      'params' => ['item_id', 'from_list', 'item_index']
+    },
+    'promoteGroupItem' => {
+      'method' => :promote_group_item,
+      'params' => ['item_id', 'from_list', 'item_index']
+    },
+    'setField' => {
+      'method' => :set_field,
+      'params' => ['item_id', 'key', 'value']
+    }
+  }
 end

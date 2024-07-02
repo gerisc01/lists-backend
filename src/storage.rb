@@ -19,6 +19,7 @@ module TypeStorage
   end
 
   def self.clear_test_storage
+    @instance.clear_cache unless @instance.nil?
     Dir.glob('data-test/*').each do |file|
       File.delete(file)
     end

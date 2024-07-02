@@ -1,9 +1,14 @@
 require 'sinatra/base'
 require_relative '../minitest_wrapper'
 require 'rack/test'
+require_relative '../../src/exceptions_api'
 require_relative '../../src/api/lists_api'
 require_relative '../../src/api/collections_api'
 require_relative '../../src/api/items_api'
+
+class Api
+  set :show_exceptions => :after_handler
+end
 
 class ListApiTest < MinitestWrapper
   include Rack::Test::Methods
@@ -14,66 +19,47 @@ class ListApiTest < MinitestWrapper
   end
   
   def setup
-    @item = Item.new({'id' => '1'})
-    @item2 = Item.new({'id' => '2'})
+    @template = Template.new({'id' => 'i', 'key' => 'k1', 'display_name' => 'd1', 'fields' => [{ 'key' => 'name', 'display_name' => 'Name', 'type' => 'String'}]})
+    @item = Item.new({'id' => '1', 'name' => 'One'})
+    @item2 = Item.new({'id' => '2', 'name' => 'Two'})
     @group = ItemGroup.new({'id' => 'one', 'name' => 'Group', 'group' => ['2']})
-    @list = List.new({'id' => 'a'})
-    @list2 = List.new({'id' => 'b', 'items' => ['1', '2']})
+    [ @item, @item2, @group ].each { |i| i.save! }
+    @list = List.new({'id' => 'a', 'name' => 'Uno'})
+    @list2 = List.new({'id' => 'b', 'name' => 'Dos', 'items' => ['1', '2']})
+    [ @list, @list2 ].each { |l| l.save! }
+    @action = Action.new({
+      'id' => 'a',
+      'name' => 'action',
+      'steps' => [
+        {'type' => 'moveItem', 'fixed_params' => {'to_list' => 'a'}}
+      ],
+      'inputs' => {
+        'item_id' => 'ItemGeneric',
+        'from_list' => 'List'
+      }
+    })
+    @action.save!
   end
 
   def teardown
+    TypeStorage.clear_test_storage
     mocha_teardown
   end
 
   # add item
   def test_add_item
-    Item.stubs(:get).with('1').returns(@item).once
-    List.stubs(:get).with('a').returns(@list).once
-    @list.stubs(:add_item).with(@item).once
-    @list.stubs(:save!).once
     put('/api/lists/a/addItem/1')
     assert_equal 200, last_response.status
   end
 
   # remove item
   def test_remove_item
-    Item.stubs(:get).with('1').returns(@item).once
-    List.stubs(:get).with('a').returns(@list).once
-    @list.stubs(:remove_item).with(@item).once
-    @list.stubs(:save!).once
     put('/api/lists/a/removeItem/1')
     assert_equal 200, last_response.status
   end
 
-  # move item
-  def test_list_move_item_success
-    Item.stubs(:get).with('1').returns(@item).once
-    List.stubs(:get).with('a').returns(@list).once
-    List.stubs(:get).with('b').returns(@list2).once
-    @list.stubs(:remove_item).with(@item).once
-    @list.stubs(:save!).once
-    @list2.stubs(:add_item).with(@item).once
-    @list2.stubs(:save!).once
-    put('/api/items/1/moveItem', {'fromList' => 'a', 'toList' => 'b'}.to_json, {"Content-Type" => "application/json"})
-    assert_equal 200, last_response.status
-  end
-
-  def test_list_move_item_fail
-    put('/api/items/1/moveItem', {'fromList' => 'a'}.to_json, {"Content-Type" => "application/json"})
-    assert last_response.status != 200
-
-    put('/api/items/1/moveItem', {'toList' => 'a'}.to_json, {"Content-Type" => "application/json"})
-    assert last_response.status != 200
-
-    put '/api/items/1/moveItem'
-    assert last_response.status != 200
-  end
-
   # get items from list
   def test_list_get_items
-    List.stubs(:get).with('b').returns(@list2).once
-    Item.stubs(:get).with('1').returns(@item).once
-    Item.stubs(:get).with('2').returns(@item2).once
     get '/api/lists/b/items'
     assert_equal 200, last_response.status
     assert_equal [@item.json, @item2.json].to_json, last_response.body
@@ -81,21 +67,43 @@ class ListApiTest < MinitestWrapper
 
   # create item on list
   def test_list_create_item
-    List.stubs(:get).with('a').returns(@list).once
-    Item.stubs(:new).with(@item2.json).returns(@item2).once
-    @list.stubs(:add_item).with(@item2).once
-    @list.stubs(:save!).once
-    post('/api/lists/a/items', @item2.json.to_json, {"Content-Type" => "application/json"})
+    new_item = {'id' => 'new', 'name' => 'New Item'}
+    post('/api/lists/a/items', new_item.to_json, {"Content-Type" => "application/json"})
     assert_equal 201, last_response.status
-    assert_equal  @item2.json.to_json, last_response.body
+    assert_equal  new_item.to_json, last_response.body
+  end
+
+  def test_list_create_item_failure_existing_id
+    post('/api/lists/a/items', @item2.json.to_json, {"Content-Type" => "application/json"})
+    assert_equal 400, last_response.status
+    assert_equal  "Item with id '2' already exists", JSON.parse(last_response.body)['message']
+  end
+
+  def test_list_with_template_create_item
+    @list.template = @template
+    @list.save!
+    new_item = {'id' => 'new', 'name' => 'New Item'}
+    post('/api/lists/a/items', new_item.to_json, {"Content-Type" => "application/json"})
+    assert_equal 201, last_response.status
+    assert_equal  'new', JSON.parse(last_response.body)['id']
+    assert_equal ['i'], Item.get('new').templates
+  end
+
+  def test_list_with_template_add_and_remove_item
+    @list.template = @template
+    @list.save!
+    put('/api/lists/a/addItem/2', {"Content-Type" => "application/json"})
+    assert_equal 200, last_response.status
+    assert last_response.body.empty?
+    assert_equal ['i'], Item.get(@item2.id).templates
+    put('/api/lists/a/removeItem/2', {"Content-Type" => "application/json"})
+    assert_equal 200, last_response.status
+    assert last_response.body.empty?
+    assert_equal [], Item.get(@item2.id).templates
   end
 
   # get items from collection, including groups
   def test_collection_get_items
-    Item.stubs(:get).with('1').returns(@item).once
-    Item.stubs(:get).with('2').returns(@item2).once
-    Item.stubs(:get).with('one').returns(nil).once
-    ItemGroup.stubs(:get).with('one').returns(@group).once
     group_list = List.new({'id' => 'gr_list', 'items' => ['1', 'one']})
     List.stubs(:get).with('gr_list').returns(group_list).once
     collection = Collection.new({'id' => '1', 'lists' => ['gr_list']})
@@ -104,6 +112,12 @@ class ListApiTest < MinitestWrapper
     get('/api/collections/1/listItems')
     assert_equal 200, last_response.status
     assert_equal  [@item.json, @group.json, @item2.json].to_json, last_response.body
+  end
+
+  def test_list_add_action
+    post('/api/lists/a/actions', @action.json.to_json, {"Content-Type" => "application/json"})
+    assert_equal 201, last_response.status
+    assert_equal  @list.json.to_json, last_response.body
   end
 
 end

@@ -30,6 +30,7 @@ class FilterTest < MinitestWrapper
   end
 
   def teardown
+    mocha_teardown
   end
 
   def test_filter_empty

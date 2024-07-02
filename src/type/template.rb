@@ -15,6 +15,8 @@ class Template
       {:key => 'key', :required => true, :type => String, :display_name => 'Key'},
       {:key => 'display_name', :required => true, :type => String, :display_name => 'Display Name'},
       {:key => 'fields', :required => true, :type => Array, :subtype => Field, :display_name => 'Fields'},
+      {:key => 'highlight_fields', :required => false, :type => Array, :display_name => 'Highlighted Fields'},
+      {:key => 'attributes', :required => false, :type => Hash, :display_name => 'Attributes'}
     ]
     apply_schema schema
 
