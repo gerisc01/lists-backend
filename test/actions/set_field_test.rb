@@ -7,7 +7,16 @@ require_relative '../../src/actions/set_field'
 class SetFieldTest < MinitestWrapper
 
   def setup
-    @item = Item.new({'id' => '1', 'name' => 'One'})
+    @template = Template.new
+    @template.id = '1'
+    @template.key = 'test'
+    @template.display_name = 'Test'
+    @template.fields = [
+      {:key => 'date', :type => SchemaType::Date},
+    ]
+    @template.save!
+
+    @item = Item.new({'id' => '1', 'name' => 'One', 'templates' => ['1']})
     @item.save!
   end
 
@@ -21,8 +30,12 @@ class SetFieldTest < MinitestWrapper
     assert_equal 'Two', @item.name
   end
 
-  def test_set_field_key_not_found
-    assert_raises(ListError::BadRequest) { set_field(@item.id, 'NOT_FOUND', 'Two') }
+  def test_set_field_template_date
+    set_field(@item.id, 'date', '2024-07-01')
+    assert_equal '2024-07-01', @item.json['date']
+
+    assert_raises(ListError::BadRequest) { set_field(@item.id, 'date', 'NOT_A_DATE') }
+
   end
 
   def test_set_field_not_found_failure
