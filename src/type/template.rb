@@ -27,9 +27,50 @@ class Template
             validator_schema = Schema.new
             validator_schema.key = self.key
             validator_schema.display_name = self.display_name
-            validator_schema.fields = self.fields
+            validator_schema.fields = self.fields.map do |field|
+                ## Set type and subtype to empty if they are Template
+                field.type = nil if field.type == Template
+                field.subtype = nil if field.subtype == Template
+                field
+            end
+            template_fields = self.fields.select { |field| field.type == Template || field.subtype == Template }
+            validate_template_fields(template_fields, value)
         end
         validator_schema.validate(value)
     end
 
+    def validate_template_fields(fields, value)
+        fields.each do |field|
+            begin
+                field_value = value.json[field.key]
+                next if field_value.nil?
+                if field.type == Template
+                    validate_template_field(field, field_value)
+                elsif field.type == Array && field.subtype == Template
+                    field_value.each { |it| validate_template_field(field, it) }
+                elsif field.type == Hash && field.subtype == Template
+                    field_value.each { |key, it| validate_template_field(field, it) }
+                end
+            rescue Schema::ValidationError => e
+                raise Schema::ValidationError, "Invalid Sub-Template (field: #{field.key}): #{e.message}"
+            end
+        end
+    end
+
+    def validate_template_field(field, field_value)
+        template = Template.get(field.extra_attrs[:template_id])
+        unless field_value.is_a?(Hash)
+            raise Schema::ValidationError, "Invalid Sub-Template (field: #{field.key}): Must be a Hash"
+        end
+        template.validate_obj(DummyItem.new(field_value))
+    end
+
+end
+
+class DummyItem
+    attr_accessor :json
+
+    def initialize(input)
+        @json = input
+    end
 end
