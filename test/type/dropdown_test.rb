@@ -27,7 +27,7 @@ class DropdownTest < MinitestWrapper
     @template2.key = 'test-list'
     @template2.display_name = 'Test List'
     @template2.fields = [
-      {:key => 'dropdown', :required => false, :type => SchemaType::Dropdown, :display_name => 'Dropdown', :list_options => '1'},
+      {'key' => 'dropdown', 'required' => false, 'type' => SchemaType::Dropdown, 'display_name' => 'Dropdown', 'list_options' => '1'},
     ]
     @template2.save!
   end

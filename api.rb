@@ -6,6 +6,7 @@ require_relative './src/exceptions_api'
 Dir[File.dirname(__FILE__) + '/src/api/*_api.rb'].each do |path|
   require_relative "./src/api/#{path.split('/')[-1]}"
 end
+require_relative './src/type/template_types/dropdown'
 
 class Api < Sinatra::Base
   register Sinatra::Cors
