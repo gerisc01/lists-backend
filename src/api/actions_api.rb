@@ -3,14 +3,15 @@ require_relative '../actions/item_actions'
 
 class Api < Sinatra::Base
 
-  generate_schema_crud_methods 'actions', Action
-
-  actions = action_methods.keys
-
+  # This needs to be defined before the schema crud methods are
+  # generated, so that types can be a static endpoint instead of
+  # the api thinking it is an action id.
   get '/api/actions/types' do
     status 200
-    body actions.to_json
+    body action_methods.to_json
   end
+
+  generate_schema_crud_methods 'actions', Action
 
   post '/api/actions/ad-hoc/:action_type' do
     action = Action.new
