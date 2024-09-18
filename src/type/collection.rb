@@ -19,6 +19,7 @@ class Collection
     {:key => 'name', :required => true, :type => String, :display_name => 'Name'},
     {:key => 'lists', :required => false, :type => Array, :subtype => List, :type_ref => true, :display_name => 'Lists'},
     {:key => 'templates', :required => false, :type => Array, :subtype => Template, :type_ref => true, :display_name => 'Templates'},
+    {:key => 'actions', :required => false, :type => Array, :subtype => Action, :type_ref => true, :display_name => 'Actions'},
     {:key => 'groups', :required => false, :type => Array, :subtype => ListGroup, :display_name => 'List Groups' },
     {:key => 'attributes', :required => false, :type => Hash, :display_name => 'Attributes'}
   ]
