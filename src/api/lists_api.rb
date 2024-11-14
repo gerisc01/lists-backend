@@ -33,8 +33,19 @@ class Api < Sinatra::Base
     list = List.get(list_id)
     item_ids = list.items
     items = ApiHelpers.convert_item_ids_to_items(item_ids)
-    status 200
-    body items.to_json
+    if params['since']
+      since_body = ApiHelpers.convert_since_format(items, params['since'])
+      if since_body['deleted_ids'].length > 0 || since_body['objects'].length > 0
+        status 200
+        body since_body.to_json
+      else
+        status 204
+        body since_body.to_json
+      end
+    else
+      status 200
+      body items.to_json
+    end
   end
 
   post '/api/lists/:listId/items' do

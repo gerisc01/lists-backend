@@ -14,10 +14,12 @@ module Sinatra
       json
     end
 
-    def schema_endpoint_get(clazz, id)
+    def schema_endpoint_get(clazz, id, since)
       instance = clazz.get(id)
       if instance.nil?
         status 404
+      elsif !since.nil? && instance.json['updated_at'] < since
+        status 204
       else
         status 200
         body instance.to_schema_object.to_json
@@ -32,10 +34,28 @@ module Sinatra
       body instance.to_schema_object.to_json
     end
 
-    def schema_endpoint_list(clazz)
-      instances = clazz.list.map { |it| it.to_schema_object }
-      status 200
-      body instances.to_json
+    def schema_endpoint_list(clazz, since)
+      since = Time.now.utc.iso8601 if since.to_s.downcase == 'now'
+      instances = clazz.list({since: since, include_deleted: true})
+                       .map { |it| it.to_schema_object }
+      if !since.nil? && !instances.nil? && instances.empty?
+        updated_info = {
+          'deleted_ids' => [],
+          'objects' => []
+        }
+        status 204
+        body updated_info.to_json
+      elsif !since.nil?
+        updated_info = {
+          'deleted_ids' => instances.select { |it| it['deleted'] }.map { |it| it['id'] },
+          'objects' => instances.reject { |it| it['deleted'] }
+        }
+        status 200
+        body updated_info.to_json
+      else
+        status 200
+        body instances.reject { |it| it['deleted'] }.to_json
+      end
     end
 
     def schema_endpoint_update(clazz, id, request)
@@ -60,15 +80,14 @@ module Sinatra
   module ListApiFramework
 
     def generate_schema_endpoint(type, endpoint, clazz)
-      # ruby switch statement
       case type
       when :list
         get "/api/#{endpoint}" do
-          schema_endpoint_list(clazz)
+          schema_endpoint_list(clazz, params['since'])
         end
       when :get
         get "/api/#{endpoint}/:id" do
-          schema_endpoint_get(clazz, params['id'])
+          schema_endpoint_get(clazz, params['id'], params['since'])
         end
       when :create
         post "/api/#{endpoint}" do
