@@ -21,6 +21,34 @@ class Api < Sinatra::Base
     body items.to_json
   end
 
+  delete '/api/collections/:collectionId/actions/:actionId' do
+    collection_id = params['collectionId']
+    collection = Collection.get(collection_id)
+    if collection.nil?
+      status 404
+    elsif collection.actions.nil? || !collection.actions.include?(params['actionId'])
+      status 400
+    else
+      collection.lists.each do |list_id|
+        list = List.get(list_id)
+        if list.actions && list.actions.include?(params['actionId'])
+          list.remove_action(params['actionId'])
+          list.save!
+        end
+      end
+      if collection.groups
+        collection.groups.each do |group|
+          if group.actions && group.actions.include?(params['actionId'])
+            group.remove_action(params['actionId'])
+          end
+        end
+      end
+      collection.remove_action(params['actionId'])
+      collection.save!
+      status 204
+    end
+  end
+
   delete '/api/collections/:collectionId/templates/:templateId' do
     collection_id = params['collectionId']
     collection = Collection.get(collection_id)
