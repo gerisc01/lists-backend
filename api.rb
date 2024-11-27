@@ -22,7 +22,11 @@ class Api < Sinatra::Base
   set :allow_methods, 'GET,POST,PUT,DELETE,OPTIONS'
   set :allow_headers, 'Content-Type, Accept'
 
-  set :port, 9090
+  if ENV['LISTS_BACKEND_PORT']
+    set :port, ENV['LISTS_BACKEND_PORT']
+  else
+    set :port, 9090
+  end
   set :bind, '0.0.0.0'
 end
 

@@ -89,6 +89,24 @@ class ListApiTest < MinitestWrapper
     assert_equal ['i'], Item.get('new').templates
   end
 
+  def test_list_with_template_update_item
+    @list.template = @template
+    @list.save!
+    put('/api/lists/a/items/1', {'name' => 'New Name'}.to_json, {"Content-Type" => "application/json"})
+    assert_equal 200, last_response.status
+    assert_equal  '1', JSON.parse(last_response.body)['id']
+    assert_equal  'New Name', JSON.parse(last_response.body)['name']
+    assert_equal ['i'], Item.get('1').templates
+  end
+
+  def test_list_with_template_update_item_fail_template
+    @list.template = @template
+    @list.save!
+    put('/api/lists/a/items/1', {'name' => ''}.to_json, {"Content-Type" => "application/json"})
+    assert last_response.status != 200
+    assert_nil Item.get('1').templates
+  end
+
   def test_list_with_template_add_and_remove_item
     @list.template = @template
     @list.save!
