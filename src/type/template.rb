@@ -4,6 +4,14 @@ require 'ruby-schema-storage'
 require_relative '../exceptions'
 require_relative '../storage'
 
+## Template rules
+# - An item added to a list must meet the templates requirements
+# - An item removed from a list will keep the template reference
+# - When a template is deleted, the template reference will be deleted from all items in the collection
+
+## TODO: This one isn't working yet
+# - an item moved to a list must meet the templates requirements
+
 class Template
 
     schema = Schema.new

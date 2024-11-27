@@ -7,3 +7,6 @@ data/
 # IntelliJ
 *.iml
 .idea
+
+test-results
+e2e-data

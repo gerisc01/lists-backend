@@ -86,4 +86,39 @@ class Api < Sinatra::Base
       status 204
     end
   end
+
+  delete '/api/collections/:collectionId/tags/:tagId' do
+    collection_id = params['collectionId']
+    collection = Collection.get(collection_id)
+    if collection.nil?
+      status 404
+    elsif collection.tags.nil? || !collection.tags.include?(params['tagId'])
+      status 400
+    else
+      collection.lists.each do |list_id|
+        list = List.get(list_id)
+        list.items.each do |item_id|
+          item = ItemGeneric.get(item_id)
+          # Handle regular items
+          if item.is_a?(Item) && !item.tags.nil? && item.tags.include?(params['tagId'])
+            item.remove_tag(params['tagId'])
+            item.save!
+          end
+          # Handle group items
+          if item.is_a?(ItemGroup)
+            item.group.each do |group_item_id|
+              group_item = ItemGeneric.get(group_item_id)
+              if group_item.is_a?(Item) && group_item.tags && group_item.tags.include?(params['tagId'])
+              group_item.remove_tag(params['tagId'])
+              group_item.save!
+              end
+            end
+          end
+        end
+      end
+      collection.remove_tag(params['tagId'])
+      collection.save!
+      status 204
+    end
+  end
 end
