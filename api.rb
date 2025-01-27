@@ -7,6 +7,8 @@ Dir[File.dirname(__FILE__) + '/src/api/*_api.rb'].each do |path|
   require_relative "./src/api/#{path.split('/')[-1]}"
 end
 require_relative './src/type/template_types/dropdown'
+require_relative './src/type/template_types/week_days'
+require_relative './src/type/template_types/integer_patch'
 
 class Api < Sinatra::Base
   register Sinatra::Cors

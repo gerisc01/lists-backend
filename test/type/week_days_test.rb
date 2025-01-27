@@ -32,6 +32,11 @@ class WeekDaysTest < MinitestWrapper
     assert_raises(Schema::ValidationError) { item.validate }
   end
 
+  def test_week_days_not_required
+    item = Item.new({'id' => '1', 'name' => 'Test', 'templates' => ['1']})
+    item.validate
+  end
+
   def test_week_days_single
     item = Item.new({'id' => '1', 'name' => 'Test', 'days' => ['M'], 'templates' => ['1']})
     item.validate
