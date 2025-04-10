@@ -11,6 +11,12 @@ module ApiHelpers
         it = ItemGeneric.get(item_id)
         if it.is_a?(Item)
           items.push(it.to_schema_object)
+          unless it.children.nil?
+            it.children.each do |child_id|
+              child_it = Item.get(child_id)
+              items.push(child_it.to_schema_object)
+            end
+          end
         elsif it.is_a?(ItemGroup)
           items.push(it.to_schema_object)
           it.group.each do |group_id|
