@@ -2,6 +2,7 @@ require 'sinatra/base'
 require_relative '../actions/item_actions'
 
 class Api < Sinatra::Base
+  register Sinatra::ListApiFramework
 
   # This needs to be defined before the schema crud methods are
   # generated, so that types can be a static endpoint instead of

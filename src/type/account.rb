@@ -3,6 +3,7 @@ require 'ruby-schema-storage'
 
 require_relative '../exceptions'
 require_relative '../storage'
+require_relative './collection'
 
 class Account
 

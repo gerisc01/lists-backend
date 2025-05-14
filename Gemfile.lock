@@ -7,11 +7,14 @@ GEM
     mocha (1.14.0)
     mustermann (2.0.2)
       ruby2_keywords (~> 0.0.1)
+    nio4r (2.7.4)
     pry (0.14.1)
       coderay (~> 1.1)
       method_source (~> 1.0)
     pry-nav (1.0.0)
       pry (>= 0.9.10, < 0.15)
+    puma (6.6.0)
+      nio4r (~> 2.0)
     rack (2.2.4)
     rack-protection (2.2.2)
       rack
@@ -34,12 +37,13 @@ DEPENDENCIES
   mocha
   pry
   pry-nav
+  puma
   rack-test
   sinatra
   sinatra-cors (~> 1.0)
 
 RUBY VERSION
-   ruby 2.7.7p221
+   ruby 3.4.2p28
 
 BUNDLED WITH
    2.3.26
