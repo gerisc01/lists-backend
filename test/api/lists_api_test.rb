@@ -1,23 +1,20 @@
 require 'sinatra/base'
 require_relative '../minitest_wrapper'
 require 'rack/test'
-require_relative '../../src/exceptions_api'
-require_relative '../../src/api/lists_api'
-require_relative '../../src/api/collections_api'
-require_relative '../../src/api/items_api'
-
-class Api
-  set :show_exceptions => :after_handler
-end
+require_relative '../test-api'
+require_relative '../../src/type/item'
+require_relative '../../src/type/item_group'
+require_relative '../../src/type/list'
+require_relative '../../src/type/action'
+require_relative '../../src/type/template'
 
 class ListApiTest < MinitestWrapper
   include Rack::Test::Methods
 
   def app
-    api = Api.new
-    return api
+    Api.new
   end
-  
+
   def setup
     @template = Template.new({'id' => 'i', 'key' => 'k1', 'display_name' => 'd1', 'fields' => [{ 'key' => 'name', 'display_name' => 'Name', 'type' => 'String'}]})
     @item = Item.new({'id' => '1', 'name' => 'One'})
@@ -70,7 +67,9 @@ class ListApiTest < MinitestWrapper
     new_item = {'id' => 'new', 'name' => 'New Item'}
     post('/api/lists/a/items', new_item.to_json, {"Content-Type" => "application/json"})
     assert_equal 201, last_response.status
-    assert_equal  new_item.to_json, last_response.body
+    last_body = JSON.parse(last_response.body)
+    last_body.delete('updated_at')
+    assert_equal  new_item.to_json, last_body.to_json
   end
 
   def test_list_create_item_failure_existing_id
@@ -84,6 +83,8 @@ class ListApiTest < MinitestWrapper
     @list.save!
     new_item = {'id' => 'new', 'name' => 'New Item'}
     post('/api/lists/a/items', new_item.to_json, {"Content-Type" => "application/json"})
+    puts "~~~Body~~~"
+    puts last_response.body
     assert_equal 201, last_response.status
     assert_equal  'new', JSON.parse(last_response.body)['id']
     assert_equal ['i'], Item.get('new').templates

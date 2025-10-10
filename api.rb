@@ -12,10 +12,15 @@ require_relative './src/type/template_types/integer_patch'
 require_relative './src/type/account'
 
 class Api < Sinatra::Base
+  puts "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LOADING MAIN API ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   register Sinatra::Cors
 
   # Setup
   set :show_exceptions => :after_handler
+
+  set :allow_origin, '*'
+  set :allow_methods, 'GET,POST,PUT,DELETE,OPTIONS'
+  set :allow_headers, 'Content-Type, Accept, ACCOUNT_ID'
 
   helpers do
     def protected!
@@ -36,16 +41,13 @@ class Api < Sinatra::Base
     content_type 'application/json'
   end
 
-  set :allow_origin, '*'
-  set :allow_methods, 'GET,POST,PUT,DELETE,OPTIONS'
-  set :allow_headers, 'Content-Type, Accept, ACCOUNT_ID'
-
   if ENV['LISTS_BACKEND_PORT']
     set :port, ENV['LISTS_BACKEND_PORT']
   else
     set :port, 9090
   end
   set :bind, '0.0.0.0'
+
 end
 
 Api.run!

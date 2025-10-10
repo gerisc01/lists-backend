@@ -1,8 +1,10 @@
 require_relative './move_item'
 require_relative './copy_item'
+require_relative './duplicate_item'
 require_relative './remove_item'
 require_relative './promote_group_item'
 require_relative './set_field'
+require_relative './add_item_to_field'
 
 def action_methods
   {
@@ -14,6 +16,10 @@ def action_methods
       'method' => :copy_item,
       'params' => ['item_id', 'to_list']
     },
+    'duplicateItem' => {
+      'method' => :duplicate_item,
+      'params' => ['item_id', 'to_list'],
+    },
     'removeItem' => {
       'method' => :remove_item,
       'params' => ['item_id', 'from_list', 'item_index']
@@ -24,6 +30,10 @@ def action_methods
     },
     'setField' => {
       'method' => :set_field,
+      'params' => ['item_id', 'key', 'value']
+    },
+    'addItemToField' => {
+      'method' => :add_item_to_field,
       'params' => ['item_id', 'key', 'value']
     }
   }

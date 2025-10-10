@@ -4,8 +4,6 @@ require_relative '../type/item_generic'
 require_relative 'helpers/list_api_framework'
 require_relative 'helpers/api_helpers'
 
-require_relative '../actions/item_actions'
-
 class Api < Sinatra::Base
   register Sinatra::ListApiFramework
 

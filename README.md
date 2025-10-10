@@ -7,9 +7,9 @@ used across these different types of lists.
 
 ## Tests
 Run all tests
-`rake test`
+`bundle exec rake test`
 Run individual tests
-`rake test TEST=test/collection/collection_test.rb TESTOPTS="--name=test_collection_add_template -v"`
+`bundle exec rake test TEST=test/collection/collection_test.rb TESTOPTS="--name=test_collection_add_template -v"`
 
 -----------
 ## How Schemas Work

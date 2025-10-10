@@ -28,6 +28,27 @@ class Template
     ]
     apply_schema schema
 
+    # Fix template fields to allow hash definitions but convert to Field objects before running validation
+    alias_method(:original_fields=, :fields=)
+    def fields=(values)
+        if values.is_a?(Array)
+            transformed_values = values.map do |field_val|
+                if field_val.is_a?(Field)
+                    field_val
+                elsif field_val.is_a?(Hash) && field_val.key?('key')
+                    Field.from_schema_object(field_val['key'], field_val)
+                elsif field_val.is_a?(Hash) && field_val.key?(:key)
+                    Field.from_schema_object(field_val[:key], field_val)
+                else
+                    raise Schema::ValidationError, "Invalid field definition in template: #{field_val.inspect}"
+                end
+            end
+            self.original_fields = transformed_values
+        else
+            self.original_fields = values
+        end
+    end
+
     attr_accessor :validator_schema
 
     def validate_obj(value)

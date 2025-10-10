@@ -14,4 +14,11 @@ class Api < Sinatra::Base
     content_type 'application/json'
   end
 
+  if ENV['LISTS_BACKEND_PORT']
+    set :port, ENV['LISTS_BACKEND_PORT']
+  else
+    set :port, 9090
+  end
+  set :bind, '0.0.0.0'
+
 end

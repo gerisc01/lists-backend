@@ -13,7 +13,7 @@ class ActionsApiTest < MinitestWrapper
   def app
     Api.new
   end
-  
+
   def setup
     @item = Item.new({'id' => '1', 'name' => 'One'})
     @item.save!

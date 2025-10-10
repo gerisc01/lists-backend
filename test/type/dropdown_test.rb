@@ -41,10 +41,11 @@ class DropdownTest < MinitestWrapper
     temp.id = '100'
     temp.key = 'invalid-list'
     temp.display_name = 'Invalid List'
-    temp.fields = [
-      {:key => 'dropdown', :required => false, :type => SchemaType::Dropdown, :display_name => 'Dropdown'},
-    ]
-    assert_raises(Schema::ValidationError) { temp.validate }
+    assert_raises(Schema::ValidationError) {
+      temp.fields = [
+        {:key => 'dropdown', :required => false, :type => SchemaType::Dropdown, :display_name => 'Dropdown'},
+      ]
+    }
   end
 
   def test_dropdown_def_validation_too_many_options
@@ -52,10 +53,11 @@ class DropdownTest < MinitestWrapper
     temp.id = '100'
     temp.key = 'invalid-list'
     temp.display_name = 'Invalid List'
-    temp.fields = [
-      {:key => 'dropdown', :required => false, :type => SchemaType::Dropdown, :display_name => 'Dropdown', :static_options => ['1','2'], :list_options => '1'},
-    ]
-    assert_raises(Schema::ValidationError) { temp.validate }
+    assert_raises(Schema::ValidationError) {
+      temp.fields = [
+        {:key => 'dropdown', :required => false, :type => SchemaType::Dropdown, :display_name => 'Dropdown', :static_options => ['1','2'], :list_options => '1'},
+      ]
+    }
   end
 
   def test_dropdown_def_validation_static_wrong_type
@@ -63,10 +65,11 @@ class DropdownTest < MinitestWrapper
     temp.id = '100'
     temp.key = 'invalid-list'
     temp.display_name = 'Invalid List'
-    temp.fields = [
-      {:key => 'dropdown', :required => false, :type => SchemaType::Dropdown, :display_name => 'Dropdown', :static_options => '1'},
-    ]
-    assert_raises(Schema::ValidationError) { temp.validate }
+    assert_raises(Schema::ValidationError) {
+      temp.fields = [
+        {:key => 'dropdown', :required => false, :type => SchemaType::Dropdown, :display_name => 'Dropdown', :static_options => '1'},
+      ]
+    }
   end
 
   def test_dropdown_def_validation_list_doesnt_exist
@@ -74,10 +77,11 @@ class DropdownTest < MinitestWrapper
     temp.id = '100'
     temp.key = 'invalid-list'
     temp.display_name = 'Invalid List'
-    temp.fields = [
-      {:key => 'dropdown', :required => false, :type => SchemaType::Dropdown, :display_name => 'Dropdown', :list_options => 'MISSING'},
-    ]
-    assert_raises(Schema::ValidationError) { temp.validate }
+    assert_raises(Schema::ValidationError) {
+      temp.fields = [
+        {:key => 'dropdown', :required => false, :type => SchemaType::Dropdown, :display_name => 'Dropdown', :list_options => 'MISSING'},
+      ]
+    }
   end
 
   def test_static_dropdown

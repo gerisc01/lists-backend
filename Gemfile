@@ -9,5 +9,10 @@ gem 'pry-nav', :require => false
 gem 'rack-test', :require => false
 gem 'mocha', :require => false
 gem 'puma'
-gem 'sinatra'
-gem 'sinatra-cors', '~> 1.0'
+gem 'sinatra', '~> 3.2.0'
+gem 'sinatra-cors'
+gem "rackup"
+gem 'rake', :require => false
+
+# Local Gems
+gem 'ruby-schema'

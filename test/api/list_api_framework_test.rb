@@ -11,7 +11,7 @@ class ListApiFrameworkTest < MinitestWrapper
     api = TestSinatraApp.new
     return api
   end
-  
+
   def setup
     @items = {
       '1' => ListApiFrameworkTest::GenericClass.new({'id' => '1', 'name' => 'One'}),
@@ -127,6 +127,8 @@ class ListApiFrameworkTest < MinitestWrapper
 
   class TestSinatraApp < Sinatra::Base
     register Sinatra::ListApiFramework
+
+    set :show_exceptions => :after_handler
 
     generate_schema_crud_methods 'objects', ListApiFrameworkTest::GenericClass
   end
