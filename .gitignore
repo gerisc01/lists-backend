@@ -3,6 +3,7 @@
 
 # Persist files
 data/
+cache/
 
 # IntelliJ
 *.iml
