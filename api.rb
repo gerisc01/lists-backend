@@ -9,6 +9,7 @@ end
 require_relative './src/type/template_types/dropdown'
 require_relative './src/type/template_types/week_days'
 require_relative './src/type/template_types/integer_patch'
+require_relative './src/type/template_types/recurring_date'
 require_relative './src/type/account'
 
 class Api < Sinatra::Base
