@@ -162,23 +162,8 @@ class Api < Sinatra::Base
     if !item.json['recurring-parent'].nil? || !item.json['recurring-event'].nil?
       raise ListError::BadRequest, "Item id '#{item_id}' is already part of a recurring event."
     end
-    if !item.json['templates'] || !item.json['templates'].include?('recurring-item')
-      item.json['templates'] = [] if item.json['templates'].nil?
-      item.json['templates'] << 'recurring-item'
-      item.validate
-    end
-    item.json['recurring-event'] = json
-    item.validate
-
-    days = DateHelpers.find_recurring_event_days(params['day'], json)
-    children_items = []
-    days.each do |day|
-      future_item = DateHelpers.create_recurring_item(item)
-      children_items << future_item.id
-      DateHelpers.add_item_to_day(day, list_id, future_item.id)
-    end
-    item.json['recurring-children'] = children_items
-    item.save!
+    DateHelpers.add_recurring_item_template(item)
+    DateHelpers.update_items_recurring_data_and_create_children(params['day'], list_id, item, json)
     DateHelpers.add_item_to_day(params['day'], list_id, item_id)
 
     status 200
@@ -186,8 +171,49 @@ class Api < Sinatra::Base
   end
 
   # Modify an existing recurring date or convert a one-time date to recurring
-  post '/api/dates/:day/recurring' do
+  put '/api/dates/:day/recurring' do
+    body = request.body.read
+    list_id, item_id = DateHelpers.get_list_and_item_from_payload(body)
+    # Expect the body to contain the recurring date definition
+    json = JSON.parse(body)
+    # Delete the list and item from the json to avoid duplication
+    json.delete('list')
+    json.delete('item')
+    # Modify the recurring original recurring parent item and update the
+    # new item to be the new recurring parent if needed
+    item = ItemGeneric.get(item_id)
+    recurring_parent = DateHelpers.get_parent_recurring_item(item)
 
+    if item_id != recurring_parent.id
+      # Remove all children and day items from the recurring_parent starting from this item
+      starting_index = recurring_parent.json['recurring-children'].index(item_id)
+      DateHelpers.delete_items_and_remove_from_date(list_id, recurring_parent.json['recurring-children'][starting_index+1..-1]) if starting_index + 1 < recurring_parent.json['recurring-children'].length
+      recurring_parent.json['recurring-children'] = recurring_parent.json['recurring-children'][0...starting_index]
+      # Merge item.json and recurring_parent.json
+      item.json = recurring_parent.json.merge(item.json)
+      item.json['id'] = item.id
+      # If the item parent date is being changed, remove it from the old date and add it to the new date
+      original_day = Day.get_days_for_item(item_id)[0]
+      if params['day'] != original_day
+        DateHelpers.remove_item_from_day(original_day, list_id, item_id)
+        DateHelpers.add_item_to_day(params['day'], list_id, item_id)
+      end
+      DateHelpers.update_items_recurring_data_and_create_children(params['day'], list_id, item, json)
+      item.validate
+    else
+      # If the item parent date is being changed, remove it from the old date and add it to the new date
+      original_day = Day.get_days_for_item(item_id)[0]
+      if params['day'] != original_day
+        DateHelpers.remove_item_from_day(original_day, list_id, item_id)
+        DateHelpers.add_item_to_day(params['day'], list_id, item_id)
+      end
+      DateHelpers.delete_items_and_remove_from_date(list_id, recurring_parent.json['recurring-children'])
+      DateHelpers.update_items_recurring_data_and_create_children(params['day'], list_id, item, json)
+      item.validate
+    end
+
+    status 200
+    body item.to_schema_object.to_json
   end
 
   # Delete a recurring date starting from a specific day
@@ -198,14 +224,7 @@ class Api < Sinatra::Base
     recurring_parent = DateHelpers.get_parent_recurring_item(item)
     starting_index = item_id == recurring_parent.id ? 0 : recurring_parent.json['recurring-children'].index(item_id)
     # Assume recurring-children is in order of dates. Remove all children from start_index to end.
-    recurring_parent.json['recurring-children'][starting_index..-1].each do |child_id|
-      days = Day.get_days_for_item(child_id)
-      days.each do |day|
-        DateHelpers.remove_item_from_day(day, list_id, child_id)
-      end
-      child_item = ItemGeneric.get(child_id)
-      child_item.delete! unless child_item.nil?
-    end
+    DateHelpers.delete_items_and_remove_from_date(list_id, recurring_parent.json['recurring-children'][starting_index..-1])
     if item_id == recurring_parent.id
       recurring_parent.json.delete('recurring-event')
       recurring_parent.json.delete('recurring-children')

@@ -5,6 +5,9 @@ require_relative '../../type/item_generic'
 
 module DateHelpers
 
+  ###############################################################################
+  # Date Item Retrieval Helpers
+  ###############################################################################
   def self.get_list_and_item_from_payload(body)
     json = JSON.parse(body)
     raise ListError::BadRequest, "Request body must contain 'list' and 'item'." if !json.is_a?(Hash) || json['list'].to_s.empty? || json['item'].to_s.empty?
@@ -17,11 +20,15 @@ module DateHelpers
   def self.get_parent_recurring_item(item)
     return item if item.json['recurring-parent'].nil? || !item.json['recurring-event'].nil?
     if !item.json['recurring-parent'].nil?
-      parent_item = Item.get(item.json['recurring-parent'])
+      parent_item = ItemGeneric.get(item.json['recurring-parent'])
       return parent_item if !parent_item.json['recurring-event'].nil?
     end
     raise ListError::BadRequest, "Item id '#{item.id}' is not a recurring item."
   end
+
+  ###############################################################################
+  # Date Single Item CRUD
+  ###############################################################################
 
   def self.add_item_to_day(date, list_id, item_id)
     day = Day.get(date)
@@ -38,6 +45,14 @@ module DateHelpers
     day.save!
     Day.add_day_for_item(item_id, day.id)
     return day
+  end
+
+  def self.create_recurring_item(parent)
+    # Create a new item each time because recurring items may want to track
+    # their own completion status, notes, etc.
+    item = Item.new({ 'name' => parent.name, 'recurring-parent' => parent.id })
+    item.save!
+    return item
   end
 
   def self.remove_item_from_day(date, list_id, item_id)
@@ -63,6 +78,48 @@ module DateHelpers
     return day
   end
 
+  ###############################################################################
+  # Date Multiple Items CRUD
+  ###############################################################################
+
+  def self.update_items_recurring_data_and_create_children(date, list_id, item, recurring_event_spec)
+    item.json['recurring-event'] = recurring_event_spec
+    item.validate
+
+    days = DateHelpers.find_recurring_event_days(date, recurring_event_spec)
+    children_items = []
+    days.each do |day|
+      future_item = DateHelpers.create_recurring_item(item)
+      children_items << future_item.id
+      DateHelpers.add_item_to_day(day, list_id, future_item.id)
+    end
+    item.json['recurring-children'] = children_items
+    item.save!
+  end
+
+  def self.delete_items_and_remove_from_date(list_id, items)
+    items.each do |child_id|
+      days = Day.get_days_for_item(child_id)
+      days.each do |day|
+        DateHelpers.remove_item_from_day(day, list_id, child_id)
+      end
+      child_item = ItemGeneric.get(child_id)
+      child_item.delete! unless child_item.nil?
+    end
+  end
+
+  ###############################################################################
+  # Date Recurring Event Helpers
+  ###############################################################################
+
+  def self.add_recurring_item_template(item)
+    if !item.json['templates'] || !item.json['templates'].include?('recurring-item')
+      item.json['templates'] = [] if item.json['templates'].nil?
+      item.json['templates'] << 'recurring-item'
+      item.validate
+    end
+  end
+
   def self.find_recurring_event_days(starting_day, recurring_event_spec)
     days = []
     interval = recurring_event_spec['interval']
@@ -78,14 +135,6 @@ module DateHelpers
       end
     end
     return days
-  end
-
-  def self.create_recurring_item(parent)
-    # Create a new item each time because recurring items may want to track
-    # their own completion status, notes, etc.
-    item = Item.new({ 'name' => parent.name, 'recurring-parent' => parent.id })
-    item.save!
-    return item
   end
 
 end
