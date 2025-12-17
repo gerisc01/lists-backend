@@ -49,6 +49,10 @@ class Api < Sinatra::Base
   end
   set :bind, '0.0.0.0'
 
+  # TODO: This is needed for now because tests do not use different storage
+  Day.clear_cache
+  Day.build_full_day_index
+
 end
 
 Api.run!

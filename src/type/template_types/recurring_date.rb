@@ -16,6 +16,14 @@ class SchemaType
       if !value.key?('type') || !value['type'].is_a?(String) || !VALID_TYPES.include?(value['type'].to_s.strip.downcase)
         raise Schema::ValidationError.new("Key 'type' is required and must be one of: [#{VALID_TYPES.join(', ')}]")
       end
+      if value.key?('end-date')
+        begin
+          # Prefix with :: to avoid conflicts with any other Date classes/modules
+          ::Date.parse(value['end-date'].to_s)
+        rescue ArgumentError
+          raise Schema::ValidationError.new("Key 'end-date' must be a valid date in 'YYYY-MM-DD' format")
+        end
+      end
     end
 
     def self.type_match?(value)
