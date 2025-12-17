@@ -184,6 +184,13 @@ class Api < Sinatra::Base
     item = ItemGeneric.get(item_id)
     recurring_parent = DateHelpers.get_parent_recurring_item(item)
 
+    # If the item parent date is being changed, remove it from the old date and add it to the new date
+    original_day = Day.get_days_for_item(item_id)[0]
+    if params['day'] != original_day
+      DateHelpers.remove_item_from_day(original_day, list_id, item_id)
+      DateHelpers.add_item_to_day(params['day'], list_id, item_id)
+    end
+
     if item_id != recurring_parent.id
       # Remove all children and day items from the recurring_parent starting from this item
       starting_index = recurring_parent.json['recurring-children'].index(item_id)
@@ -192,25 +199,12 @@ class Api < Sinatra::Base
       # Merge item.json and recurring_parent.json
       item.json = recurring_parent.json.merge(item.json)
       item.json['id'] = item.id
-      # If the item parent date is being changed, remove it from the old date and add it to the new date
-      original_day = Day.get_days_for_item(item_id)[0]
-      if params['day'] != original_day
-        DateHelpers.remove_item_from_day(original_day, list_id, item_id)
-        DateHelpers.add_item_to_day(params['day'], list_id, item_id)
-      end
-      DateHelpers.update_items_recurring_data_and_create_children(params['day'], list_id, item, json)
-      item.validate
     else
-      # If the item parent date is being changed, remove it from the old date and add it to the new date
-      original_day = Day.get_days_for_item(item_id)[0]
-      if params['day'] != original_day
-        DateHelpers.remove_item_from_day(original_day, list_id, item_id)
-        DateHelpers.add_item_to_day(params['day'], list_id, item_id)
-      end
       DateHelpers.delete_items_and_remove_from_date(list_id, recurring_parent.json['recurring-children'])
-      DateHelpers.update_items_recurring_data_and_create_children(params['day'], list_id, item, json)
-      item.validate
     end
+
+    DateHelpers.update_items_recurring_data_and_create_children(params['day'], list_id, item, json)
+    item.validate
 
     status 200
     body item.to_schema_object.to_json
