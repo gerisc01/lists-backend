@@ -3,7 +3,7 @@ require_relative '../minitest_wrapper'
 require 'rack/test'
 require_relative '../test-api'
 require_relative '../../src/type/item'
-require_relative '../../src/type/list'
+require_relative '../../src/type/collection'
 require_relative '../../src/type/day'
 require_relative '../../src/type/template'
 require_relative '../../src/type/template_types/recurring_date'
@@ -20,12 +20,11 @@ class DatesRecurringApiTest < MinitestWrapper
 
   def setup
     @item = Item.new({'id' => '1r', 'name' => 'One Recurring'})
-    @list = List.new({'id' => 'a', 'name' => 'list-one', 'items' => ['1r']})
-    @list_empty = List.new({'id' => 'e', 'name' => 'list-empty', 'items' => []})
+    @collection = Collection.new({'id' => 'a', 'name' => 'A Collection'})
     @template = Template.new(get_recurring_item_template_json())
-    [@item, @list, @list_empty, @template].each { |obj| obj.save! }
+    [@item, @collection, @template].each { |obj| obj.save! }
 
-    @day = Day.new({'id' => '2025-01-01', 'items' => [ {'id' => @list.id, 'items' => [@item.id]} ]})
+    @day = Day.new({'id' => '2025-01-01', 'items' => [ {'id' => @collection.id, 'items' => [@item.id]} ]})
     @day.save!
     Day.toggle_cache_source(:test)
   end
@@ -38,7 +37,7 @@ class DatesRecurringApiTest < MinitestWrapper
   end
 
   def test_create_recurring_item
-    payload = { "list": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
+    payload = { "collection": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
     post("/api/dates/2025-06-01/recurring", payload, {"Content-Type" => "application/json"})
     assert_equal 200, last_response.status
     response = JSON.parse(last_response.body)
@@ -59,12 +58,12 @@ class DatesRecurringApiTest < MinitestWrapper
 
   def test_modify_recurring_item_original
     # Takes too long to set up all the data manually, so just create the recurring item first
-    payload = { "list": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
+    payload = { "collection": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
     post("/api/dates/2025-06-01/recurring", payload, {"Content-Type" => "application/json"})
     assert_equal 200, last_response.status
     original_item = JSON.parse(last_response.body)
     # Now modify the original recurring item to have a different interval and start date
-    payload = { "list": "a", "item": "1r", "interval": 2, "type": "weekly" }.to_json
+    payload = { "collection": "a", "item": "1r", "interval": 2, "type": "weekly" }.to_json
     put("/api/dates/2025-06-02/recurring", payload, {"Content-Type" => "application/json"})
     assert_equal 200, last_response.status
     response = JSON.parse(last_response.body)
@@ -85,13 +84,13 @@ class DatesRecurringApiTest < MinitestWrapper
 
   def test_modify_recurring_item_midway
     # Takes too long to set up all the data manually, so just create the recurring item first
-    payload = { "list": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
+    payload = { "collection": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
     post("/api/dates/2025-06-01/recurring", payload, {"Content-Type" => "application/json"})
     assert_equal 200, last_response.status
     original_item = JSON.parse(last_response.body)
     # Now modify the 3rd occurrence of the recurring item to have a different interval and start date
     third_occurrence_id = original_item['recurring-children'][2]
-    payload = { "list": "a", "item": third_occurrence_id, "interval": 2, "type": "weekly" }.to_json
+    payload = { "collection": "a", "item": third_occurrence_id, "interval": 2, "type": "weekly" }.to_json
     put("/api/dates/2025-06-29/recurring", payload, {"Content-Type" => "application/json"})
     assert_equal 200, last_response.status
     response = JSON.parse(last_response.body)
@@ -118,12 +117,12 @@ class DatesRecurringApiTest < MinitestWrapper
 
   def test_delete_recurring_item_original
     # Takes too long to set up all the data manually, so just create the recurring item first
-    payload = { "list": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
+    payload = { "collection": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
     post("/api/dates/2025-06-01/recurring", payload, {"Content-Type" => "application/json"})
     assert_equal 200, last_response.status
     original_item = JSON.parse(last_response.body)
     # Now delete the original recurring item
-    payload = { "list": "a", "item": '1r' }.to_json
+    payload = { "collection": "a", "item": '1r' }.to_json
     delete("/api/dates/2025-06-01/recurring", payload, {"Content-Type" => "application/json"})
     assert_equal 200, last_response.status
     response = JSON.parse(last_response.body)
@@ -139,12 +138,12 @@ class DatesRecurringApiTest < MinitestWrapper
 
   def test_delete_recurring_item_midway
     # Takes too long to set up all the data manually, so just create the recurring item first
-    payload = { "list": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
+    payload = { "collection": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
     post("/api/dates/2025-06-01/recurring", payload, {"Content-Type" => "application/json"})
     assert_equal 200, last_response.status
     original_item = JSON.parse(last_response.body)
     # Now delete starting from the 3rd occurrence, don't need a date for recurring children since we can look it up
-    payload = { "list": "a", "item": original_item['recurring-children'][2] }.to_json
+    payload = { "collection": "a", "item": original_item['recurring-children'][2] }.to_json
     delete("/api/dates/~/recurring", payload, {"Content-Type" => "application/json"})
     assert_equal 200, last_response.status
     response = JSON.parse(last_response.body)

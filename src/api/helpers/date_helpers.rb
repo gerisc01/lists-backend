@@ -8,13 +8,13 @@ module DateHelpers
   ###############################################################################
   # Date Item Retrieval Helpers
   ###############################################################################
-  def self.get_list_and_item_from_payload(body)
+  def self.get_collection_and_item_from_payload(body)
     json = JSON.parse(body)
-    raise ListError::BadRequest, "Request body must contain 'list' and 'item'." if !json.is_a?(Hash) || json['list'].to_s.empty? || json['item'].to_s.empty?
+    raise ListError::BadRequest, "Request body must contain 'collection' and 'item'." if !json.is_a?(Hash) || json['collection'].to_s.empty? || json['item'].to_s.empty?
     raise ListError::NotFound, "Item id '#{json['item']}' cannot be found" unless ItemGeneric.exist?(json['item'])
-    raise ListError::NotFound, "List id '#{json['list']}' cannot be found" unless List.exist?(json['list'])
+    raise ListError::NotFound, "Collection id '#{json['collection']}' cannot be found" unless Collection.exist?(json['collection'])
 
-    return json['list'], json['item']
+    return json['collection'], json['item']
   end
 
   def self.get_parent_recurring_item(item)
@@ -30,14 +30,14 @@ module DateHelpers
   # Date Single Item CRUD
   ###############################################################################
 
-  def self.add_item_to_day(date, list_id, item_id)
+  def self.add_item_to_day(date, collection_id, item_id)
     day = Day.get(date)
     day = Day.new({ 'id' => date }) if day.nil?
     day.items = [] if day.items.nil?
 
-    daily_item = day.items.find { |d| d.id == list_id }
+    daily_item = day.items.find { |d| d.id == collection_id }
     if daily_item.nil?
-      daily_item = DailyItem.new({ 'id' => list_id, 'items' => [item_id] })
+      daily_item = DailyItem.new({ 'id' => collection_id, 'items' => [item_id] })
       day.add_item(daily_item)
     else
       daily_item.add_item(item_id)
@@ -55,18 +55,18 @@ module DateHelpers
     return item
   end
 
-  def self.remove_item_from_day(date, list_id, item_id)
+  def self.remove_item_from_day(date, collection_id, item_id)
     day = Day.get(date)
     raise ListError::NotFound, "Day '#{date}' cannot be found" if day.nil?
-    daily_item = day.items.find { |d| d.id == list_id }
+    daily_item = day.items.find { |d| d.id == collection_id }
     if !daily_item.nil?
       daily_item.remove_item(item_id)
       if daily_item.items.empty?
         # Remove the daily item if it has no more items
-        day.items = day.items.reject { |d| d.id == list_id }
+        day.items = day.items.reject { |d| d.id == collection_id }
       else
         # Update the reference if it still has items
-        day.items = day.items.map { |d| d.id == list_id ? daily_item : d }
+        day.items = day.items.map { |d| d.id == collection_id ? daily_item : d }
       end
     end
     if day.items.to_a.empty? && day.priorities.to_a.empty?
@@ -82,7 +82,7 @@ module DateHelpers
   # Date Multiple Items CRUD
   ###############################################################################
 
-  def self.update_items_recurring_data_and_create_children(date, list_id, item, recurring_event_spec)
+  def self.update_items_recurring_data_and_create_children(date, collection_id, item, recurring_event_spec)
     item.json['recurring-event'] = recurring_event_spec
     item.validate
 
@@ -91,17 +91,17 @@ module DateHelpers
     days.each do |day|
       future_item = DateHelpers.create_recurring_item(item)
       children_items << future_item.id
-      DateHelpers.add_item_to_day(day, list_id, future_item.id)
+      DateHelpers.add_item_to_day(day, collection_id, future_item.id)
     end
     item.json['recurring-children'] = children_items
     item.save!
   end
 
-  def self.delete_items_and_remove_from_date(list_id, items)
+  def self.delete_items_and_remove_from_date(collection_id, items)
     items.each do |child_id|
       days = Day.get_days_for_item(child_id)
       days.each do |day|
-        DateHelpers.remove_item_from_day(day, list_id, child_id)
+        DateHelpers.remove_item_from_day(day, collection_id, child_id)
       end
       child_item = ItemGeneric.get(child_id)
       child_item.delete! unless child_item.nil?

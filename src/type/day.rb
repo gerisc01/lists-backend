@@ -12,7 +12,7 @@ class DailyItem
   schema.key = "day"
   schema.display_name = "Day"
   schema.fields = [
-    {:key => 'id', :required => true, :type => List, :type_ref => true, :display_name => 'List Id'},
+    {:key => 'id', :required => true, :type => Collection, :type_ref => true, :display_name => 'Collection Id'},
     {:key => 'items', :required => false, :type => Array, :subtype => Item, :type_ref => true, :display_name => 'Items'},
   ]
   apply_schema schema
