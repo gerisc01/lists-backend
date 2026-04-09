@@ -1,0 +1,1 @@
+{"todo":{"id":"todo","key":"todo","display_name":"To Do","fields":[{"key":"todo-date","display_name":"Due Date","type":"SchemaType::Date","subtype":null,"required":false,"type_ref":null},{"key":"completed","display_name":"Completed","type":"SchemaType::Boolean","subtype":null,"required":false,"type_ref":null}],"updated_at":"2026-04-01T02:31:39Z"}}
