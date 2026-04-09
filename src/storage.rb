@@ -8,6 +8,8 @@ module TypeStorage
   def self.global_storage
     if @instance.nil? && is_e2e_test
       @instance = SchemaTypeStorage.new('e2e-data')
+    elsif @instance.nil? && scenario_var_set
+      @instance = SchemaTypeStorage.new('scenarios/data')
     elsif @instance.nil? && test_var_set
       @instance = SchemaTypeStorage.new('data-test')
     elsif @instance.nil?
@@ -18,6 +20,10 @@ module TypeStorage
 
   def self.is_e2e_test
     !ENV['LISTS_BACKEND_E2E_TEST'].nil? && ENV['LISTS_BACKEND_E2E_TEST'].downcase.start_with?('t')
+  end
+
+  def self.scenario_var_set
+    !ENV['SCENARIO_STORAGE'].nil? && ENV['SCENARIO_STORAGE'].downcase.start_with?('t')
   end
 
   def self.test_var_set
