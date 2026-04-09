@@ -45,6 +45,9 @@ class Api < Sinatra::Base
     raise ListError::BadRequest, "Path must contain a date." if params['day'].to_s.empty?
     collection_id, item_id = DateHelpers.get_collection_and_item_from_payload(request.body.read)
     day = DateHelpers.add_item_to_day(params['day'], collection_id, item_id)
+    item = ItemGeneric.get(item_id)
+    did_update = DateHelpers.update_todo_item_date(item, params['day'])
+    item.save! if did_update
     status 200
     body day.to_schema_object.to_json
   end
@@ -85,6 +88,9 @@ class Api < Sinatra::Base
     raise ListError::BadRequest, "Path must contain a date." if params['day'].to_s.empty?
     collection_id, item_id = DateHelpers.get_collection_and_item_from_payload(request.body.read)
     day = DateHelpers.remove_item_from_day(params['day'], collection_id, item_id)
+    item = ItemGeneric.get(item_id)
+    did_update = DateHelpers.update_todo_item_date(item, nil)
+    item.save! if did_update
     status 200
     body day.to_schema_object.to_json
   end
@@ -165,6 +171,8 @@ class Api < Sinatra::Base
     DateHelpers.add_recurring_item_template(item)
     DateHelpers.update_items_recurring_data_and_create_children(params['day'], collection_id, item, json)
     DateHelpers.add_item_to_day(params['day'], collection_id, item_id)
+    DateHelpers.update_todo_item_date(item, params['day'])
+    item.save!
 
     status 200
     body item.to_schema_object.to_json
@@ -199,12 +207,14 @@ class Api < Sinatra::Base
       # Merge item.json and recurring_parent.json
       item.json = recurring_parent.json.merge(item.json)
       item.json['id'] = item.id
-    else
+    elsif !recurring_parent.json['recurring-children'].nil?
       DateHelpers.delete_items_and_remove_from_date(collection_id, recurring_parent.json['recurring-children'])
     end
 
     DateHelpers.update_items_recurring_data_and_create_children(params['day'], collection_id, item, json)
+    DateHelpers.update_todo_item_date(item, params['day'])
     item.validate
+    item.save!
 
     status 200
     body item.to_schema_object.to_json
@@ -220,11 +230,17 @@ class Api < Sinatra::Base
     # Assume recurring-children is in order of dates. Remove all children from start_index to end.
     DateHelpers.delete_items_and_remove_from_date(collection_id, recurring_parent.json['recurring-children'][starting_index..-1])
     if item_id == recurring_parent.id
-      recurring_parent.json.delete('recurring-event')
-      recurring_parent.json.delete('recurring-children')
+      recurring_parent.json['recurring-event'] = nil
+      recurring_parent.json['recurring-children'] = nil
       DateHelpers.remove_item_from_day(params['day'], collection_id, item_id)
+      DateHelpers.update_todo_item_date(item, nil)
+      item.save!
     else
       recurring_parent.json['recurring-children'] = recurring_parent.json['recurring-children'][0...starting_index]
+      if recurring_parent.json['recurring-children'].empty?
+        recurring_parent.json['recurring-event'] = nil
+        recurring_parent.json['recurring-children'] = nil
+      end
     end
     recurring_parent.save!
 

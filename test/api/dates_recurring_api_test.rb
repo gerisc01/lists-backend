@@ -20,9 +20,10 @@ class DatesRecurringApiTest < MinitestWrapper
 
   def setup
     @item = Item.new({'id' => '1r', 'name' => 'One Recurring'})
+    @item2 = Item.new({'id' => '2n', 'name' => 'Two Non Recurring'})
     @collection = Collection.new({'id' => 'a', 'name' => 'A Collection'})
     @template = Template.new(get_recurring_item_template_json())
-    [@item, @collection, @template].each { |obj| obj.save! }
+    [@item, @item2, @collection, @template].each { |obj| obj.save! }
 
     @day = Day.new({'id' => '2025-01-01', 'items' => [ {'id' => @collection.id, 'items' => [@item.id]} ]})
     @day.save!
@@ -36,7 +37,8 @@ class DatesRecurringApiTest < MinitestWrapper
     mocha_teardown
   end
 
-  def test_create_recurring_item
+  # Non-Recurring Date => Recurring Date
+  def test_create_recurring_item_from_non_recurring
     payload = { "collection": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
     post("/api/dates/2025-06-01/recurring", payload, {"Content-Type" => "application/json"})
     assert_equal 200, last_response.status
@@ -56,6 +58,28 @@ class DatesRecurringApiTest < MinitestWrapper
     assert Day.get_days_for_item(item.json['recurring-children'][51]), ["2026-05-31"]
   end
 
+  # No Date => Recurring Date
+  def test_create_recurring_item_from_no_date
+    payload = { "collection": "a", "item": "2n", "interval": 1, "type": "weekly" }.to_json
+    post("/api/dates/2025-01-07/recurring", payload, {"Content-Type" => "application/json"})
+    assert_equal 200, last_response.status
+    response = JSON.parse(last_response.body)
+    assert_equal '2n', response['id']
+
+    item = Item.get('2n')
+    assert item.templates.include?('recurring-item')
+    assert_equal 1, item.json['recurring-event']['interval']
+    assert_equal 'weekly', item.json['recurring-event']['type']
+    # Check that children were created
+    assert_equal 52, item.json['recurring-children'].length
+    # Item should still be on the original day
+    assert Day.get('2025-01-07').items.any? { |d| d.id == 'a' && d.items.include?('2n') }
+    # Spot check children exist on the correct future days
+    assert Day.get('2025-01-14').items.any? { |d| d.id == 'a' && d.items.include?(item.json['recurring-children'][0]) }
+    assert Day.get('2025-01-21').items.any? { |d| d.id == 'a' && d.items.include?(item.json['recurring-children'][1]) }
+  end
+
+  # Recurring Date => Recurring Date
   def test_modify_recurring_item_original
     # Takes too long to set up all the data manually, so just create the recurring item first
     payload = { "collection": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
@@ -82,6 +106,7 @@ class DatesRecurringApiTest < MinitestWrapper
     assert_nil Day.get('2025-06-08')
   end
 
+  # Recurring Date => Recurring Date
   def test_modify_recurring_item_midway
     # Takes too long to set up all the data manually, so just create the recurring item first
     payload = { "collection": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
@@ -115,6 +140,7 @@ class DatesRecurringApiTest < MinitestWrapper
     assert Day.get('2025-07-13').items.any? { |d| d.id == 'a' && d.items.include?(item.json['recurring-children'][0]) }
   end
 
+  # Recurring Date => No Date
   def test_delete_recurring_item_original
     # Takes too long to set up all the data manually, so just create the recurring item first
     payload = { "collection": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
@@ -136,6 +162,7 @@ class DatesRecurringApiTest < MinitestWrapper
     assert_nil Day.get('2025-06-08')
   end
 
+  # Recurring Date => Recurring Date
   def test_delete_recurring_item_midway
     # Takes too long to set up all the data manually, so just create the recurring item first
     payload = { "collection": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
@@ -154,6 +181,27 @@ class DatesRecurringApiTest < MinitestWrapper
     # Check that days after 2025-06-15 no longer have the children items
     assert_nil Day.get('2025-06-22')
     assert_nil Day.get('2025-06-29')
+  end
+
+  # Recurring Date => Non-Recurring Date
+  def test_modify_recurring_item_to_non_recurring
+    # Takes too long to set up all the data manually, so just create the recurring item first
+    payload = { "collection": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
+    post("/api/dates/2025-06-01/recurring", payload, {"Content-Type" => "application/json"})
+    assert_equal 200, last_response.status
+    original_item = JSON.parse(last_response.body)
+    # Now delete starting from the first child occurrence, don't need a date for recurring children since we can look it up
+    payload = { "collection": "a", "item": original_item['recurring-children'][0] }.to_json
+    delete("/api/dates/~/recurring", payload, {"Content-Type" => "application/json"})
+    assert_equal 200, last_response.status
+    response = JSON.parse(last_response.body)
+    assert_equal original_item['id'], response['id']
+    # Check that the item itself still exists and the correct children remain
+    parent_item = Item.get('1r')
+    # TODO: In the future templates should remove the recurring-item template but it doesn't do it yet
+    # assert_equal [], parent_item.json['templates']
+    assert_nil parent_item.json['recurring-event']
+    assert_nil parent_item.json['recurring-children']
   end
 
   ##################################################################

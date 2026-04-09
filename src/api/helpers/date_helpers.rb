@@ -47,10 +47,10 @@ module DateHelpers
     return day
   end
 
-  def self.create_recurring_item(parent)
+  def self.create_recurring_item(parent, day)
     # Create a new item each time because recurring items may want to track
     # their own completion status, notes, etc.
-    item = Item.new({ 'name' => parent.name, 'recurring-parent' => parent.id })
+    item = Item.new({ 'name' => parent.name, 'todo-date' => day,'recurring-parent' => parent.id })
     item.save!
     return item
   end
@@ -78,6 +78,15 @@ module DateHelpers
     return day
   end
 
+  def self.update_todo_item_date(item, date)
+    return false if item.nil? || item.templates.nil? || !item.templates.include?('todo')
+    if date.nil?
+      item.json.delete('todo-date')
+    else
+      item.json['todo-date'] = date
+    end
+    return true
+  end
   ###############################################################################
   # Date Multiple Items CRUD
   ###############################################################################
@@ -89,7 +98,7 @@ module DateHelpers
     days = DateHelpers.find_recurring_event_days(date, recurring_event_spec)
     children_items = []
     days.each do |day|
-      future_item = DateHelpers.create_recurring_item(item)
+      future_item = DateHelpers.create_recurring_item(item, day)
       children_items << future_item.id
       DateHelpers.add_item_to_day(day, collection_id, future_item.id)
     end

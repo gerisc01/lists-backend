@@ -46,8 +46,10 @@ class Day
 
   @cache_env = :prod
   @cache_files = {
-    prod: 'cache/item_to_days.pstore',
-    test: 'cache/test_item_to_days.pstore'
+    prod:     'cache/item_to_days.pstore',
+    test:     'cache/test_item_to_days.pstore',
+    scenario: 'scenarios/cache/item_to_days.pstore',
+    e2e:      'e2e-cache/item_to_days.pstore'
   }
 
   def self.toggle_cache_source(env)
@@ -55,8 +57,9 @@ class Day
   end
 
   def self.cache_file
-    FileUtils.mkdir_p('cache') unless Dir.exist?('cache')
-    @cache_files[@cache_env] || @cache_files[:prod]
+    path = @cache_files[@cache_env] || @cache_files[:prod]
+    FileUtils.mkdir_p(File.dirname(path))
+    path
   end
 
   def self.pstore
