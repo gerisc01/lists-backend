@@ -5,6 +5,8 @@
 data/
 cache/
 
+scenarios/logs
+
 # IntelliJ
 *.iml
 .idea
