@@ -4,6 +4,7 @@ require 'ruby-schema-storage'
 require_relative '../exceptions'
 require_relative '../storage'
 require 'pstore'
+require 'fileutils'
 
 class DailyItem
 
@@ -11,7 +12,7 @@ class DailyItem
   schema.key = "day"
   schema.display_name = "Day"
   schema.fields = [
-    {:key => 'id', :required => true, :type => List, :type_ref => true, :display_name => 'List Id'},
+    {:key => 'id', :required => true, :type => Collection, :type_ref => true, :display_name => 'Collection Id'},
     {:key => 'items', :required => false, :type => Array, :subtype => Item, :type_ref => true, :display_name => 'Items'},
   ]
   apply_schema schema
@@ -43,14 +44,42 @@ class Day
     end
   end
 
+  @cache_env = :prod
+  @cache_files = {
+    prod:     'cache/item_to_days.pstore',
+    test:     'cache/test_item_to_days.pstore',
+    scenario: 'scenarios/cache/item_to_days.pstore',
+    e2e:      'e2e-cache/item_to_days.pstore'
+  }
+
+  def self.toggle_cache_source(env)
+    @cache_env = env.to_sym
+  end
+
+  def self.cache_file
+    path = @cache_files[@cache_env] || @cache_files[:prod]
+    FileUtils.mkdir_p(File.dirname(path))
+    path
+  end
+
+  def self.pstore
+    PStore.new(cache_file)
+  end
+
+  def self.clear_cache
+    f = cache_file
+    File.delete(f) if File.exist?(f)
+  end
+
   def self.build_full_day_index
-    Dir.mkdir('cache') unless Dir.exist?('cache')
-    item_to_days = PStore.new('cache/item_to_days.pstore')
+    item_to_days = pstore
     item_to_days.transaction do
       days = self.list
       days.each do |day|
         date = day.id
+        next if day.items.nil?
         day.items.each do |daily_items|
+          next if daily_items.items.nil?
           daily_items.items.each do |item_id|
             item_to_days[item_id] = [] unless item_to_days.key?(item_id)
             item_to_days[item_id] << date
@@ -61,7 +90,7 @@ class Day
   end
 
   def self.get_days_for_item(item_id)
-    item_to_days = PStore.new('cache/item_to_days.pstore')
+    item_to_days = pstore
     days = []
     item_to_days.transaction(true) do
       if item_to_days.key?(item_id)
@@ -72,7 +101,7 @@ class Day
   end
 
   def self.add_day_for_item(item_id, date)
-    item_to_days = PStore.new('cache/item_to_days.pstore')
+    item_to_days = pstore
     item_to_days.transaction do
       item_to_days[item_id] = [] unless item_to_days.key?(item_id)
       item_to_days[item_id] << date unless item_to_days[item_id].include?(date)
@@ -80,7 +109,7 @@ class Day
   end
 
   def self.remove_day_for_item(item_id, date)
-    item_to_days = PStore.new('cache/item_to_days.pstore')
+    item_to_days = pstore
     item_to_days.transaction do
       if item_to_days.key?(item_id)
         item_to_days[item_id].delete(date)
@@ -88,12 +117,6 @@ class Day
           item_to_days.delete(item_id)
         end
       end
-    end
-  end
-
-  def self.clear_day_index
-    if File.exist?('cache/item_to_days.pstore')
-      File.delete('cache/item_to_days.pstore')
     end
   end
 end

@@ -9,6 +9,7 @@ end
 require_relative './src/type/template_types/dropdown'
 require_relative './src/type/template_types/week_days'
 require_relative './src/type/template_types/integer_patch'
+require_relative './src/type/template_types/recurring_date'
 require_relative './src/type/account'
 
 class Api < Sinatra::Base
@@ -47,6 +48,10 @@ class Api < Sinatra::Base
     set :port, 9090
   end
   set :bind, '0.0.0.0'
+
+  # TODO: This is needed for now because tests do not use different storage
+  Day.clear_cache
+  Day.build_full_day_index
 
 end
 

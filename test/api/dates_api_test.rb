@@ -3,7 +3,7 @@ require_relative '../minitest_wrapper'
 require 'rack/test'
 require_relative '../test-api'
 require_relative '../../src/type/item'
-require_relative '../../src/type/list'
+require_relative '../../src/type/collection'
 require_relative '../../src/storage'
 
 class DatesApiTest < MinitestWrapper
@@ -16,11 +16,12 @@ class DatesApiTest < MinitestWrapper
   def setup
     @item = Item.new({'id' => '1', 'name' => 'One'})
     @item2 = Item.new({'id' => '2', 'name' => 'Two'})
-    @list = List.new({'id' => 'a', 'name' => 'list-one', 'items' => ['1', '2']})
-    @list2 = List.new({'id' => 'b', 'name' => 'list-two', 'items' => ['1']})
-    [@item, @item2, @list, @list2].each { |obj| obj.save! }
+    @new_item = Item.new({'id' => '3', 'name' => 'Three (Unassigned)'})
+    @collection = Collection.new({'id' => 'a', 'name' => 'Collection A'})
+    @collection2 = Collection.new({'id' => 'b', 'name' => 'Collection B'})
+    [@item, @item2, @new_item, @collection, @collection2].each { |obj| obj.save! }
 
-    @day = Day.new({'id' => '2025-01-01', 'items' => [ {'id' => @list.id, 'items' => [@item.id, @item2.id]} ]})
+    @day = Day.new({'id' => '2025-01-01', 'items' => [ {'id' => @collection.id, 'items' => [@item.id, @item2.id]} ]})
     @day.save!
   end
 
@@ -29,45 +30,22 @@ class DatesApiTest < MinitestWrapper
     mocha_teardown
   end
 
-  # TODO: The following 2 tests should probably live in a day_test.rb file instead of api tests
-  def test_create_date_with_items
-    payload = {
-      'id': '2025-11-11',
-      'items': [ { 'id': @list.id, 'items': [ @item.id, @item2.id ] } ]
-    }.to_json
-    post("/api/dates", payload, {"Content-Type" => "application/json"})
-    assert_equal 201, last_response.status
-    assert_equal '2025-11-11', JSON.parse(last_response.body)['id']
-    assert_equal [@item.id, @item2.id], Day.get('2025-11-11').items.first.items
-  end
-
-  def test_create_date_failure_invalid_items
-    payload = {
-      'id': '2025-11-11',
-      'items': [ { 'id': @list.id, 'items': [ 'NOT_FOUND'] } ]
-    }.to_json
-    post("/api/dates", payload, {"Content-Type" => "application/json"})
-    assert_equal 500, last_response.status
-    # assert_includes last_response.body, 'NOT_FOUND'
-    assert_nil Day.get('2025-11-11')
-  end
-
-  def test_get_items_for_date_and_list
-    get("/api/dates/#{@day.id}/#{@list.id}/items")
+  def test_get_items_for_date_and_collection
+    get("/api/dates/#{@day.id}/#{@collection.id}/items")
     assert_equal 200, last_response.status
     items = JSON.parse(last_response.body)
     assert_equal [@item.id, @item2.id], items
   end
 
   def test_get_items_for_empty_date
-    get("/api/dates/1970-01-01/#{@list.id}/items")
+    get("/api/dates/1970-01-01/#{@collection.id}/items")
     assert_equal 200, last_response.status
     items = JSON.parse(last_response.body)
     assert_equal [], items
   end
 
-  def test_get_items_for_empty_list
-    get("/api/dates/#{@day.id}/#{@list2.id}/items")
+  def test_get_items_for_empty_collection
+    get("/api/dates/#{@day.id}/#{@collection2.id}/items")
     assert_equal 200, last_response.status
     items = JSON.parse(last_response.body)
     assert_equal [], items
@@ -75,41 +53,85 @@ class DatesApiTest < MinitestWrapper
 
   def test_update_single_priority_item
     payload = [ @item.id ].to_json
-    put("/api/dates/#{@day.id}/#{@list.id}/priorities", payload, {"Content-Type" => "application/json"})
+    put("/api/dates/#{@day.id}/#{@collection.id}/priorities", payload, {"Content-Type" => "application/json"})
     assert_equal 200, last_response.status
     day = JSON.parse(last_response.body)
     assert_equal day['priorities'].length, 1
-    assert_equal day['priorities'][0]['id'], @list.id
+    assert_equal day['priorities'][0]['id'], @collection.id
     assert_equal day['priorities'][0]['items'], [@item.id]
   end
 
   def test_update_multiple_priority_items
     payload = [ @item.id ].to_json
-    put("/api/dates/#{@day.id}/#{@list.id}/priorities", payload, {"Content-Type" => "application/json"})
+    put("/api/dates/#{@day.id}/#{@collection.id}/priorities", payload, {"Content-Type" => "application/json"})
     assert_equal 200, last_response.status
 
     payload = [ @item.id, @item2.id ].to_json
-    put("/api/dates/#{@day.id}/#{@list.id}/priorities", payload, {"Content-Type" => "application/json"})
+    put("/api/dates/#{@day.id}/#{@collection.id}/priorities", payload, {"Content-Type" => "application/json"})
     assert_equal 200, last_response.status
 
     day = JSON.parse(last_response.body)
     assert_equal day['priorities'].length, 1
-    assert_equal day['priorities'][0]['id'], @list.id
+    assert_equal day['priorities'][0]['id'], @collection.id
     assert_equal day['priorities'][0]['items'], [ @item.id, @item2.id ]
   end
 
   def test_update_remove_priority_items
     payload = [ @item.id, @item2.id ].to_json
-    put("/api/dates/#{@day.id}/#{@list.id}/priorities", payload, {"Content-Type" => "application/json"})
+    put("/api/dates/#{@day.id}/#{@collection.id}/priorities", payload, {"Content-Type" => "application/json"})
     assert_equal 200, last_response.status
 
     payload = [].to_json
-    put("/api/dates/#{@day.id}/#{@list.id}/priorities", payload, {"Content-Type" => "application/json"})
+    put("/api/dates/#{@day.id}/#{@collection.id}/priorities", payload, {"Content-Type" => "application/json"})
     assert_equal 200, last_response.status
     day = JSON.parse(last_response.body)
     assert_equal day['priorities'].length, 1
-    assert_equal day['priorities'][0]['id'], @list.id
+    assert_equal day['priorities'][0]['id'], @collection.id
     assert_equal day['priorities'][0]['items'], [ ]
+  end
+
+  # No Date => Non-Recurring Date
+  def test_create_new_non_recurring_item
+    payload = {
+      'collection' => @collection.id,
+      'item' => @new_item.id
+    }.to_json
+    post("/api/dates/#{@day.id}/items", payload, {"Content-Type" => "application/json"})
+    assert_equal 200, last_response.status
+    resp = JSON.parse(last_response.body)
+    daily_item = resp['items'].find { |daily_item| daily_item['id'] == @collection.id }
+    assert daily_item['items'].include?(@new_item.id)
+    get("/api/items/#{@new_item.id}")
+    assert_equal 200, last_response.status
+    new_date_item = JSON.parse(last_response.body)
+    assert_nil new_date_item['templates']
+    assert_nil new_date_item['recurring-event']
+    assert_nil new_date_item['recurring-children']
+  end
+
+  # Non-Recurring Date => No Date
+  # Non-Recurring Date => Non-Recurring Date
+  def test_change_non_recurring_item_day
+    payload = {
+      'collection' => @collection.id,
+      'item' => @item2.id
+    }.to_json
+    delete("/api/dates/#{@day.id}/items", payload, {"Content-Type" => "application/json"})
+    assert_equal 200, last_response.status
+    resp = JSON.parse(last_response.body)
+    daily_item = resp['items'].find { |daily_item| daily_item['id'] == @collection.id }
+    assert_nil daily_item['items'].find { |id| id == @item2.id }
+    # Add the previous date to a new date (2025-01-07)
+    post("/api/dates/2025-01-07/items", payload, {"Content-Type" => "application/json"})
+    assert_equal 200, last_response.status
+    resp = JSON.parse(last_response.body)
+    daily_item = resp['items'].find { |daily_item| daily_item['id'] == @collection.id }
+    assert daily_item['items'].include?(@item2.id)
+    # Check that the item is only referencing the new date
+    get("/api/items/#{@item2.id}/dates")
+    assert_equal 200, last_response.status
+    resp = JSON.parse(last_response.body)
+    assert_equal ['2025-01-07'], resp
   end
 
 end
