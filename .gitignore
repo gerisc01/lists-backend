@@ -13,3 +13,4 @@ scenarios/logs
 
 test-results
 e2e-data
+e2e-cache

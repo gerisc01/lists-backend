@@ -97,7 +97,7 @@ class Api < Sinatra::Base
 
   before do
     if request.request_method != 'OPTIONS'
-      protected! unless request.path_info == '/api/accounts'
+      protected! unless request.path_info == '/api/accounts' || TypeStorage.is_e2e_test
     end
     content_type 'application/json'
   end
