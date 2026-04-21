@@ -1,11 +1,8 @@
 # scenarios/start.rb
 
 require 'bundler/setup'
-require 'sinatra/base'
-require 'sinatra/cors'
 require 'fileutils'
 
-require_relative '../src/base_api'
 require_relative './scenario_manager'
 
 # --- Main Interaction Loop and Server Management ---
@@ -13,18 +10,24 @@ require_relative './scenario_manager'
 def start_api_server
   pid = fork do
     # --- Logging Setup ---
-    log_dir = 'logs'
+    log_dir = File.join(PROJECT_ROOT, 'scenarios', 'logs')
     FileUtils.mkdir_p(log_dir) unless Dir.exist?(log_dir)
     log_file_path = File.join(log_dir, 'scenario_api.log')
 
     # Only stdout is redirected — keeps Sinatra's startup noise out of the CLI
     # while letting stderr reach the terminal so real errors surface immediately.
     begin
-      $stdout.reopen(log_file_path, 'w')
+      $stdout.reopen(log_file_path, 'a')
       $stdout.sync = true
 
-      # SCENARIO_STORAGE tells TypeStorage to use scenarios/data/
+      # Set env vars BEFORE requiring base_api so TypeStorage initializes
+      # with the correct storage path when Account (and other types) load.
       ENV['SCENARIO_STORAGE'] = 'true'
+      ENV['SCENARIO_DATA_DIR'] = CURRENT_SCENARIO_DATA_DIR
+
+      require 'sinatra/base'
+      require 'sinatra/cors'
+      require_relative '../src/base_api'
 
       BaseApi.start(port: PORT)
       Api.run!
@@ -43,7 +46,7 @@ def start_api_server
   begin
     Process.kill(0, pid)
     puts "API server started with PID: #{pid}"
-    puts "Server logs are being written to logs/scenario_api.log"
+    puts "Server logs are being written to scenarios/logs/scenario_api.log"
   rescue Errno::ESRCH
     puts "ERROR: API server failed to start. Last log output:"
     puts "---"
@@ -141,7 +144,7 @@ if __FILE__ == $PROGRAM_NAME
         puts "API server restarted."
       when "logs"
         lines_to_show = parts.length > 1 && parts[1].match?(/^\d+$/) ? parts[1].to_i : 50
-        log_file_path = 'logs/scenario_api.log'
+        log_file_path = File.join(PROJECT_ROOT, 'scenarios', 'logs', 'scenario_api.log')
         if File.exist?(log_file_path)
           puts "--- Last #{lines_to_show} lines of #{log_file_path} ---"
           system("tail -n #{lines_to_show} #{log_file_path}")

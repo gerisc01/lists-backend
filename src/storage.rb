@@ -9,7 +9,8 @@ module TypeStorage
     if @instance.nil? && is_e2e_test
       @instance = SchemaTypeStorage.new('e2e-data')
     elsif @instance.nil? && scenario_var_set
-      @instance = SchemaTypeStorage.new('scenarios/data')
+      data_dir = ENV['SCENARIO_DATA_DIR'] || 'scenarios/data'
+      @instance = SchemaTypeStorage.new(data_dir)
     elsif @instance.nil? && test_var_set
       @instance = SchemaTypeStorage.new('data-test')
     elsif @instance.nil?
