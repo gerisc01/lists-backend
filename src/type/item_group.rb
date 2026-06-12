@@ -23,6 +23,7 @@ class ItemGroup
   def add_template(template)
     self.group.each do |item_id|
       it = Item.get(item_id)
+      next if it.nil?
       it.add_template(template)
       it.save!
     end
@@ -31,6 +32,7 @@ class ItemGroup
   def remove_template(template)
     self.group.each do |item_id|
       it = Item.get(item_id)
+      next if it.nil?
       it.remove_template(template)
       it.save!
     end

@@ -23,6 +23,7 @@ class DatesApiTest < MinitestWrapper
 
     @day = Day.new({'id' => '2025-01-01', 'items' => [ {'id' => @collection.id, 'items' => [@item.id, @item2.id]} ]})
     @day.save!
+    Day.toggle_cache_source(:test)
   end
 
   def teardown

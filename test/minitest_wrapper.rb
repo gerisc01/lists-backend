@@ -8,5 +8,9 @@ class MinitestWrapper < Minitest::Test
 
   def after_teardown()
     TypeStorage.clear_test_storage
+    if defined?(Day)
+      Day.clear_cache
+      Day.toggle_cache_source(:prod)
+    end
   end
 end

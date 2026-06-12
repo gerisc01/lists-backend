@@ -55,6 +55,18 @@ class CollectionsApiTest < MinitestWrapper
     assert_equal 'j', @list3.template
   end
 
+  def test_remove_template_cascades_to_itemgroup_members
+    gm = Item.new({'id' => 'gm1', 'name' => 'Group Member', 'templates' => ['i']})
+    gm.save!
+    group = ItemGroup.new({'id' => 'ig1', 'name' => 'Test Group', 'group' => ['gm1']})
+    group.save!
+    @list2.add_item(group)
+    @list2.save!
+
+    delete("/api/collections/col/templates/i")
+    refute_includes gm.templates.to_a, 'i'
+  end
+
   def test_remove_template_minimal_collection
     delete("/api/collections/col2/templates/i")
     assert_nil @collection2.actions

@@ -51,9 +51,9 @@ class Template
 
     attr_accessor :validator_schema
 
-    def validate_obj(value)
-        if validator_schema.nil? || validator_schema.empty?
-            validator_schema = Schema.new
+    def validate_obj(value, visited = [])
+        if validator_schema.nil?
+            self.validator_schema = Schema.new
             validator_schema.key = self.key
             validator_schema.display_name = self.display_name
             validator_schema.fields = self.fields.map do |field|
@@ -62,23 +62,27 @@ class Template
                 field.subtype = nil if field.subtype == Template
                 field
             end
-            template_fields = self.fields.select { |field| field.type == Template || field.subtype == Template }
-            validate_template_fields(template_fields, value)
         end
+        # Sub-template validation runs every call (not just when building cache) because
+        # it validates the current value, not the schema structure.
+        template_fields = self.fields.select { |field| field.type == Template || field.subtype == Template }
+        validate_template_fields(template_fields, value, visited + [self.id])
         validator_schema.validate(value)
     end
 
-    def validate_template_fields(fields, value)
+    def validate_template_fields(fields, value, visited = [])
         fields.each do |field|
             begin
                 field_value = value.json[field.key]
                 next if field_value.nil?
+                template_id = field.extra_attrs && field.extra_attrs[:template_id]
+                next if template_id && visited.include?(template_id)
                 if field.type == Template
-                    validate_template_field(field, field_value)
+                    validate_template_field(field, field_value, visited)
                 elsif field.type == Array && field.subtype == Template
-                    field_value.each { |it| validate_template_field(field, it) }
+                    field_value.each { |it| validate_template_field(field, it, visited) }
                 elsif field.type == Hash && field.subtype == Template
-                    field_value.each { |key, it| validate_template_field(field, it) }
+                    field_value.each { |key, it| validate_template_field(field, it, visited) }
                 end
             rescue Schema::ValidationError => e
                 raise Schema::ValidationError, "Invalid Sub-Template (field: #{field.key}): #{e.message}"
@@ -86,12 +90,12 @@ class Template
         end
     end
 
-    def validate_template_field(field, field_value)
+    def validate_template_field(field, field_value, visited = [])
         template = Template.get(field.extra_attrs[:template_id])
         unless field_value.is_a?(Hash)
             raise Schema::ValidationError, "Invalid Sub-Template (field: #{field.key}): Must be a Hash"
         end
-        template.validate_obj(DummyItem.new(field_value))
+        template.validate_obj(DummyItem.new(field_value), visited)
     end
 
 end

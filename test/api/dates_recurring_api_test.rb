@@ -31,9 +31,6 @@ class DatesRecurringApiTest < MinitestWrapper
   end
 
   def teardown
-    Day.clear_cache
-    Day.toggle_cache_source(:prod)
-    TypeStorage.clear_test_storage
     mocha_teardown
   end
 

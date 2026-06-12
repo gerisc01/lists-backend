@@ -103,4 +103,12 @@ class TemplateTest < MinitestWrapper
     ]
     assert_raises(Schema::ValidationError) { item.validate }
   end
+
+  def test_validator_schema_is_cached
+    item = Item.new({'id' => '5', 'name' => 'One', 'templates' => ['1']})
+    @template.validate_obj(item)
+    first_schema_id = @template.validator_schema.object_id
+    @template.validate_obj(item)
+    assert_equal first_schema_id, @template.validator_schema.object_id
+  end
 end
