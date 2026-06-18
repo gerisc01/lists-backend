@@ -15,6 +15,15 @@
 #
 require 'json'
 require_relative '../src/type/item'
+# Load the same type/custom-type environment the app boots (base_api.rb), so
+# validating any item on save! resolves every referenced constant:
+#   - ItemGroup, referenced by item_generic for parent/children fields
+#   - the template custom types (RecurringDate, Dropdown, WeekDays, IntegerPatch)
+require_relative '../src/type/item_group'
+require_relative '../src/type/template_types/dropdown'
+require_relative '../src/type/template_types/week_days'
+require_relative '../src/type/template_types/integer_patch'
+require_relative '../src/type/template_types/recurring_date'
 
 apply = ARGV.include?('--apply')
 
@@ -32,21 +41,31 @@ raw = JSON.parse(File.read(File.join(store_dir, 'item.json')))
 ids = raw.select { |_, v| v.is_a?(Hash) && v['id'] }.keys
 
 migrated = 0
+failed = []
 ids.each do |id|
   item = Item.get(id)
   next if item.nil?
   next if Status::TERMINAL.include?(item.json['status']) # already migrated -> idempotent
   next unless item.json['completed'] == true
 
-  migrated += 1
   if apply
-    item.json['status'] = 'completed'
-    item.save!
+    begin
+      item.json['status'] = 'completed'
+      item.save!
+      migrated += 1
+    rescue => e
+      failed << "#{id} (#{item.json['name']}): #{e.message}"
+    end
   else
+    migrated += 1
     puts "would migrate #{id} (#{item.json['name']}) -> completed"
   end
 end
 
 verb = apply ? 'migrated' : 'would migrate'
 puts "#{verb} #{migrated} item(s) to 'completed' (of #{ids.size} items)."
+unless failed.empty?
+  puts "#{failed.size} item(s) FAILED to save (left unchanged):"
+  failed.each { |f| puts "  #{f}" }
+end
 puts '(dry run — pass --apply to write)' unless apply
