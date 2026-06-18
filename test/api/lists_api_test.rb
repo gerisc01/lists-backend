@@ -69,7 +69,8 @@ class ListApiTest < MinitestWrapper
     assert_equal 201, last_response.status
     last_body = JSON.parse(last_response.body)
     last_body.delete('updated_at')
-    assert_equal  new_item.to_json, last_body.to_json
+    # New items are born with the default lifecycle status.
+    assert_equal new_item.merge('status' => 'want-to').to_json, last_body.to_json
   end
 
   def test_list_create_item_failure_existing_id

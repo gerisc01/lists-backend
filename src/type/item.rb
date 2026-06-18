@@ -6,6 +6,7 @@ require_relative '../storage'
 require_relative './tag'
 require_relative './template'
 require_relative './item_generic'
+require_relative './status'
 
 class Item
 
@@ -20,8 +21,21 @@ class Item
     {:key => 'tags', :required => false, :type => Array, :subtype => Tag, :type_ref => true, :display_name => 'Tags'},
     {:key => 'parent', :required => false, :type => ItemGeneric, :type_ref => true, :display_name => 'Parent'},
     {:key => 'children', :required => false, :type => Array, :subtype => ItemGeneric, :type_ref => true, :display_name => 'Children'},
+    # Lifecycle status (universal spine). Enforced by the Status validation type.
+    {:key => 'status', :required => false, :type => Status, :display_name => 'Status'},
+    # Append-only status history; entries shaped/validated by the Transition type.
+    {:key => 'transitions', :required => false, :type => Array, :subtype => Transition, :display_name => 'Transitions'},
   ]
   apply_schema schema
+
+  # Wrap the schema-generated initializer to apply the birth status default
+  # (want-to) on construction, preserving the framework's id generation. New items
+  # created via the API are built through `Item.new`, so they get a clean status.
+  schema_initialize = instance_method(:initialize)
+  define_method(:initialize) do |input = nil|
+    schema_initialize.bind(self).call(input)
+    self.json['status'] ||= Status::DEFAULT
+  end
 
   # Remove the old validate method and apply the new one that validates the schema and templates
   remove_method :validate if method_defined? :validate

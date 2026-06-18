@@ -5,6 +5,7 @@ require_relative './remove_item'
 require_relative './promote_group_item'
 require_relative './set_field'
 require_relative './add_item_to_field'
+require_relative './set_status'
 
 def action_methods
   {
@@ -35,6 +36,10 @@ def action_methods
     'addItemToField' => {
       'method' => :add_item_to_field,
       'params' => ['item_id', 'key', 'value']
+    },
+    'setStatus' => {
+      'method' => :set_status,
+      'params' => ['item_id', 'status']
     }
   }
 end
