@@ -118,6 +118,33 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 200, last_response.status
   end
 
+  # ── Range read for weekly planning ──────────────────────────────────────────
+
+  def test_collection_range_read_groups_by_date
+    assign('i1')                       # DATE
+    assign('i2')                       # DATE
+    assign('i3', date: '2026-07-24')
+    get("/api/collections/c1/placements?start=2026-07-20&end=2026-07-26")
+    assert_equal 200, last_response.status
+    map = JSON.parse(last_response.body)
+    assert_equal %w[i1 i2].sort, map[DATE].sort
+    assert_equal %w[i3], map['2026-07-24']
+  end
+
+  def test_collection_range_read_excludes_other_collections
+    other = Collection.new({'id' => 'c2', 'name' => 'Other'}); other.save!
+    assign('i1')                        # c1
+    assign('i2', collection: 'c2')      # c2
+    get("/api/collections/c1/placements?start=2026-07-20&end=2026-07-26")
+    map = JSON.parse(last_response.body)
+    assert_equal %w[i1], map[DATE]
+  end
+
+  def test_collection_range_read_requires_start_and_end
+    get("/api/collections/c1/placements")
+    assert_equal 400, last_response.status
+  end
+
   # ── Derived day-view matches the legacy Day read (the 5a proof) ──────────────
 
   def test_day_view_matches_legacy_day_grouping

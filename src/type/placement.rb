@@ -69,6 +69,16 @@ class Placement
     end
   end
 
+  # The weekly-planning range read: { date => [item_ids] } for one collection across
+  # a date range. Replaces the legacy Day-based GET /api/dates/:collection/items.
+  def self.day_map_for_collection(collection_id, start_date, end_date)
+    result = Hash.new { |h, k| h[k] = [] }
+    for_date_range(start_date, end_date).each do |p|
+      result[p.date] << p.item_id if p.collection_id == collection_id
+    end
+    result
+  end
+
   # A Day-shaped view derived from placements: { collection_id => [item_ids] } for a
   # date, plus the flagged (priority) subset. This is what lets Day/DailyItem become
   # a derived read — PR 5a proves it matches the legacy Day read; 5b cuts over to it.

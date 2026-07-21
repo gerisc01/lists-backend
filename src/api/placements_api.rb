@@ -8,6 +8,18 @@ require_relative '../actions/item_actions'
 class Api < Sinatra::Base
   register Sinatra::ListApiFramework
 
+  # Weekly-planning range read: items placed in a collection across a date range,
+  # grouped by date → { "YYYY-MM-DD": ["item_id", ...] }. Replaces the legacy
+  # Day-based GET /api/dates/:collection/items?start&end.
+  get '/api/collections/:id/placements' do
+    if params['start'].to_s.empty? || params['end'].to_s.empty?
+      raise ListError::BadRequest, "Query parameters must contain 'start' and 'end' dates."
+    end
+    raise ListError::BadRequest, "'start' date must be before 'end' date." if params['start'] > params['end']
+    status 200
+    body Placement.day_map_for_collection(params['id'], params['start'], params['end']).to_json
+  end
+
   # Placements for one item (reverse lookup: "what days is this item on").
   get '/api/items/:id/placements' do
     placements = Placement.for_item(params['id'])
