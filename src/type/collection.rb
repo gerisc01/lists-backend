@@ -6,6 +6,7 @@ require_relative '../storage'
 require_relative './list'
 require_relative './template'
 require_relative './list_group'
+require_relative './sharing_scope'
 
 class Collection
 
@@ -22,7 +23,9 @@ class Collection
     {:key => 'actions', :required => false, :type => Array, :subtype => Action, :type_ref => true, :display_name => 'Actions'},
     {:key => 'tags', :required => false, :type => Array, :subtype => Tag, :type_ref => true, :display_name => 'Tags'},
     {:key => 'groups', :required => false, :type => Array, :subtype => ListGroup, :display_name => 'List Groups' },
-    {:key => 'attributes', :required => false, :type => Hash, :display_name => 'Attributes'}
+    {:key => 'attributes', :required => false, :type => Hash, :display_name => 'Attributes'},
+    # Who can access this collection (design §6.1). Structural only; absent reads as 'private'.
+    {:key => 'sharing_scope', :required => false, :type => SharingScope, :display_name => 'Sharing Scope'}
   ]
   apply_schema schema
 
