@@ -1,0 +1,95 @@
+require_relative '../minitest_wrapper'
+require_relative '../helpers'
+require_relative '../../src/type/placement'
+require_relative '../../src/type/item'
+require_relative '../../src/type/collection'
+
+class PlacementTest < MinitestWrapper
+
+  def setup
+    @item = Item.new({'id' => 'i1', 'name' => 'One'})
+    @item2 = Item.new({'id' => 'i2', 'name' => 'Two'})
+    @collection = Collection.new({'id' => 'c1', 'name' => 'Collection'})
+    [@item, @item2, @collection].each(&:save!)
+  end
+
+  def new_placement(overrides = {})
+    Placement.new({
+      'item_id' => @item.id,
+      'collection_id' => @collection.id,
+      'date' => '2026-07-22',
+      'floating' => false,
+    }.merge(overrides))
+  end
+
+  def test_dated_placement_round_trip
+    p = new_placement
+    p.validate
+    p.save!
+
+    reloaded = Placement.get(p.id)
+    refute_nil reloaded.id
+    assert_equal @item.id, reloaded.item_id
+    assert_equal @collection.id, reloaded.collection_id
+    assert_equal '2026-07-22', reloaded.date
+    assert_equal false, reloaded.floating
+  end
+
+  def test_floating_placement_has_no_date
+    p = new_placement({'date' => nil, 'floating' => true})
+    p.validate
+    p.save!
+
+    reloaded = Placement.get(p.id)
+    assert_nil reloaded.date
+    assert_equal true, reloaded.floating
+  end
+
+  def test_requires_item_and_collection
+    assert_raises(Schema::ValidationError) do
+      Placement.new({'collection_id' => @collection.id, 'date' => '2026-07-22'}).validate
+    end
+    assert_raises(Schema::ValidationError) do
+      Placement.new({'item_id' => @item.id, 'date' => '2026-07-22'}).validate
+    end
+  end
+
+  # Referential existence is enforced at the type level via type_ref: a placement
+  # pointing at an item/collection that doesn't exist fails validation.
+  def test_rejects_unknown_item_ref
+    assert_raises(Schema::ValidationError) do
+      new_placement({'item_id' => 'does-not-exist'}).validate
+    end
+  end
+
+  def test_rejects_unknown_collection_ref
+    assert_raises(Schema::ValidationError) do
+      new_placement({'collection_id' => 'does-not-exist'}).validate
+    end
+  end
+
+  def test_queries_by_item_and_date
+    new_placement.tap(&:validate).save!
+    new_placement({'item_id' => @item2.id}).tap(&:validate).save!
+    new_placement({'date' => '2026-07-23'}).tap(&:validate).save!
+
+    assert_equal 2, Placement.for_item(@item.id).size
+    assert_equal 2, Placement.for_date('2026-07-22').size
+    assert_equal 3, Placement.for_date_range('2026-07-22', '2026-07-23').size
+    assert_equal 0, Placement.for_date_range('2026-07-24', '2026-07-30').size
+
+    found = Placement.find_dated(@item.id, '2026-07-22', @collection.id)
+    refute_nil found
+    assert_equal @item.id, found.item_id
+  end
+
+  def test_day_view_groups_by_collection_with_priority_subset
+    new_placement.tap(&:validate).save!
+    new_placement({'item_id' => @item2.id, 'priority' => true}).tap(&:validate).save!
+
+    view = Placement.day_view('2026-07-22')
+    assert_equal [@item.id, @item2.id].sort, view['items'][@collection.id].sort
+    assert_equal [@item2.id], view['priorities'][@collection.id]
+  end
+
+end

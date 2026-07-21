@@ -2,7 +2,12 @@ require 'ruby-schema'
 require 'ruby-schema-storage'
 
 require_relative '../storage'
-require_relative '../actions/item_actions'
+# NB: `item_actions` (the action-methods registry) is required lazily in
+# ActionStep#process, NOT here. Requiring it at load time drags the whole action
+# subsystem — and every type an action touches (e.g. Placement) — into the middle
+# of the type-definition phase (collection → list → action → item_actions → …),
+# which is a load-order cycle. The Action *type* only needs the *methods* at
+# process time, and every api that processes actions already requires item_actions.
 
 class ActionStep
 
@@ -23,6 +28,7 @@ class ActionStep
   ## TODO: How should those params be passed if action steps are executed individually?
 
   def process(json)
+    require_relative '../actions/item_actions' # lazy: see note at top of file
     action = self.type
     fixed_params = self.fixed_params
     unless fixed_params.nil?

@@ -6,6 +6,9 @@ require_relative './promote_group_item'
 require_relative './set_field'
 require_relative './add_item_to_field'
 require_relative './set_status'
+require_relative './assign_to_date'
+require_relative './remove_from_date'
+require_relative './set_placement_priority'
 
 def action_methods
   {
@@ -40,6 +43,18 @@ def action_methods
     'setStatus' => {
       'method' => :set_status,
       'params' => ['item_id', 'status']
+    },
+    'assignToDate' => {
+      'method' => :assign_to_date,
+      'params' => ['item_id', 'date', 'collection_id']
+    },
+    'removeFromDate' => {
+      'method' => :remove_from_date,
+      'params' => ['item_id', 'date', 'collection_id']
+    },
+    'setPlacementPriority' => {
+      'method' => :set_placement_priority,
+      'params' => ['item_id', 'date', 'collection_id', 'priority']
     }
   }
 end
