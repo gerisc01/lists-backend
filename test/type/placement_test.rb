@@ -92,4 +92,18 @@ class PlacementTest < MinitestWrapper
     assert_equal [@item2.id], view['priorities'][@collection.id]
   end
 
+  def test_floating_for_collection_only_returns_floating
+    new_placement.tap(&:validate).save!                                      # dated
+    new_placement({'date' => nil, 'floating' => true}).tap(&:validate).save! # floating, this collection
+    other = Collection.new({'id' => 'c2', 'name' => 'Other'}); other.save!
+    new_placement({'date' => nil, 'floating' => true, 'collection_id' => other.id})
+      .tap(&:validate).save!                                                 # floating, other collection
+
+    floating = Placement.floating_for_collection(@collection.id)
+    assert_equal 1, floating.size
+    assert_equal @item.id, floating.first.item_id
+    assert_nil floating.first.date
+    assert_equal true, floating.first.floating
+  end
+
 end

@@ -57,6 +57,13 @@ class Placement
     self.list.select { |p| p.date == date }
   end
 
+  # Floating (dayless) placements for one collection — the staging pile for that
+  # collection. Returns full placements (not just item_ids) because binding one to
+  # a day is addressed by its placement id.
+  def self.floating_for_collection(collection_id)
+    self.list.select { |p| p.collection_id == collection_id && p.floating == true && p.date.nil? }
+  end
+
   def self.for_date_range(start_date, end_date)
     self.list.select { |p| !p.date.nil? && p.date >= start_date && p.date <= end_date }
   end

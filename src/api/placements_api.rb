@@ -27,10 +27,42 @@ class Api < Sinatra::Base
     body placements.map(&:to_schema_object).to_json
   end
 
-  # Assign an item to a day. Body: { "collection": "<id>", "date": "YYYY-MM-DD" }.
+  # Floating placements for a collection's staging pile (dayless). Full objects,
+  # since binding one to a day is addressed by its placement id.
+  get '/api/collections/:id/placements/floating' do
+    placements = Placement.floating_for_collection(params['id'])
+    status 200
+    body placements.map(&:to_schema_object).to_json
+  end
+
+  # Create a placement for an item. Body: { "collection": "<id>", "date"?:
+  # "YYYY-MM-DD" }. With a date → a dated placement (assign to a day); without one
+  # → a floating placement that lands in staging (bind it to a day later).
   post '/api/items/:id/placements' do
     json = JSON.parse(request.body.read)
-    placement = assign_to_date(params['id'], json['date'], json['collection'])
+    placement =
+      if json['date'].to_s.empty?
+        create_floating_placement(params['id'], json['collection'])
+      else
+        assign_to_date(params['id'], json['date'], json['collection'])
+      end
+    status 200
+    body placement.to_schema_object.to_json
+  end
+
+  # Bind a placement to a day: floating -> dated. Body: { "date": "YYYY-MM-DD" }.
+  post '/api/placements/:pid/bind' do
+    json = JSON.parse(request.body.read)
+    placement = bind_placement(params['pid'], json['date'])
+    status 200
+    body placement.to_schema_object.to_json
+  end
+
+  # Edit a placement's per-instance fields. Body: any of { "note", "time_cost",
+  # "completed" } (other keys ignored). completed_at is server-stamped.
+  patch '/api/placements/:pid' do
+    json = JSON.parse(request.body.read)
+    placement = update_placement(params['pid'], json)
     status 200
     body placement.to_schema_object.to_json
   end

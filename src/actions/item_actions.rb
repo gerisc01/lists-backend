@@ -9,6 +9,9 @@ require_relative './set_status'
 require_relative './assign_to_date'
 require_relative './remove_from_date'
 require_relative './set_placement_priority'
+require_relative './create_floating_placement'
+require_relative './bind_placement'
+require_relative './update_placement'
 
 def action_methods
   {
@@ -55,6 +58,18 @@ def action_methods
     'setPlacementPriority' => {
       'method' => :set_placement_priority,
       'params' => ['item_id', 'date', 'collection_id', 'priority']
+    },
+    'createFloatingPlacement' => {
+      'method' => :create_floating_placement,
+      'params' => ['item_id', 'collection_id']
+    },
+    'bindPlacement' => {
+      'method' => :bind_placement,
+      'params' => ['placement_id', 'date']
+    },
+    'updatePlacement' => {
+      'method' => :update_placement,
+      'params' => ['placement_id', 'fields']
     }
   }
 end

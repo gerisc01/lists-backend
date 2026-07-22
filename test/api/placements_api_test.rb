@@ -145,6 +145,111 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 400, last_response.status
   end
 
+  # ── Floating placements + bind (5c) ─────────────────────────────────────────
+
+  def stage(item_id, collection: 'c1')
+    post("/api/items/#{item_id}/placements",
+         { 'collection' => collection }.to_json,
+         { 'Content-Type' => 'application/json' })
+  end
+
+  def test_create_floating_placement
+    stage('i1')
+    assert_equal 200, last_response.status
+    p = JSON.parse(last_response.body)
+    assert_equal 'i1', p['item_id']
+    assert_nil p['date']
+    assert_equal true, p['floating']
+    refute_nil p['id']
+  end
+
+  def test_create_floating_is_deduped_per_item_and_collection
+    stage('i1')
+    first = JSON.parse(last_response.body)['id']
+    stage('i1')
+    second = JSON.parse(last_response.body)['id']
+    assert_equal first, second
+    assert_equal 1, Placement.floating_for_collection('c1').size
+  end
+
+  def test_floating_read_returns_only_this_collections_floating
+    stage('i1')
+    assign('i2')                              # dated, excluded
+    other = Collection.new({'id' => 'c2', 'name' => 'Other'}); other.save!
+    stage('i3', collection: 'c2')             # floating in c2, excluded
+    get('/api/collections/c1/placements/floating')
+    assert_equal 200, last_response.status
+    floating = JSON.parse(last_response.body)
+    assert_equal 1, floating.size
+    assert_equal 'i1', floating.first['item_id']
+  end
+
+  def test_bind_flips_floating_to_dated
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+    post("/api/placements/#{pid}/bind",
+         { 'date' => DATE }.to_json, { 'Content-Type' => 'application/json' })
+    assert_equal 200, last_response.status
+    bound = JSON.parse(last_response.body)
+    assert_equal DATE, bound['date']
+    assert_equal false, bound['floating']
+    assert_equal 0, Placement.floating_for_collection('c1').size
+    assert_equal 1, Placement.for_date(DATE).size
+  end
+
+  def test_bind_requires_a_date
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+    post("/api/placements/#{pid}/bind", {}.to_json, { 'Content-Type' => 'application/json' })
+    assert_equal 400, last_response.status
+  end
+
+  def test_bind_unknown_placement_is_not_found
+    post('/api/placements/nope/bind',
+         { 'date' => DATE }.to_json, { 'Content-Type' => 'application/json' })
+    assert_equal 404, last_response.status
+  end
+
+  def test_update_placement_note_and_time_cost
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+    patch("/api/placements/#{pid}",
+          { 'note' => 'do it well', 'time_cost' => 45 }.to_json,
+          { 'Content-Type' => 'application/json' })
+    assert_equal 200, last_response.status
+    updated = JSON.parse(last_response.body)
+    assert_equal 'do it well', updated['note']
+    assert_equal 45, updated['time_cost']
+  end
+
+  def test_update_placement_completion_stamps_completed_at
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+    patch("/api/placements/#{pid}",
+          { 'completed' => true }.to_json, { 'Content-Type' => 'application/json' })
+    done = JSON.parse(last_response.body)
+    assert_equal true, done['completed']
+    refute_nil done['completed_at']
+
+    patch("/api/placements/#{pid}",
+          { 'completed' => false }.to_json, { 'Content-Type' => 'application/json' })
+    reopened = JSON.parse(last_response.body)
+    assert_equal false, reopened['completed']
+    assert_nil reopened['completed_at']
+  end
+
+  def test_update_placement_ignores_unknown_fields
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+    patch("/api/placements/#{pid}",
+          { 'floating' => false, 'date' => DATE, 'note' => 'kept' }.to_json,
+          { 'Content-Type' => 'application/json' })
+    updated = JSON.parse(last_response.body)
+    assert_equal 'kept', updated['note']
+    assert_nil updated['date']              # not writable here
+    assert_equal true, updated['floating']  # not writable here
+  end
+
   # ── Derived day-view matches the legacy Day read (the 5a proof) ──────────────
 
   def test_day_view_matches_legacy_day_grouping
