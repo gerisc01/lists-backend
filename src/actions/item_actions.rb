@@ -12,6 +12,7 @@ require_relative './set_placement_priority'
 require_relative './create_floating_placement'
 require_relative './bind_placement'
 require_relative './update_placement'
+require_relative './auto_archive'
 
 def action_methods
   {

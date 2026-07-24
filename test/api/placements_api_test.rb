@@ -6,6 +6,7 @@ require_relative '../../src/type/placement'
 require_relative '../../src/type/day'
 require_relative '../../src/type/item'
 require_relative '../../src/type/collection'
+require_relative '../../src/type/list'
 
 class PlacementsApiTest < MinitestWrapper
   include Rack::Test::Methods
@@ -248,6 +249,70 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 'kept', updated['note']
     assert_nil updated['date']              # not writable here
     assert_equal true, updated['floating']  # not writable here
+  end
+
+  # ── Auto-archive one-offs when all placements complete (PR 6) ────────────────
+
+  def complete(pid, value = true)
+    patch("/api/placements/#{pid}",
+          { 'completed' => value }.to_json, { 'Content-Type' => 'application/json' })
+  end
+
+  def status_of(item_id)
+    Item.get(item_id).json['status']
+  end
+
+  def test_board_born_item_archives_when_its_only_placement_completes
+    assign('i1')
+    pid = JSON.parse(last_response.body)['id']
+    complete(pid)
+    assert_equal 'completed', status_of('i1')
+    # The archive rode set_status, so the transition journal was appended.
+    transitions = Item.get('i1').json['transitions']
+    assert_equal 1, transitions.size
+    assert_equal 'completed', transitions.last['to']
+  end
+
+  def test_board_born_item_does_not_archive_until_all_placements_complete
+    assign('i1')                                   # DATE
+    first = JSON.parse(last_response.body)['id']
+    assign('i1', date: '2026-07-23')               # second day
+    second = JSON.parse(last_response.body)['id']
+
+    complete(first)
+    assert_equal 'want-to', status_of('i1')        # one still open — no archive
+
+    complete(second)
+    assert_equal 'completed', status_of('i1')      # both resolved — archive
+  end
+
+  def test_shelf_item_does_not_auto_archive_on_placement_completion
+    List.new({'id' => 'l1', 'name' => 'Shelf', 'items' => ['i1']}).save!
+    assign('i1')
+    pid = JSON.parse(last_response.body)['id']
+    complete(pid)
+    # A shelf (reusable) item is not a one-off — completing an instance leaves its
+    # lifecycle untouched (a `doing` game completing a session stays `doing`).
+    assert_equal 'want-to', status_of('i1')
+  end
+
+  def test_auto_archive_is_idempotent
+    assign('i1')
+    pid = JSON.parse(last_response.body)['id']
+    complete(pid)
+    assert_equal 'completed', status_of('i1')
+    assert_equal 1, Item.get('i1').json['transitions'].size
+
+    complete(pid)                                  # re-complete: already terminal
+    assert_equal 'completed', status_of('i1')
+    assert_equal 1, Item.get('i1').json['transitions'].size  # no duplicate transition
+  end
+
+  def test_reopening_a_placement_does_not_re_archive
+    assign('i1')
+    pid = JSON.parse(last_response.body)['id']
+    complete(pid, false)                           # completed:false never resolves
+    assert_equal 'want-to', status_of('i1')
   end
 
   # ── Derived day-view matches the legacy Day read (the 5a proof) ──────────────

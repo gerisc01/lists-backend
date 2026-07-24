@@ -1,5 +1,6 @@
 require 'time'
 require_relative '../type/placement'
+require_relative './auto_archive'
 
 # Edit the per-instance fields of a placement — the note, the actual time cost
 # this time, and whether this instance happened. Addressed by placement id (a
@@ -26,5 +27,10 @@ def update_placement(placement_id, fields)
 
   placement.validate
   placement.save!
+
+  # Completing a placement can resolve a one-off's finite placement set — auto-archive
+  # if so (no-op for shelf items and for still-open sets). See auto_archive.rb.
+  maybe_auto_archive(placement.item_id) if fields.key?('completed') && fields['completed'] == true
+
   placement
 end
