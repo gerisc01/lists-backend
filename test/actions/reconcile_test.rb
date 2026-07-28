@@ -35,6 +35,12 @@ class ReconcileTest < MinitestWrapper
     }.merge(overrides)).tap(&:validate).tap(&:save!)
   end
 
+  def floating(item_id, overrides = {})
+    Placement.new({
+      'item_id' => item_id, 'collection_id' => 'c1', 'floating' => true,
+    }.merge(overrides)).tap(&:validate).tap(&:save!)
+  end
+
   # ── Carry-forward ────────────────────────────────────────────────────────────
 
   def test_lapsed_one_off_task_re_floats_once_preserving_origin
@@ -112,6 +118,21 @@ class ReconcileTest < MinitestWrapper
     dated('e', PAST)
     assert_empty reconcile(as_of_date: AS_OF)['archived']
     assert_equal 'want-to', Item.get('e').json['status']
+  end
+
+  def test_a_deferred_floating_task_is_left_untouched
+    # A deferred one-off (PR 9c) is floating with a future not_before marker. It has no
+    # date, so carry-forward (dated+past only) never touches it, and its open resolution
+    # blocks auto-archive — reconcile leaves it exactly as staged.
+    new_item('t')
+    p = floating('t', 'not_before' => '2026-08-03', 'origin_date' => PAST)
+    result = reconcile(as_of_date: AS_OF)
+    assert_empty result['carried']
+    assert_empty result['archived']
+    untouched = Placement.get(p.id)
+    assert_equal true, untouched.floating
+    assert_equal '2026-08-03', untouched.not_before
+    assert_equal 'want-to', Item.get('t').json['status']
   end
 
   def test_reconcile_is_idempotent_across_runs

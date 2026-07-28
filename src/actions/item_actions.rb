@@ -12,6 +12,8 @@ require_relative './set_placement_priority'
 require_relative './create_floating_placement'
 require_relative './bind_placement'
 require_relative './update_placement'
+require_relative './defer_placement'
+require_relative './delete_placement'
 require_relative './auto_archive'
 
 def action_methods
@@ -71,6 +73,14 @@ def action_methods
     'updatePlacement' => {
       'method' => :update_placement,
       'params' => ['placement_id', 'fields']
+    },
+    'deferPlacement' => {
+      'method' => :defer_placement,
+      'params' => ['placement_id', 'week_start']
+    },
+    'deletePlacement' => {
+      'method' => :delete_placement,
+      'params' => ['placement_id']
     }
   }
 end

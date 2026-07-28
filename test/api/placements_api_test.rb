@@ -344,6 +344,97 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 'want-to', status_of('i1')
   end
 
+  # ── Defer (PR 9c) — "not this week, yes next" +1 week marker ─────────────────
+
+  WEEK_START = '2026-07-27'   # a Monday; +1 week = 2026-08-03
+
+  def defer(pid, week_start: WEEK_START)
+    post("/api/placements/#{pid}/defer",
+         { 'week_start' => week_start }.to_json, { 'Content-Type' => 'application/json' })
+  end
+
+  def test_defer_sets_not_before_one_week_out
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+    defer(pid)
+    assert_equal 200, last_response.status
+    deferred = JSON.parse(last_response.body)
+    assert_equal '2026-08-03', deferred['not_before']   # strictly +1 week
+    assert_equal true, deferred['floating']              # still floating
+  end
+
+  def test_defer_stamps_origin_date_when_absent
+    # A never-dated staged task has no origin_date; deferring anchors the derived
+    # carried-count at this week's start so it starts counting ("one number, not two").
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+    assert_nil JSON.parse(last_response.body)['origin_date']
+    defer(pid)
+    assert_equal WEEK_START, JSON.parse(last_response.body)['origin_date']
+  end
+
+  def test_defer_preserves_an_existing_origin_date
+    # A carried task already has an origin_date — deferring must not overwrite it.
+    assign('i1')                                   # dated → stamps origin_date = DATE
+    pid = JSON.parse(last_response.body)['id']
+    defer(pid)
+    assert_equal DATE, JSON.parse(last_response.body)['origin_date']
+  end
+
+  def test_defer_requires_a_week_start
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+    post("/api/placements/#{pid}/defer", {}.to_json, { 'Content-Type' => 'application/json' })
+    assert_equal 400, last_response.status
+  end
+
+  def test_defer_unknown_placement_is_not_found
+    defer('nope')
+    assert_equal 404, last_response.status
+  end
+
+  # ── Delete (PR 9c) — "gone entirely" ─────────────────────────────────────────
+
+  def test_delete_removes_a_floating_placement
+    # The gap remove_from_date can't cover: deleting a floating (dateless) placement.
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+    delete("/api/placements/#{pid}")
+    assert_equal 200, last_response.status
+    assert_equal 0, Placement.for_item('i1').size
+  end
+
+  def test_delete_removes_the_orphan_board_born_item
+    # A board-born one-off (no shelf home, single placement) is gone entirely — item too.
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+    delete("/api/placements/#{pid}")
+    assert_nil Item.get('i1')
+  end
+
+  def test_delete_keeps_a_shelf_items_item
+    List.new({'id' => 'l1', 'name' => 'Shelf', 'items' => ['i1']}).save!
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+    delete("/api/placements/#{pid}")
+    assert_equal 0, Placement.for_item('i1').size
+    refute_nil Item.get('i1')                       # shelf item survives
+  end
+
+  def test_delete_keeps_the_item_when_other_placements_remain
+    stage('i1')                                      # floating
+    pid = JSON.parse(last_response.body)['id']
+    assign('i1')                                     # a second, dated placement
+    delete("/api/placements/#{pid}")
+    assert_equal 1, Placement.for_item('i1').size    # the dated one remains
+    refute_nil Item.get('i1')                        # item survives — set not empty
+  end
+
+  def test_delete_unknown_placement_is_not_found
+    delete('/api/placements/nope')
+    assert_equal 404, last_response.status
+  end
+
   # ── Derived day-view matches the legacy Day read (the 5a proof) ──────────────
 
   def test_day_view_matches_legacy_day_grouping

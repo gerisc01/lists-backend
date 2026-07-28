@@ -68,6 +68,25 @@ class Api < Sinatra::Base
     body placement.to_schema_object.to_json
   end
 
+  # Defer a floating placement +1 week (design §4.4). Body: { "week_start":
+  # "YYYY-MM-DD" } — the client's current-week start; the server computes the +1-week
+  # not_before marker and stamps origin_date if absent.
+  post '/api/placements/:pid/defer' do
+    json = JSON.parse(request.body.read)
+    placement = defer_placement(params['pid'], json['week_start'])
+    status 200
+    body placement.to_schema_object.to_json
+  end
+
+  # Delete a placement outright (design §4.4 Delete). Id-addressed so it works on a
+  # floating placement; removes the orphan board-born one-off item behind the shelf-home
+  # guard. Distinct from the item-addressed DELETE /api/items/:id/placements (dated).
+  delete '/api/placements/:pid' do
+    placement = delete_placement(params['pid'])
+    status 200
+    body placement.to_schema_object.to_json
+  end
+
   # Remove an item from a day. Body: { "collection": "<id>", "date": "YYYY-MM-DD" }.
   delete '/api/items/:id/placements' do
     json = JSON.parse(request.body.read)

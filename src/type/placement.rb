@@ -51,6 +51,12 @@ class Placement
     # "carried N weeks" count (§4.4) is *derived* from this (elapsed weeks since
     # origin), never a stored counter, so the hourly reconcile trigger is idempotent.
     {:key => 'origin_date', :required => false, :type => SchemaType::Date, :display_name => 'Origin Date'},
+    # The "not before week X" marker (design §4.4 Defer). A floating placement with a
+    # not_before is hidden from staging until the current week reaches it, then
+    # reappears — the same materialization shape as a recurring ghost. Set by
+    # defer_placement (server-computed +1 week); absent = not deferred. The render
+    # filter lives in the client (it owns the user's week-start-day).
+    {:key => 'not_before', :required => false, :type => SchemaType::Date, :display_name => 'Not Before'},
     {:key => 'time_cost', :required => false, :type => Integer, :display_name => 'Time Cost'},
     {:key => 'note', :required => false, :type => String, :display_name => 'Note'},
   ]
