@@ -59,7 +59,8 @@ class Api < Sinatra::Base
   end
 
   # Edit a placement's per-instance fields. Body: any of { "note", "time_cost",
-  # "completed" } (other keys ignored). completed_at is server-stamped.
+  # "resolution" } (other keys ignored). resolution is "completed"|"skipped"|null
+  # (null reopens); resolved_at is server-stamped.
   patch '/api/placements/:pid' do
     json = JSON.parse(request.body.read)
     placement = update_placement(params['pid'], json)

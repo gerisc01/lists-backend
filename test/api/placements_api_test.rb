@@ -223,20 +223,37 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 45, updated['time_cost']
   end
 
-  def test_update_placement_completion_stamps_completed_at
+  def test_update_placement_resolution_stamps_resolved_at
     stage('i1')
     pid = JSON.parse(last_response.body)['id']
     patch("/api/placements/#{pid}",
-          { 'completed' => true }.to_json, { 'Content-Type' => 'application/json' })
+          { 'resolution' => 'completed' }.to_json, { 'Content-Type' => 'application/json' })
     done = JSON.parse(last_response.body)
-    assert_equal true, done['completed']
-    refute_nil done['completed_at']
+    assert_equal 'completed', done['resolution']
+    refute_nil done['resolved_at']
 
     patch("/api/placements/#{pid}",
-          { 'completed' => false }.to_json, { 'Content-Type' => 'application/json' })
+          { 'resolution' => nil }.to_json, { 'Content-Type' => 'application/json' })
     reopened = JSON.parse(last_response.body)
-    assert_equal false, reopened['completed']
-    assert_nil reopened['completed_at']
+    assert_nil reopened['resolution']
+    assert_nil reopened['resolved_at']
+  end
+
+  def test_update_placement_accepts_skipped_resolution
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+    patch("/api/placements/#{pid}",
+          { 'resolution' => 'skipped' }.to_json, { 'Content-Type' => 'application/json' })
+    assert_equal 200, last_response.status
+    assert_equal 'skipped', JSON.parse(last_response.body)['resolution']
+  end
+
+  def test_update_placement_rejects_unknown_resolution
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+    patch("/api/placements/#{pid}",
+          { 'resolution' => 'bogus' }.to_json, { 'Content-Type' => 'application/json' })
+    assert_equal 400, last_response.status
   end
 
   def test_update_placement_ignores_unknown_fields
@@ -251,11 +268,11 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal true, updated['floating']  # not writable here
   end
 
-  # ── Auto-archive one-offs when all placements complete (PR 6) ────────────────
+  # ── Auto-archive one-offs when all placements resolve (PR 6 + PR 9) ──────────
 
-  def complete(pid, value = true)
+  def resolve(pid, value = 'completed')
     patch("/api/placements/#{pid}",
-          { 'completed' => value }.to_json, { 'Content-Type' => 'application/json' })
+          { 'resolution' => value }.to_json, { 'Content-Type' => 'application/json' })
   end
 
   def status_of(item_id)
@@ -265,7 +282,7 @@ class PlacementsApiTest < MinitestWrapper
   def test_board_born_item_archives_when_its_only_placement_completes
     assign('i1')
     pid = JSON.parse(last_response.body)['id']
-    complete(pid)
+    resolve(pid)
     assert_equal 'completed', status_of('i1')
     # The archive rode set_status, so the transition journal was appended.
     transitions = Item.get('i1').json['transitions']
@@ -273,25 +290,37 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 'completed', transitions.last['to']
   end
 
-  def test_board_born_item_does_not_archive_until_all_placements_complete
+  def test_board_born_item_does_not_archive_until_all_placements_resolve
     assign('i1')                                   # DATE
     first = JSON.parse(last_response.body)['id']
     assign('i1', date: '2026-07-23')               # second day
     second = JSON.parse(last_response.body)['id']
 
-    complete(first)
+    resolve(first)
     assert_equal 'want-to', status_of('i1')        # one still open — no archive
 
-    complete(second)
+    resolve(second)
     assert_equal 'completed', status_of('i1')      # both resolved — archive
   end
 
-  def test_shelf_item_does_not_auto_archive_on_placement_completion
+  def test_skipping_the_last_open_placement_archives_a_one_off
+    # A skip resolves too (§2.3/§4.4), so a mix of complete + skip closes the set.
+    assign('i1')
+    first = JSON.parse(last_response.body)['id']
+    assign('i1', date: '2026-07-23')
+    second = JSON.parse(last_response.body)['id']
+
+    resolve(first, 'completed')
+    resolve(second, 'skipped')
+    assert_equal 'completed', status_of('i1')
+  end
+
+  def test_shelf_item_does_not_auto_archive_on_placement_resolution
     List.new({'id' => 'l1', 'name' => 'Shelf', 'items' => ['i1']}).save!
     assign('i1')
     pid = JSON.parse(last_response.body)['id']
-    complete(pid)
-    # A shelf (reusable) item is not a one-off — completing an instance leaves its
+    resolve(pid)
+    # A shelf (reusable) item is not a one-off — resolving an instance leaves its
     # lifecycle untouched (a `doing` game completing a session stays `doing`).
     assert_equal 'want-to', status_of('i1')
   end
@@ -299,11 +328,11 @@ class PlacementsApiTest < MinitestWrapper
   def test_auto_archive_is_idempotent
     assign('i1')
     pid = JSON.parse(last_response.body)['id']
-    complete(pid)
+    resolve(pid)
     assert_equal 'completed', status_of('i1')
     assert_equal 1, Item.get('i1').json['transitions'].size
 
-    complete(pid)                                  # re-complete: already terminal
+    resolve(pid)                                   # re-resolve: already terminal
     assert_equal 'completed', status_of('i1')
     assert_equal 1, Item.get('i1').json['transitions'].size  # no duplicate transition
   end
@@ -311,7 +340,7 @@ class PlacementsApiTest < MinitestWrapper
   def test_reopening_a_placement_does_not_re_archive
     assign('i1')
     pid = JSON.parse(last_response.body)['id']
-    complete(pid, false)                           # completed:false never resolves
+    resolve(pid, nil)                              # resolution:nil never resolves
     assert_equal 'want-to', status_of('i1')
   end
 

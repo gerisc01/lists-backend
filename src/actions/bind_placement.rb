@@ -14,6 +14,9 @@ def bind_placement(placement_id, date)
 
   placement.date = date
   placement.floating = false
+  # First dating stamps the immutable carry-forward anchor; a re-date (or a carried
+  # placement being re-bound) preserves the original origin. See Placement#origin_date.
+  placement.origin_date ||= date
   placement.validate
   placement.save!
   placement

@@ -1,3 +1,4 @@
+require 'date'
 require_relative '../type/item'
 require_relative '../type/list'
 require_relative '../type/status'
@@ -11,23 +12,24 @@ require_relative './set_status'
 # means nothing is left — a safe auto-archive, NOT the fragile roll-up inference the
 # design bans for reusable multi-day work.
 #
-# PR 6 scope = COMPLETION-ONLY: a placement is "resolved" when `completed`. Event
-# "past = resolved" and task "past carries" land in PR 9 (carry-forward/Skip), where
-# past-handling actually lives. Archiving reuses set_status(item, 'completed') so the
-# transition journal is appended — archive is a status transition, never a deletion.
-def maybe_auto_archive(item_id)
+# "Resolved" is the full §2.3 rule (Placement#resolved?): an explicit completed/
+# skipped resolution, OR an *event* whose day is past (a past task carries, so it
+# is NOT resolved and blocks archive). Archiving reuses set_status(item,'completed')
+# so the transition journal is appended — archive is a status transition, never a
+# deletion. Returns the archived item (for reconcile to collect) or nil.
+def maybe_auto_archive(item_id, as_of_date: Date.today.iso8601)
   # Only board-born (one-off) items auto-archive. A shelf item (in any list) must NOT
-  # archive when a placement completes — a `doing` game completing a session-placement
+  # archive when a placement resolves — a `doing` game completing a session-placement
   # stays `doing`. Having a shelf home is the whole distinction (§2.2).
   return if item_has_shelf_home?(item_id)
-
-  placements = Placement.for_item(item_id)
-  return if placements.empty?
-  return unless placements.all? { |p| p.completed == true }
 
   item = Item.get(item_id)
   return if item.nil?
   return if Status.done?(item.json['status'])  # already terminal — idempotent no-op
+
+  placements = Placement.for_item(item_id)
+  return if placements.empty?
+  return unless placements.all? { |p| p.resolved?(item, as_of_date: as_of_date) }
 
   set_status(item_id, 'completed')
 end

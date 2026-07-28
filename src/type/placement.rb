@@ -4,6 +4,8 @@ require 'ruby-schema-storage'
 require_relative '../storage'
 require_relative './item'
 require_relative './collection'
+require_relative './resolution'
+require_relative './scheduling'
 
 # A Placement is one instance of an item being planned on a day (or floating,
 # dayless, in staging). It REFERENCES the catalog item by id — never a copy — so
@@ -37,14 +39,40 @@ class Placement
     {:key => 'floating', :required => false, :type => SchemaType::Boolean, :display_name => 'Floating'},
     # A flagged (priority) placement — folds in Day.priorities.
     {:key => 'priority', :required => false, :type => SchemaType::Boolean, :display_name => 'Priority'},
-    # Per-instance fields (fully exercised in later slices; defined now so the
-    # entity is whole): did this instance happen, when, its actual time cost, a note.
-    {:key => 'completed', :required => false, :type => SchemaType::Boolean, :display_name => 'Completed'},
-    {:key => 'completed_at', :required => false, :type => String, :display_name => 'Completed At'},
+    # How this instance was closed — `completed` | `skipped`, enforced by the
+    # Resolution type; ABSENT = open (no sentinel). `resolved_at` is server-stamped
+    # when a resolution is set (mirroring set_status's timestamp). A third,
+    # *derived* resolution — an event whose day is past — is computed by `resolved?`,
+    # not stored. See docs/DECISIONS.md "placement resolution = completed|skipped".
+    {:key => 'resolution', :required => false, :type => Resolution, :display_name => 'Resolution'},
+    {:key => 'resolved_at', :required => false, :type => String, :display_name => 'Resolved At'},
+    # The ORIGINAL date this placement was first bound to — immutable, stamped on
+    # first dating and never overwritten when carry-forward re-floats it. The
+    # "carried N weeks" count (§4.4) is *derived* from this (elapsed weeks since
+    # origin), never a stored counter, so the hourly reconcile trigger is idempotent.
+    {:key => 'origin_date', :required => false, :type => SchemaType::Date, :display_name => 'Origin Date'},
     {:key => 'time_cost', :required => false, :type => Integer, :display_name => 'Time Cost'},
     {:key => 'note', :required => false, :type => String, :display_name => 'Note'},
   ]
   apply_schema schema
+
+  # ── Resolution (per design §2.3/§4.4) ────────────────────────────────────────
+  # Is this instance resolved as of `as_of_date`? An explicit resolution
+  # (completed/skipped) always resolves; beyond that a past *event* is resolved
+  # (its day came and went) while a past *task* is NOT (it carries forward). The
+  # kind comes from the referenced item's scheduling (defaulting to task). This is
+  # the single predicate both auto-archive and reconcile read.
+  def resolved?(item, as_of_date:)
+    return true unless resolution.nil?
+    Scheduling.event?(item) && past?(as_of_date)
+  end
+
+  # A dated placement whose day is fully past (strictly before as_of_date — the
+  # "day is over" boundary; the same day is still live). Floating placements have
+  # no day, so they are never "past".
+  def past?(as_of_date)
+    !date.nil? && date < as_of_date
+  end
 
   # ── Queries (indexed by date and by item; scans the store, which is fine at this
   # app's scale — a sole-user planner) ────────────────────────────────────────────

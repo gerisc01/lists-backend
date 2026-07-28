@@ -3,6 +3,7 @@ require_relative '../helpers'
 require_relative '../../src/type/placement'
 require_relative '../../src/type/item'
 require_relative '../../src/type/collection'
+require_relative '../../src/type/scheduling'
 
 class PlacementTest < MinitestWrapper
 
@@ -90,6 +91,50 @@ class PlacementTest < MinitestWrapper
     view = Placement.day_view('2026-07-22')
     assert_equal [@item.id, @item2.id].sort, view['items'][@collection.id].sort
     assert_equal [@item2.id], view['priorities'][@collection.id]
+  end
+
+  # ── resolution / origin_date (PR 9a) ────────────────────────────────────────
+
+  def test_resolution_and_origin_date_round_trip
+    p = new_placement({'resolution' => 'completed', 'resolved_at' => '2026-07-22T00:00:00Z',
+                       'origin_date' => '2026-07-20'})
+    p.validate
+    p.save!
+    reloaded = Placement.get(p.id)
+    assert_equal 'completed', reloaded.resolution
+    assert_equal '2026-07-22T00:00:00Z', reloaded.resolved_at
+    assert_equal '2026-07-20', reloaded.origin_date
+  end
+
+  def test_rejects_unknown_resolution
+    assert_raises(Schema::ValidationError) do
+      new_placement({'resolution' => 'bogus'}).validate
+    end
+  end
+
+  def test_past_only_true_for_a_dated_day_strictly_before
+    dated = new_placement({'date' => '2026-07-22'})
+    assert dated.past?('2026-07-23')                 # day is over
+    refute dated.past?('2026-07-22')                 # same day is still live
+    refute dated.past?('2026-07-21')                 # future
+    floating = new_placement({'date' => nil, 'floating' => true})
+    refute floating.past?('2030-01-01')              # dayless is never past
+  end
+
+  def test_resolved_predicate_depends_on_scheduling_kind
+    task = Item.new({'id' => 'task', 'name' => 'Task'})           # default kind = task
+    event = Item.new({'id' => 'event', 'name' => 'Event', 'scheduling' => {'type' => 'event'}})
+    [task, event].each(&:save!)
+    past = new_placement({'date' => '2026-07-22'})                # no resolution set
+
+    # A past TASK is NOT resolved — it carries forward.
+    refute past.resolved?(task, as_of_date: '2026-07-23')
+    # A past EVENT IS resolved — its day came and went.
+    assert past.resolved?(event, as_of_date: '2026-07-23')
+    # An explicit resolution resolves regardless of kind or date.
+    done = new_placement({'resolution' => 'skipped'})
+    assert done.resolved?(task, as_of_date: '2026-07-23')
+    assert done.resolved?(event, as_of_date: '2026-07-23')
   end
 
   def test_floating_for_collection_only_returns_floating

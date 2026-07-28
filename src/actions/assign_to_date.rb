@@ -18,6 +18,9 @@ def assign_to_date(item_id, date, collection_id)
     'collection_id' => collection_id,
     'date' => date,
     'floating' => false,
+    # Immutable anchor for the carry-forward count — the original date this
+    # instance was first placed on (see Placement#origin_date). Set once here.
+    'origin_date' => date,
   })
   placement.validate
   placement.save!

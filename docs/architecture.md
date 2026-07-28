@@ -74,7 +74,9 @@ Key behaviors:
 
 Actions are multi-step workflows defined as `Action` schema objects. Each step names an action method (registered in `src/actions/item_actions.rb`) and provides params. Steps can reference results from previous steps using a param interpolation syntax. Execution is sequential; any step failure halts the chain.
 
-Available action implementations: `move_item`, `copy_item`, `duplicate_item`, `remove_item`, `promote_group_item`, `set_field`, `add_item_to_field`.
+Available action implementations: `move_item`, `copy_item`, `duplicate_item`, `remove_item`, `promote_group_item`, `set_field`, `add_item_to_field`, `set_status`, `assign_to_date`, `remove_from_date`, `set_placement_priority`, `create_floating_placement`, `bind_placement`, `update_placement`.
+
+Not every primitive is registered in the registry. `maybe_auto_archive` (one-off archive-on-resolve) and `reconcile` (`src/actions/reconcile.rb` — the idempotent carry-forward / past-resolution / auto-archive-of-past pass, keyed off `Placement#resolved?` and the item's `scheduling.type`) are plain functions composed by other actions, not registry-invocable steps. `reconcile` is pure and takes an injectable `as_of_date`; its trigger (an external loop hitting an endpoint + a weekly-planner-load call) is deferred to PR 9b.
 
 ## Auth
 
