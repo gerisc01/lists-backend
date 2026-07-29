@@ -151,4 +151,35 @@ class PlacementTest < MinitestWrapper
     assert_equal true, floating.first.floating
   end
 
+  # ── Cross-collection queries (PR 8) ──────────────────────────────────────────
+
+  def test_floating_for_collections_spans_the_set
+    Collection.new({'id' => 'c2', 'name' => 'Two'}).save!
+    Collection.new({'id' => 'c3', 'name' => 'Three'}).save!
+    new_placement({'date' => nil, 'floating' => true}).tap(&:validate).save!  # c1 floating
+    new_placement({'date' => nil, 'floating' => true, 'item_id' => @item2.id, 'collection_id' => 'c2'})
+      .tap(&:validate).save!                                                  # c2 floating
+    new_placement({'date' => nil, 'floating' => true, 'item_id' => @item2.id, 'collection_id' => 'c3'})
+      .tap(&:validate).save!                                                  # c3 floating — not requested
+    new_placement.tap(&:validate).save!                                       # c1 dated — excluded
+
+    floating = Placement.floating_for_collections(['c1', 'c2'])
+    assert_equal [@collection.id, 'c2'].sort, floating.map(&:collection_id).sort
+    assert(floating.all? { |p| p.floating == true && p.date.nil? })
+  end
+
+  def test_day_map_for_collections_groups_by_date_across_the_set
+    Collection.new({'id' => 'c2', 'name' => 'Two'}).save!
+    new_placement({'date' => '2026-07-22'}).tap(&:validate).save!             # c1 @ 07-22
+    new_placement({'date' => '2026-07-22', 'item_id' => @item2.id, 'collection_id' => 'c2'})
+      .tap(&:validate).save!                                                  # c2 @ 07-22
+    Collection.new({'id' => 'c3', 'name' => 'Three'}).save!
+    new_placement({'date' => '2026-07-23', 'item_id' => @item2.id, 'collection_id' => 'c3'})
+      .tap(&:validate).save!                                                  # c3 @ 07-23 — not requested
+
+    map = Placement.day_map_for_collections(['c1', 'c2'], '2026-07-20', '2026-07-26')
+    refute map.key?('2026-07-23')   # c3 excluded (check before the default-block access below)
+    assert_equal [@item.id, @item2.id].sort, map['2026-07-22'].sort
+  end
+
 end

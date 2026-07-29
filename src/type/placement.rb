@@ -98,6 +98,14 @@ class Placement
     self.list.select { |p| p.collection_id == collection_id && p.floating == true && p.date.nil? }
   end
 
+  # Floating (dayless) placements across a SET of collections — the cross-collection
+  # staging pile (PR 8). One scan; the caller groups by collection_id (which
+  # to_schema_object already emits). Returns full placements for the same reason
+  # floating_for_collection does: binding is addressed by placement id.
+  def self.floating_for_collections(collection_ids)
+    self.list.select { |p| collection_ids.include?(p.collection_id) && p.floating == true && p.date.nil? }
+  end
+
   def self.for_date_range(start_date, end_date)
     self.list.select { |p| !p.date.nil? && p.date >= start_date && p.date <= end_date }
   end
@@ -116,6 +124,17 @@ class Placement
     result = Hash.new { |h, k| h[k] = [] }
     for_date_range(start_date, end_date).each do |p|
       result[p.date] << p.item_id if p.collection_id == collection_id
+    end
+    result
+  end
+
+  # The cross-collection weekly-planning range read (PR 8): { date => [item_ids] }
+  # across a SET of collections. Keeps a placement's source collection provenance —
+  # a card bound from any staged collection stays on the mixed grid.
+  def self.day_map_for_collections(collection_ids, start_date, end_date)
+    result = Hash.new { |h, k| h[k] = [] }
+    for_date_range(start_date, end_date).each do |p|
+      result[p.date] << p.item_id if collection_ids.include?(p.collection_id)
     end
     result
   end

@@ -1,5 +1,6 @@
 require_relative '../type/placement'
 require_relative '../actions/item_actions'
+require_relative '../actions/auto_archive'
 
 # Thin front doors over the placement primitives (assign_to_date / remove_from_date
 # / set_placement_priority), which are also registry-registered for composition —
@@ -18,6 +19,38 @@ class Api < Sinatra::Base
     raise ListError::BadRequest, "'start' date must be before 'end' date." if params['start'] > params['end']
     status 200
     body Placement.day_map_for_collection(params['id'], params['start'], params['end']).to_json
+  end
+
+  # Cross-collection weekly-planning range read (PR 8): items placed across a SET of
+  # collections in a date range → { "YYYY-MM-DD": ["item_id", ...] }. The mixed-grid
+  # counterpart of the single-collection read above; a card bound from any staged
+  # collection stays on the grid. Query: ?collections=c1,c2&start&end.
+  get '/api/placements' do
+    collection_ids = params['collections'].to_s.split(',').reject(&:empty?)
+    if collection_ids.empty?
+      raise ListError::BadRequest, "Query parameter 'collections' must be a non-empty comma-separated list of collection ids."
+    end
+    if params['start'].to_s.empty? || params['end'].to_s.empty?
+      raise ListError::BadRequest, "Query parameters must contain 'start' and 'end' dates."
+    end
+    raise ListError::BadRequest, "'start' date must be before 'end' date." if params['start'] > params['end']
+    status 200
+    body Placement.day_map_for_collections(collection_ids, params['start'], params['end']).to_json
+  end
+
+  # Cross-collection floating staging pile (PR 8): floating placements across a SET
+  # of collections. Query: ?collections=c1,c2,c3. Full objects (binding is by
+  # placement id), each carrying its source collection_id (for grouping) plus a
+  # DERIVED `one_off` flag (item has no shelf/list home) so the client can bucket
+  # board-born one-offs — reuses the canonical item_has_shelf_home? predicate.
+  get '/api/placements/floating' do
+    collection_ids = params['collections'].to_s.split(',').reject(&:empty?)
+    if collection_ids.empty?
+      raise ListError::BadRequest, "Query parameter 'collections' must be a non-empty comma-separated list of collection ids."
+    end
+    placements = Placement.floating_for_collections(collection_ids)
+    status 200
+    body placements.map { |p| p.to_schema_object.merge('one_off' => !item_has_shelf_home?(p.item_id)) }.to_json
   end
 
   # Placements for one item (reverse lookup: "what days is this item on").

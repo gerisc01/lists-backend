@@ -185,6 +185,61 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 'i1', floating.first['item_id']
   end
 
+  # ── Cross-collection staging pile + mixed grid (PR 8) ───────────────────────
+
+  def test_cross_collection_floating_read_spans_the_requested_set
+    Collection.new({'id' => 'c2', 'name' => 'Two'}).save!
+    Collection.new({'id' => 'c3', 'name' => 'Three'}).save!
+    stage('i1')                               # floating in c1
+    stage('i2', collection: 'c2')             # floating in c2
+    stage('i3', collection: 'c3')             # floating in c3 — not requested
+    assign('i4')                              # dated in c1 — excluded (not floating)
+    get('/api/placements/floating?collections=c1,c2')
+    assert_equal 200, last_response.status
+    floating = JSON.parse(last_response.body)
+    assert_equal %w[i1 i2].sort, floating.map { |p| p['item_id'] }.sort
+    # source collection provenance is present for grouping
+    assert_equal({ 'i1' => 'c1', 'i2' => 'c2' },
+                 floating.map { |p| [p['item_id'], p['collection_id']] }.to_h)
+  end
+
+  def test_cross_collection_floating_read_flags_one_offs
+    List.new({'id' => 'l1', 'name' => 'Shelf', 'items' => ['i1']}).save!
+    stage('i1')                               # i1 has a shelf home
+    stage('i2')                               # i2 is board-born (no list)
+    get('/api/placements/floating?collections=c1')
+    floating = JSON.parse(last_response.body)
+    one_off = floating.map { |p| [p['item_id'], p['one_off']] }.to_h
+    assert_equal false, one_off['i1']
+    assert_equal true, one_off['i2']
+  end
+
+  def test_cross_collection_floating_read_requires_collections
+    get('/api/placements/floating')
+    assert_equal 400, last_response.status
+    get('/api/placements/floating?collections=')
+    assert_equal 400, last_response.status
+  end
+
+  def test_cross_collection_range_read_spans_the_set_and_keeps_provenance
+    Collection.new({'id' => 'c2', 'name' => 'Two'}).save!
+    Collection.new({'id' => 'c3', 'name' => 'Three'}).save!
+    assign('i1')                              # c1 @ DATE
+    assign('i2', collection: 'c2')            # c2 @ DATE
+    assign('i3', collection: 'c3')            # c3 @ DATE — not requested
+    get('/api/placements?collections=c1,c2&start=2026-07-20&end=2026-07-26')
+    assert_equal 200, last_response.status
+    map = JSON.parse(last_response.body)
+    assert_equal %w[i1 i2].sort, map[DATE].sort
+  end
+
+  def test_cross_collection_range_read_requires_collections_and_dates
+    get('/api/placements?start=2026-07-20&end=2026-07-26')
+    assert_equal 400, last_response.status
+    get('/api/placements?collections=c1')
+    assert_equal 400, last_response.status
+  end
+
   def test_bind_flips_floating_to_dated
     stage('i1')
     pid = JSON.parse(last_response.body)['id']
