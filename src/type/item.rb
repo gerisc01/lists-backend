@@ -27,9 +27,10 @@ class Item
     # Append-only status history; entries shaped/validated by the Transition type.
     {:key => 'transitions', :required => false, :type => Array, :subtype => Transition, :display_name => 'Transitions'},
     # Planning kind ({ 'type' => 'event' | 'task' }), enforced by the Scheduling
-    # type. Absent reads as `task` (§2.2). Object, not a bare enum, so PR 12's
-    # recurrence rule folds into the same `scheduling` home. First reader is
-    # carry-forward (reconcile): tasks carry when their day passes, events resolve.
+    # type. Absent reads as `task` (§2.2). Object, not a bare enum, so the optional
+    # recurrence rule lives at `scheduling.recurrence` (see recurrence.rb) rather
+    # than a second top-level field. First reader is carry-forward (reconcile): tasks
+    # carry when their day passes, events resolve.
     {:key => 'scheduling', :required => false, :type => Scheduling, :display_name => 'Scheduling'},
   ]
   apply_schema schema

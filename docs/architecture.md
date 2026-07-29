@@ -88,10 +88,28 @@ Auth validates that the header value matches a persisted Account ID. There are n
 
 ## Recurring Events
 
-Recurring items use a parent-child model:
+**Two models coexist during the PR 12+ rebuild.** The new rule-based model (below) is being
+built to replace the legacy parent-child one; as of PR 12 it is backend-only/shadow — nothing
+reads it yet — so the legacy path stays live but frozen (no new create/edit from the app).
+
+### Rule-based model (new — design §2.5, PR 12+)
+A recurrence is a **rule on the catalog item**, folded into `item.scheduling.recurrence`
+(validated by `src/type/recurrence.rb`), that keeps **one live occurrence per period**:
+- Rule shape: `{cadence, interval, mode, anchor, collection_id, active?, start_date?}`. PR 12
+  scope is absolute weekly with `floating` / `fixed-day` anchoring; other cadences/anchors and
+  relative mode are deferred.
+- Untouched occurrences are **ghosts** — computed for the visible week by
+  `occurrences_for_week` (`src/actions/occurrences.rb`, a pure primitive modeled on
+  `reconcile`, not registered as an action), never stored. A `Placement` row persists only once
+  an occurrence is **touched** (placed/completed/carried/skipped); a persisted placement in a
+  period suppresses that week's ghost.
+- Invariants: at most one live occurrence per rule per week; an untouched occurrence carries
+  forward until the next comes due, then expires. No REST wiring / FE yet (PR 13).
+
+### Legacy parent-child model (frozen, being retired)
 - Parent item holds the recurrence spec (`recurring-event` field: `{interval, type, end-date}`) and a `recurring-children` array
 - Child items hold a `recurring-parent` reference
 - All recurring items are tagged with the `recurring-item` template
-- Endpoints: `POST/PUT/DELETE /api/dates/:day/recurring`
+- Endpoints: `POST/PUT/DELETE /api/dates/:day/recurring` (dormant — FE no longer calls create/edit)
 - `DateHelpers` module in `src/api/helpers/date_helpers.rb` orchestrates the create/modify/delete lifecycle
 - Dates are grouped by **collection**, not list (see `docs/decisions.md` for rationale)

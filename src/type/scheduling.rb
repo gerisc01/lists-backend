@@ -11,13 +11,37 @@
 # Absent reads as `task` (§2.2: an unconsidered quick-add *persists*/carries rather
 # than silently vanishing — the safe default; `event` is the deliberate opt-in for
 # calendar anchors that resolve when their day passes).
+require_relative './recurrence'
+
 class Scheduling
 
   TYPES   = %w[event task].freeze
   DEFAULT = 'task'
 
   def self.type_match?(value)
-    value.is_a?(Hash) && TYPES.include?(value['type'])
+    return false unless value.is_a?(Hash) && TYPES.include?(value['type'])
+    # The optional recurrence rule folds into this same object (PR 12); when present
+    # it must satisfy the Recurrence shape. Absent => a plain event/task, unchanged.
+    return Recurrence.type_match?(value['recurrence']) if value.key?('recurrence')
+    true
+  end
+
+  # The recurrence rule sub-object (nil/absent => not recurring).
+  def self.recurrence_of(scheduling)
+    return nil if scheduling.nil?
+    scheduling['recurrence']
+  end
+
+  # Does this item carry a recurrence rule at all (active or paused)?
+  def self.recurring?(item)
+    !recurrence_of(item.json['scheduling']).nil?
+  end
+
+  # Does this item carry a rule that is currently emitting occurrences? A paused rule
+  # (active: false) is recurring? but not active_recurrence? (design §2.5).
+  def self.active_recurrence?(item)
+    rule = recurrence_of(item.json['scheduling'])
+    !rule.nil? && Recurrence.active_of(rule)
   end
 
   # The scheduling type for an item's raw `scheduling` value (nil/absent => DEFAULT).
