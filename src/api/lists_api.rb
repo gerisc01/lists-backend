@@ -88,7 +88,7 @@ class Api < Sinatra::Base
     item = ItemGeneric.get(params['itemId'])
     raise ListError::NotFound, "Item (#{id}) Not Found" if item.nil?
     item.merge!(get_json_payload(request))
-    item.add_template(list.template) if list.template && (item.templates.nil? || !item.templates.has?(list.template))
+    item.add_template(list.template) if list.template && (item.templates.nil? || !item.templates.include?(list.template))
     item.validate
     item.save!
     status 200
