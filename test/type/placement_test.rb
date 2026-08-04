@@ -151,6 +151,16 @@ class PlacementTest < MinitestWrapper
     assert_equal true, floating.first.floating
   end
 
+  def test_floating_for_collection_excludes_orphaned_placement
+    # A floating placement whose item is later deleted is an orphan — the staging
+    # read must not return it (reconcile prunes the dead row for good later).
+    new_placement({'date' => nil, 'floating' => true}).tap(&:validate).save!
+    assert_equal 1, Placement.floating_for_collection(@collection.id).size
+
+    @item.delete!                                   # soft-delete the item out from under it
+    assert_empty Placement.floating_for_collection(@collection.id)
+  end
+
   # ── Cross-collection queries (PR 8) ──────────────────────────────────────────
 
   def test_floating_for_collections_spans_the_set
@@ -166,6 +176,19 @@ class PlacementTest < MinitestWrapper
     floating = Placement.floating_for_collections(['c1', 'c2'])
     assert_equal [@collection.id, 'c2'].sort, floating.map(&:collection_id).sort
     assert(floating.all? { |p| p.floating == true && p.date.nil? })
+  end
+
+  def test_floating_for_collections_excludes_orphaned_placement
+    Collection.new({'id' => 'c2', 'name' => 'Two'}).save!
+    new_placement({'date' => nil, 'floating' => true}).tap(&:validate).save!  # c1, @item
+    new_placement({'date' => nil, 'floating' => true, 'item_id' => @item2.id, 'collection_id' => 'c2'})
+      .tap(&:validate).save!                                                  # c2, @item2
+    assert_equal 2, Placement.floating_for_collections(['c1', 'c2']).size
+
+    @item.delete!                                   # only @item's placement is now orphaned
+    remaining = Placement.floating_for_collections(['c1', 'c2'])
+    assert_equal ['c2'], remaining.map(&:collection_id)
+    assert_equal @item2.id, remaining.first.item_id
   end
 
   def test_day_map_for_collections_groups_by_date_across_the_set

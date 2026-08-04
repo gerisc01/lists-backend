@@ -93,17 +93,27 @@ class Placement
 
   # Floating (dayless) placements for one collection — the staging pile for that
   # collection. Returns full placements (not just item_ids) because binding one to
-  # a day is addressed by its placement id.
+  # a day is addressed by its placement id. Orphaned placements (whose item was
+  # deleted out from under them) are excluded: a placement is only real if its item
+  # still exists — `Item.get` returns nil for a soft-deleted item. reconcile prunes
+  # the dead rows for good; this read keeps them out until it does.
   def self.floating_for_collection(collection_id)
-    self.list.select { |p| p.collection_id == collection_id && p.floating == true && p.date.nil? }
+    self.list.select do |p|
+      p.collection_id == collection_id && p.floating == true && p.date.nil? &&
+        !Item.get(p.item_id).nil?
+    end
   end
 
   # Floating (dayless) placements across a SET of collections — the cross-collection
   # staging pile (PR 8). One scan; the caller groups by collection_id (which
   # to_schema_object already emits). Returns full placements for the same reason
-  # floating_for_collection does: binding is addressed by placement id.
+  # floating_for_collection does: binding is addressed by placement id. Same
+  # orphan-exclusion guard as the single-collection read above.
   def self.floating_for_collections(collection_ids)
-    self.list.select { |p| collection_ids.include?(p.collection_id) && p.floating == true && p.date.nil? }
+    self.list.select do |p|
+      collection_ids.include?(p.collection_id) && p.floating == true && p.date.nil? &&
+        !Item.get(p.item_id).nil?
+    end
   end
 
   def self.for_date_range(start_date, end_date)

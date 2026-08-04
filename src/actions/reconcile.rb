@@ -28,6 +28,14 @@ require_relative './auto_archive'
 def reconcile(as_of_date: Date.today.iso8601)
   carried = []
 
+  # 0. Prune orphaned placements — the item was deleted out from under them (design:
+  #    the item is the source of truth, so a placement referencing a gone item isn't
+  #    real). Do this first so the carry/archive scans below never touch dead rows.
+  #    Idempotent: once deleted the row is gone. Matches the read-side guard in
+  #    Placement.floating_for_collection(s), which hides these until this sweep runs.
+  pruned = Placement.list.select { |p| Item.get(p.item_id).nil? }
+  pruned.each(&:delete!)
+
   # 1. Carry-forward lapsed dated tasks. Scan is fine at sole-user scale.
   Placement.list.each do |placement|
     next unless placement.past?(as_of_date)          # dated + day fully over
@@ -53,5 +61,5 @@ def reconcile(as_of_date: Date.today.iso8601)
     maybe_auto_archive(item_id, as_of_date: as_of_date)
   end.compact
 
-  { 'carried' => carried.map(&:id), 'archived' => archived.map(&:id) }
+  { 'carried' => carried.map(&:id), 'archived' => archived.map(&:id), 'pruned' => pruned.map(&:id) }
 end

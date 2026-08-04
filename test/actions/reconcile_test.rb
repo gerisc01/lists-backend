@@ -94,6 +94,33 @@ class ReconcileTest < MinitestWrapper
     refute_nil Placement.for_item('shelf').first.date
   end
 
+  # ── Prune orphaned placements (item deleted out from under them) ─────────────
+
+  def test_prunes_placements_whose_item_was_deleted
+    new_item('gone')
+    floater = floating('gone')
+    dated_p = dated('gone', PAST)
+    Item.get('gone').delete!                 # soft-delete the item; both placements orphaned
+
+    result = reconcile(as_of_date: AS_OF)
+    assert_equal [floater.id, dated_p.id].sort, result['pruned'].sort
+    assert_nil Placement.get(floater.id)     # rows deleted for good
+    assert_nil Placement.get(dated_p.id)
+  end
+
+  def test_prune_leaves_valid_placements_and_is_idempotent
+    new_item('gone')
+    floating('gone')
+    new_item('keep')
+    kept = floating('keep')
+    Item.get('gone').delete!
+
+    reconcile(as_of_date: AS_OF)
+    second = reconcile(as_of_date: AS_OF)    # nothing left to prune
+    assert_empty second['pruned']
+    refute_nil Placement.get(kept.id)        # valid placement untouched
+  end
+
   # ── Auto-archive of past (events + closed sets) ──────────────────────────────
 
   def test_one_off_event_archives_when_its_day_passes
