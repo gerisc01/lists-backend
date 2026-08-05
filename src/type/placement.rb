@@ -51,12 +51,19 @@ class Placement
     # "carried N weeks" count (§4.4) is *derived* from this (elapsed weeks since
     # origin), never a stored counter, so the hourly reconcile trigger is idempotent.
     {:key => 'origin_date', :required => false, :type => SchemaType::Date, :display_name => 'Origin Date'},
-    # The "not before week X" marker (design §4.4 Defer). A floating placement with a
-    # not_before is hidden from staging until the current week reaches it, then
-    # reappears — the same materialization shape as a recurring ghost. Set by
-    # defer_placement (server-computed +1 week); absent = not deferred. The render
-    # filter lives in the client (it owns the user's week-start-day).
+    # The "not before week X" marker (legacy Defer, design §4.4). VESTIGIAL as of the
+    # weekly-plan reframe (docs/DECISIONS.md): staged_week is now the single week
+    # anchor and Defer moves it forward, so nothing writes not_before anymore. Field
+    # kept so old rows validate; safe to drop in a later cleanup.
     {:key => 'not_before', :required => false, :type => SchemaType::Date, :display_name => 'Not Before'},
+    # The week (Monday week-start, YYYY-MM-DD) a FLOATING placement is staged into
+    # (docs/DECISIONS.md "Weekly planning is a weekly PLAN"). The planner is a lean
+    # weekly plan, not a weekless backlog: the staging pile reads only placements
+    # whose staged_week == the visible week. Stamped on stage (current week),
+    # re-stamped on re-stage, and moved +1 week by Defer. Irrelevant once dated (a
+    # dated placement is scoped by its date). reconcile releases placements whose
+    # staged_week is behind the current week.
+    {:key => 'staged_week', :required => false, :type => SchemaType::Date, :display_name => 'Staged Week'},
     {:key => 'time_cost', :required => false, :type => Integer, :display_name => 'Time Cost'},
     {:key => 'note', :required => false, :type => String, :display_name => 'Note'},
   ]
@@ -104,14 +111,21 @@ class Placement
     end
   end
 
-  # Floating (dayless) placements across a SET of collections — the cross-collection
-  # staging pile (PR 8). One scan; the caller groups by collection_id (which
-  # to_schema_object already emits). Returns full placements for the same reason
-  # floating_for_collection does: binding is addressed by placement id. Same
-  # orphan-exclusion guard as the single-collection read above.
-  def self.floating_for_collections(collection_ids)
+  # Floating (dayless) placements across a SET of collections for ONE week — the
+  # cross-collection staging pile (PR 8), now week-scoped (docs/DECISIONS.md "Weekly
+  # planning is a weekly PLAN"). Returns only placements staged for `week_start` and
+  # still OPEN (resolution nil): the planner is this-week's plan, so other weeks and
+  # resolved placements don't surface. Deferred placements appear for free — Defer
+  # just moves staged_week forward, so they match once their week arrives. One scan;
+  # the caller groups by collection_id. Same orphan-exclusion guard as before.
+  #
+  # `week_start` may be nil, in which case the scan falls back to all floating
+  # placements (legacy/unfiltered) — callers that own a week always pass one.
+  def self.floating_for_collections(collection_ids, week_start = nil)
     self.list.select do |p|
       collection_ids.include?(p.collection_id) && p.floating == true && p.date.nil? &&
+        p.resolution.nil? &&
+        (week_start.nil? || p.staged_week == week_start) &&
         !Item.get(p.item_id).nil?
     end
   end

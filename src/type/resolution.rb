@@ -11,10 +11,14 @@
 class Resolution
 
   # `completed` = it happened; `skipped` = it genuinely didn't need to (the §2.5
-  # occurrence/leftover killer, also a §4.4 staging exit). A third derived case —
-  # an *event* whose day is past — is NOT a stored value: it's computed by
-  # Placement#resolved? from the item's scheduling kind, so events need no write.
-  VALUES = %w[completed skipped].freeze
+  # occurrence/leftover killer, also a §4.4 staging exit); `lapsed` = a weekly-plan
+  # item that was staged for a week and never acted on, released by reconcile when
+  # that week passed (its own outcome, distinct from a deliberate `skipped`, so a
+  # future per-week report can tell "sat there, did nothing" apart from "chose not
+  # to"). See docs/DECISIONS.md "Weekly planning is a weekly PLAN, not a backlog".
+  # A fourth, derived case — an *event* whose day is past — is NOT a stored value:
+  # it's computed by Placement#resolved? from the item's scheduling kind.
+  VALUES = %w[completed skipped lapsed].freeze
 
   def self.type_match?(value)
     VALUES.include?(value)

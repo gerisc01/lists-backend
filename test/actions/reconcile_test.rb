@@ -5,14 +5,17 @@ require_relative '../../src/type/list'
 require_relative '../../src/type/placement'
 require_relative '../../src/actions/reconcile'
 
-# PR 9a — the pure, idempotent reconcile primitive: carry-forward lapsed one-off
-# tasks, resolve past events (derived), auto-archive one-offs whose sets closed.
-# `as_of_date` is injected so "a week later" is deterministic. Dates here sit
-# before/after the fixed AS_OF so the past/future split is explicit.
+# The reconcile primitive under the weekly-plan reframe (docs/DECISIONS.md "Weekly
+# planning is a weekly PLAN, not a backlog"): reconcile RELEASES the past week instead
+# of carrying it forward. A floating shelf item un-stages (deleted, item stays on its
+# shelf); a one-off task lapses (resolution 'lapsed', retained) and then auto-archives;
+# past events resolve by derivation. `as_of_date` is injected so "a week later" is
+# deterministic. AS_OF is a Monday, so its week-start (monday_of) is AS_OF itself.
 class ReconcileTest < MinitestWrapper
 
-  AS_OF = '2026-07-27'
-  PAST  = '2026-07-20'   # strictly before AS_OF — a day that is over
+  AS_OF = '2026-07-27'   # a Monday — monday_of(AS_OF) == AS_OF
+  PAST  = '2026-07-20'   # the prior Monday — a week that is over
+  NEXT  = '2026-08-03'   # the next Monday — a future week (deferred target)
   TODAY = '2026-07-27'   # the same day — still live, not past
 
   def setup
@@ -41,57 +44,126 @@ class ReconcileTest < MinitestWrapper
     }.merge(overrides)).tap(&:validate).tap(&:save!)
   end
 
-  # ── Carry-forward ────────────────────────────────────────────────────────────
+  # ── Release the past week ────────────────────────────────────────────────────
 
-  def test_lapsed_one_off_task_re_floats_once_preserving_origin
+  def test_past_week_floating_shelf_item_is_released
+    # A shelf item staged for a past week and untouched un-stages: the placement is
+    # deleted, but the item survives on its shelf (its durable home).
+    new_item('shelf', list: true)
+    p = floating('shelf', 'staged_week' => PAST)
+
+    result = reconcile(as_of_date: AS_OF)
+    assert_equal [p.id], result['released']
+    assert_nil Placement.get(p.id)                 # un-staged (deleted)
+    refute_nil Item.get('shelf')                   # item still exists on its shelf
+    assert_equal 'want-to', Item.get('shelf').json['status']
+  end
+
+  def test_past_week_floating_one_off_lapses_and_archives
+    # A one-off has no shelf to fall back to, so it lapses (retained) rather than being
+    # deleted, and its now-closed set auto-archives the item.
+    new_item('t')
+    p = floating('t', 'staged_week' => PAST)
+
+    result = reconcile(as_of_date: AS_OF)
+    assert_equal [p.id], result['lapsed']
+    lapsed = Placement.get(p.id)
+    refute_nil lapsed                              # retained, not deleted
+    assert_equal 'lapsed', lapsed.resolution
+    refute_nil lapsed.resolved_at
+    assert_equal ['t'], result['archived']
+    assert_equal 'completed', Item.get('t').json['status']
+  end
+
+  def test_past_dated_one_off_task_lapses
+    # A dated one-off task whose day is over also lapses (the old carry-forward is gone).
     new_item('t')
     p = dated('t', PAST)
 
     result = reconcile(as_of_date: AS_OF)
-    assert_equal [p.id], result['carried']
-
-    carried = Placement.get(p.id)
-    assert_nil carried.date              # re-floated: date cleared
-    assert_equal true, carried.floating  # ...and floating set
-    assert_equal PAST, carried.origin_date  # origin preserved as the immutable anchor
+    assert_equal [p.id], result['lapsed']
+    assert_equal 'lapsed', Placement.get(p.id).resolution
+    assert_equal ['t'], result['archived']
   end
 
-  def test_carry_forward_is_idempotent
-    new_item('t')
-    dated('t', PAST)
+  def test_lapse_and_release_are_idempotent
+    new_item('one_off')
+    new_item('shelf', list: true)
+    floating('one_off', 'staged_week' => PAST)
+    floating('shelf', 'staged_week' => PAST)
 
     reconcile(as_of_date: AS_OF)
-    second = reconcile(as_of_date: AS_OF)   # nothing left dated+past to carry
-    assert_empty second['carried']
-    assert_equal 1, Placement.for_item('t').size   # no duplicate placement
+    second = reconcile(as_of_date: AS_OF)          # nothing left open+past
+    assert_empty second['lapsed']
+    assert_empty second['released']
+    assert_equal 1, Placement.for_item('one_off').size  # lapsed row retained, not duplicated
+    assert_empty Placement.for_item('shelf')            # released row stays gone
   end
 
-  def test_a_still_live_or_future_task_does_not_carry
+  def test_current_week_staged_items_are_untouched
+    new_item('one_off')
+    new_item('shelf', list: true)
+    a = floating('one_off', 'staged_week' => AS_OF)     # this week — still the active plan
+    b = floating('shelf', 'staged_week' => AS_OF)
+
+    result = reconcile(as_of_date: AS_OF)
+    assert_empty result['lapsed']
+    assert_empty result['released']
+    assert_nil Placement.get(a.id).resolution
+    refute_nil Placement.get(b.id)
+  end
+
+  def test_a_deferred_floating_item_is_left_untouched
+    # Defer moves staged_week to a future week; reconcile only releases weeks now past,
+    # so a deferred placement is untouched and resurfaces once its week arrives.
     new_item('t')
-    dated('t', TODAY)                    # same day is not "past"
-    assert_empty reconcile(as_of_date: AS_OF)['carried']
+    p = floating('t', 'staged_week' => NEXT)
+    result = reconcile(as_of_date: AS_OF)
+    assert_empty result['lapsed']
+    assert_empty result['released']
+    untouched = Placement.get(p.id)
+    assert_equal true, untouched.floating
+    assert_equal NEXT, untouched.staged_week
+    assert_nil untouched.resolution
+    assert_equal 'want-to', Item.get('t').json['status']
+  end
+
+  def test_a_still_live_dated_task_does_not_lapse
+    new_item('t')
+    dated('t', TODAY)                              # same day is not "past"
+    result = reconcile(as_of_date: AS_OF)
+    assert_empty result['lapsed']
     refute_nil Placement.for_item('t').first.date
   end
 
-  def test_a_resolved_task_does_not_carry
+  def test_an_already_resolved_placement_is_left_alone
     new_item('t')
     dated('t', PAST, 'resolution' => 'completed')
-    assert_empty reconcile(as_of_date: AS_OF)['carried']
+    result = reconcile(as_of_date: AS_OF)
+    assert_empty result['lapsed']
+    assert_equal 'completed', Placement.for_item('t').first.resolution
   end
 
-  def test_an_event_does_not_carry
-    new_item('e', scheduling: 'event')
-    dated('e', PAST)
-    assert_empty reconcile(as_of_date: AS_OF)['carried']
-    refute_nil Placement.for_item('e').first.date   # event stays dated
-  end
-
-  def test_a_shelf_task_does_not_carry
-    # Carry-forward is one-off-only — a reusable shelf item's lapsed plan stays put.
+  def test_a_dated_shelf_task_stays_put
+    # Only FLOATING shelf placements are released; a dated shelf placement is out of the
+    # visible week already (date-scoped) and is left as raw material for a week report.
     new_item('shelf', list: true)
     dated('shelf', PAST)
-    assert_empty reconcile(as_of_date: AS_OF)['carried']
+    result = reconcile(as_of_date: AS_OF)
+    assert_empty result['lapsed']
+    assert_empty result['released']
     refute_nil Placement.for_item('shelf').first.date
+  end
+
+  def test_a_one_off_event_is_not_lapsed_but_archives
+    # An event resolves by derivation (past day = resolved), so it is not written as
+    # 'lapsed'; its closed set still auto-archives the one-off.
+    new_item('e', scheduling: 'event')
+    dated('e', PAST)
+    result = reconcile(as_of_date: AS_OF)
+    assert_empty result['lapsed']
+    refute_nil Placement.for_item('e').first.date  # event stays dated
+    assert_equal ['e'], result['archived']
   end
 
   # ── Prune orphaned placements (item deleted out from under them) ─────────────
@@ -111,8 +183,8 @@ class ReconcileTest < MinitestWrapper
   def test_prune_leaves_valid_placements_and_is_idempotent
     new_item('gone')
     floating('gone')
-    new_item('keep')
-    kept = floating('keep')
+    new_item('keep', list: true)
+    kept = floating('keep', 'staged_week' => AS_OF)   # current week — not released
     Item.get('gone').delete!
 
     reconcile(as_of_date: AS_OF)
@@ -131,35 +203,11 @@ class ReconcileTest < MinitestWrapper
     assert_equal 'completed', Item.get('e').json['status']
   end
 
-  def test_carried_task_does_not_archive
-    # After carry the task is floating+open, so its set is not resolved — no archive.
-    new_item('t')
-    dated('t', PAST)
-    result = reconcile(as_of_date: AS_OF)
-    assert_empty result['archived']
-    assert_equal 'want-to', Item.get('t').json['status']
-  end
-
   def test_shelf_event_does_not_archive_on_past
     new_item('e', scheduling: 'event', list: true)
     dated('e', PAST)
     assert_empty reconcile(as_of_date: AS_OF)['archived']
     assert_equal 'want-to', Item.get('e').json['status']
-  end
-
-  def test_a_deferred_floating_task_is_left_untouched
-    # A deferred one-off (PR 9c) is floating with a future not_before marker. It has no
-    # date, so carry-forward (dated+past only) never touches it, and its open resolution
-    # blocks auto-archive — reconcile leaves it exactly as staged.
-    new_item('t')
-    p = floating('t', 'not_before' => '2026-08-03', 'origin_date' => PAST)
-    result = reconcile(as_of_date: AS_OF)
-    assert_empty result['carried']
-    assert_empty result['archived']
-    untouched = Placement.get(p.id)
-    assert_equal true, untouched.floating
-    assert_equal '2026-08-03', untouched.not_before
-    assert_equal 'want-to', Item.get('t').json['status']
   end
 
   def test_reconcile_is_idempotent_across_runs

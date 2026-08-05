@@ -6,22 +6,36 @@ require_relative '../type/placement'
 # just sets the date and clears the flag — one entity, two states. See
 # docs/DECISIONS.md "Placement is a first-class type".
 #
-# Deduped on (item, collection): re-staging an item that already has a floating
-# placement returns the existing one rather than piling up duplicates in staging.
-# (The multi-session "one item, many floating placements" model is a later concern;
-# for now one floating placement per item keeps the staging pile clean.)
-def create_floating_placement(item_id, collection_id)
+# `staged_week` (Monday week-start, YYYY-MM-DD) anchors this floating placement to a
+# week — the planner is a weekly plan, so the pile reads only the current week
+# (docs/DECISIONS.md). Optional so legacy/dateless callers still work.
+#
+# Deduped on (item, collection) for OPEN placements: re-staging an item that already
+# has an open floating placement RE-STAMPS its staged_week to the passed week and
+# returns it (re-staging means "I want this *this* week") rather than piling up
+# duplicates. A resolved (e.g. lapsed) placement is not matched — re-staging a
+# lapsed one-off is a fresh instance, not a resurrection.
+def create_floating_placement(item_id, collection_id, staged_week = nil)
   raise ListError::NotFound, "item id '#{item_id}' not found" unless Item.exist?(item_id)
   raise ListError::NotFound, "collection id '#{collection_id}' not found" unless Collection.exist?(collection_id)
 
-  existing = Placement.floating_for_collection(collection_id).find { |p| p.item_id == item_id }
-  return existing unless existing.nil?
+  existing = Placement.floating_for_collection(collection_id)
+                      .find { |p| p.item_id == item_id && p.resolution.nil? }
+  unless existing.nil?
+    if staged_week && existing.staged_week != staged_week
+      existing.staged_week = staged_week
+      existing.validate
+      existing.save!
+    end
+    return existing
+  end
 
   placement = Placement.new({
     'item_id' => item_id,
     'collection_id' => collection_id,
     'date' => nil,
     'floating' => true,
+    'staged_week' => staged_week,
   })
   placement.validate
   placement.save!

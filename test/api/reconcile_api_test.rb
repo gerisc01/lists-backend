@@ -8,9 +8,10 @@ require_relative '../../src/type/item'
 require_relative '../../src/type/collection'
 require_relative '../../src/type/list'
 
-# PR 9b — the thin POST /api/reconcile front door. The primitive itself is covered
-# by test/actions/reconcile_test.rb; this spec only proves the endpoint delegates,
-# passes an injected as_of_date through, and returns the {carried,archived} summary.
+# The thin POST /api/reconcile front door. The primitive itself is covered by
+# test/actions/reconcile_test.rb; this spec only proves the endpoint delegates, passes
+# an injected as_of_date through, and returns the {released,lapsed,archived,pruned}
+# summary (weekly-plan reframe — docs/DECISIONS.md).
 class ReconcileApiTest < MinitestWrapper
   include Rack::Test::Methods
 
@@ -52,19 +53,18 @@ class ReconcileApiTest < MinitestWrapper
          { 'Content-Type' => 'application/json' })
   end
 
-  def test_endpoint_carries_a_lapsed_one_off_task
+  def test_endpoint_lapses_a_past_one_off_task
     new_item('t')
     p = dated('t', PAST)
 
     reconcile_request
     assert_equal 200, last_response.status
     result = JSON.parse(last_response.body)
-    assert_equal [p.id], result['carried']
+    assert_equal [p.id], result['lapsed']
 
-    carried = Placement.get(p.id)
-    assert_nil carried.date               # re-floated: date cleared
-    assert_equal true, carried.floating   # ...and floating set
-    assert_equal PAST, carried.origin_date # origin preserved as the immutable anchor
+    lapsed = Placement.get(p.id)
+    refute_nil lapsed                     # retained, not deleted
+    assert_equal 'lapsed', lapsed.resolution
   end
 
   def test_endpoint_archives_a_past_one_off_event
@@ -85,13 +85,13 @@ class ReconcileApiTest < MinitestWrapper
     reconcile_request
     reconcile_request
     result = JSON.parse(last_response.body)
-    assert_empty result['carried']
-    assert_equal 1, Placement.for_item('t').size   # no duplicate placement
+    assert_empty result['lapsed']
+    assert_equal 1, Placement.for_item('t').size   # lapsed row retained, not duplicated
   end
 
   def test_endpoint_defaults_as_of_to_today_with_empty_body
-    # No body → as_of_date defaults to today; a future-dated task is not yet past,
-    # so nothing carries. Proves the default path parses without a JSON error.
+    # No body → as_of_date defaults to today; a future-dated task is not yet past, so
+    # nothing lapses. Proves the default path parses without a JSON error.
     new_item('t')
     future = (Date.today + 7).iso8601
     dated('t', future)
@@ -99,7 +99,7 @@ class ReconcileApiTest < MinitestWrapper
     post('/api/reconcile')
     assert_equal 200, last_response.status
     result = JSON.parse(last_response.body)
-    assert_empty result['carried']
+    assert_empty result['lapsed']
     refute_nil Placement.for_item('t').first.date
   end
 

@@ -148,9 +148,13 @@ class PlacementsApiTest < MinitestWrapper
 
   # ── Floating placements + bind (5c) ─────────────────────────────────────────
 
-  def stage(item_id, collection: 'c1')
-    post("/api/items/#{item_id}/placements",
-         { 'collection' => collection }.to_json,
+  WEEK = '2026-07-27'         # a Monday — a valid staged_week
+  NEXT_WEEK = '2026-08-03'    # the following Monday
+
+  def stage(item_id, collection: 'c1', staged_week: nil)
+    body = { 'collection' => collection }
+    body['staged_week'] = staged_week if staged_week
+    post("/api/items/#{item_id}/placements", body.to_json,
          { 'Content-Type' => 'application/json' })
   end
 
@@ -164,6 +168,11 @@ class PlacementsApiTest < MinitestWrapper
     refute_nil p['id']
   end
 
+  def test_stage_stamps_staged_week
+    stage('i1', staged_week: WEEK)
+    assert_equal WEEK, JSON.parse(last_response.body)['staged_week']
+  end
+
   def test_create_floating_is_deduped_per_item_and_collection
     stage('i1')
     first = JSON.parse(last_response.body)['id']
@@ -171,6 +180,33 @@ class PlacementsApiTest < MinitestWrapper
     second = JSON.parse(last_response.body)['id']
     assert_equal first, second
     assert_equal 1, Placement.floating_for_collection('c1').size
+  end
+
+  def test_restage_restamps_staged_week_on_the_same_placement
+    stage('i1', staged_week: WEEK)
+    first = JSON.parse(last_response.body)['id']
+    stage('i1', staged_week: NEXT_WEEK)          # re-staging means "I want this next week"
+    second = JSON.parse(last_response.body)
+    assert_equal first, second['id']             # same placement, deduped
+    assert_equal NEXT_WEEK, second['staged_week'] # re-stamped to the new week
+  end
+
+  def test_cross_collection_floating_read_is_week_scoped
+    stage('i1', staged_week: WEEK)
+    stage('i2', staged_week: NEXT_WEEK)          # a different week — excluded
+    get("/api/placements/floating?collections=c1&week=#{WEEK}")
+    assert_equal 200, last_response.status
+    floating = JSON.parse(last_response.body)
+    assert_equal %w[i1], floating.map { |p| p['item_id'] }
+  end
+
+  def test_cross_collection_floating_read_excludes_resolved
+    stage('i1', staged_week: WEEK)
+    pid = JSON.parse(last_response.body)['id']
+    patch("/api/placements/#{pid}", { 'resolution' => 'skipped' }.to_json,
+          { 'Content-Type' => 'application/json' })
+    get("/api/placements/floating?collections=c1&week=#{WEEK}")
+    assert_empty JSON.parse(last_response.body)  # a resolved placement leaves the pile
   end
 
   def test_floating_read_returns_only_this_collections_floating
@@ -408,32 +444,17 @@ class PlacementsApiTest < MinitestWrapper
          { 'week_start' => week_start }.to_json, { 'Content-Type' => 'application/json' })
   end
 
-  def test_defer_sets_not_before_one_week_out
+  def test_defer_moves_staged_week_one_week_out
+    # Under the weekly-plan reframe (docs/DECISIONS.md) staged_week is the single week
+    # anchor, and Defer moves it forward one week — the pile read then shows the
+    # placement exactly when the current week reaches that value.
     stage('i1')
     pid = JSON.parse(last_response.body)['id']
     defer(pid)
     assert_equal 200, last_response.status
     deferred = JSON.parse(last_response.body)
-    assert_equal '2026-08-03', deferred['not_before']   # strictly +1 week
+    assert_equal '2026-08-03', deferred['staged_week']   # strictly +1 week
     assert_equal true, deferred['floating']              # still floating
-  end
-
-  def test_defer_stamps_origin_date_when_absent
-    # A never-dated staged task has no origin_date; deferring anchors the derived
-    # carried-count at this week's start so it starts counting ("one number, not two").
-    stage('i1')
-    pid = JSON.parse(last_response.body)['id']
-    assert_nil JSON.parse(last_response.body)['origin_date']
-    defer(pid)
-    assert_equal WEEK_START, JSON.parse(last_response.body)['origin_date']
-  end
-
-  def test_defer_preserves_an_existing_origin_date
-    # A carried task already has an origin_date — deferring must not overwrite it.
-    assign('i1')                                   # dated → stamps origin_date = DATE
-    pid = JSON.parse(last_response.body)['id']
-    defer(pid)
-    assert_equal DATE, JSON.parse(last_response.body)['origin_date']
   end
 
   def test_defer_requires_a_week_start

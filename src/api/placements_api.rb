@@ -48,7 +48,11 @@ class Api < Sinatra::Base
     if collection_ids.empty?
       raise ListError::BadRequest, "Query parameter 'collections' must be a non-empty comma-separated list of collection ids."
     end
-    placements = Placement.floating_for_collections(collection_ids)
+    # The staging pile is week-scoped (docs/DECISIONS.md "Weekly planning is a weekly
+    # PLAN"): ?week=<Monday YYYY-MM-DD> returns only placements staged for that week
+    # (and still open). Omitting week falls back to the unfiltered pile (legacy).
+    week = params['week'].to_s.empty? ? nil : params['week']
+    placements = Placement.floating_for_collections(collection_ids, week)
     status 200
     body placements.map { |p| p.to_schema_object.merge('one_off' => !item_has_shelf_home?(p.item_id)) }.to_json
   end
@@ -69,13 +73,14 @@ class Api < Sinatra::Base
   end
 
   # Create a placement for an item. Body: { "collection": "<id>", "date"?:
-  # "YYYY-MM-DD" }. With a date → a dated placement (assign to a day); without one
-  # → a floating placement that lands in staging (bind it to a day later).
+  # "YYYY-MM-DD", "staged_week"?: "YYYY-MM-DD" }. With a date → a dated placement
+  # (assign to a day); without one → a floating placement that lands in staging for
+  # `staged_week` (the current week, so the weekly-plan pile scopes to it).
   post '/api/items/:id/placements' do
     json = JSON.parse(request.body.read)
     placement =
       if json['date'].to_s.empty?
-        create_floating_placement(params['id'], json['collection'])
+        create_floating_placement(params['id'], json['collection'], json['staged_week'])
       else
         assign_to_date(params['id'], json['date'], json['collection'])
       end
