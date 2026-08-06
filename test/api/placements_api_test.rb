@@ -469,6 +469,62 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 404, last_response.status
   end
 
+  # ── Re-float (unbind) — "take it off the day, keep it this week" ─────────────
+
+  def refloat(pid, week_start: WEEK_START)
+    post("/api/placements/#{pid}/unbind",
+         { 'week_start' => week_start }.to_json, { 'Content-Type' => 'application/json' })
+  end
+
+  def test_refloat_flips_dated_back_to_floating
+    assign('i1')                                    # dated placement on DATE
+    pid = JSON.parse(last_response.body)['id']
+    refloat(pid)
+    assert_equal 200, last_response.status
+    floated = JSON.parse(last_response.body)
+    assert_nil floated['date']
+    assert_equal true, floated['floating']
+    assert_equal WEEK_START, floated['staged_week']  # re-staged into the viewing week
+    assert_equal 0, Placement.for_date(DATE).size
+    assert_equal 1, Placement.floating_for_collection('c1').size
+  end
+
+  def test_refloat_clears_resolution_so_a_lapsed_card_comes_back_open
+    # reconcile stamps a passed day's placement `lapsed`; taking it off the day must
+    # hand back a clean OPEN floating placement, else the (resolved-excluding) pile
+    # read would silently drop it.
+    assign('i1')
+    pid = JSON.parse(last_response.body)['id']
+    patch("/api/placements/#{pid}",
+          { 'resolution' => 'skipped' }.to_json, { 'Content-Type' => 'application/json' })
+    refloat(pid)
+    floated = JSON.parse(last_response.body)
+    assert_nil floated['resolution']
+    assert_nil floated['resolved_at']
+    # and it now surfaces in the week-scoped staging pile
+    get("/api/placements/floating?collections=c1&week=#{WEEK_START}")
+    assert_equal %w[i1], JSON.parse(last_response.body).map { |p| p['item_id'] }
+  end
+
+  def test_refloat_preserves_origin_date
+    assign('i1')                                    # first dating stamps origin_date = DATE
+    pid = JSON.parse(last_response.body)['id']
+    refloat(pid)
+    assert_equal DATE, JSON.parse(last_response.body)['origin_date']
+  end
+
+  def test_refloat_requires_a_week_start
+    assign('i1')
+    pid = JSON.parse(last_response.body)['id']
+    post("/api/placements/#{pid}/unbind", {}.to_json, { 'Content-Type' => 'application/json' })
+    assert_equal 400, last_response.status
+  end
+
+  def test_refloat_unknown_placement_is_not_found
+    refloat('nope')
+    assert_equal 404, last_response.status
+  end
+
   # ── Delete (PR 9c) — "gone entirely" ─────────────────────────────────────────
 
   def test_delete_removes_a_floating_placement

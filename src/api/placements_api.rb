@@ -116,6 +116,17 @@ class Api < Sinatra::Base
     body placement.to_schema_object.to_json
   end
 
+  # Re-float a dated placement back into staging: dated -> floating, the inverse of
+  # /bind (design §4.4 "take it off the day"). Body: { "week_start": "YYYY-MM-DD" } —
+  # the client's current-week start; the placement re-stages into that week. Clears any
+  # resolution (a lapsed past-day card comes back open); preserves origin_date.
+  post '/api/placements/:pid/unbind' do
+    json = JSON.parse(request.body.read)
+    placement = refloat_placement(params['pid'], json['week_start'])
+    status 200
+    body placement.to_schema_object.to_json
+  end
+
   # Delete a placement outright (design §4.4 Delete). Id-addressed so it works on a
   # floating placement; removes the orphan board-born one-off item behind the shelf-home
   # guard. Distinct from the item-addressed DELETE /api/items/:id/placements (dated).

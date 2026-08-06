@@ -13,6 +13,7 @@ require_relative './create_floating_placement'
 require_relative './bind_placement'
 require_relative './update_placement'
 require_relative './defer_placement'
+require_relative './refloat_placement'
 require_relative './delete_placement'
 require_relative './auto_archive'
 
@@ -76,6 +77,10 @@ def action_methods
     },
     'deferPlacement' => {
       'method' => :defer_placement,
+      'params' => ['placement_id', 'week_start']
+    },
+    'refloatPlacement' => {
+      'method' => :refloat_placement,
       'params' => ['placement_id', 'week_start']
     },
     'deletePlacement' => {
