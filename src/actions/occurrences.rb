@@ -25,7 +25,9 @@ require_relative '../type/recurrence'
 #   * At most ONE live occurrence per rule per week — the most recent due-week at or
 #     before the target week. Older occurrences auto-expire (never surfaced).
 #   * Carry-until-due — an untouched occurrence from an earlier due-week keeps
-#     surfacing in each week's staging until the next occurrence comes due.
+#     surfacing in each week's staging until the next occurrence comes due. Carry is
+#     PAST-TENSE ONLY (future_carry?): it never projects into a week later than the
+#     current one, where "you didn't get to it" isn't yet true of anything.
 #   * Touched => real — if a Placement already exists for the occurrence's period,
 #     no ghost is emitted (the persisted row represents it instead). Dedup reuses the
 #     placement's immutable origin_date/date; no Placement schema change this slice.
@@ -43,7 +45,9 @@ def occurrences_for_week(collection_ids, week_start, as_of: Date.today.iso8601)
 
     due_week = current_due_week(rule, target_week, as_of)
     next if due_week.nil?                                   # rule hasn't started yet
-    next if occurrence_touched?(item.id, due_week, target_week)  # a real Placement owns it
+    next if past_end?(rule, due_week, target_week)          # series ended (end_date)
+    next if future_carry?(due_week, target_week, as_of)     # carry is past-tense only
+    next if occurrence_touched?(item.id, due_week, target_week, target_week)  # a real Placement owns it
 
     ghosts << build_ghost(item, rule, due_week, target_week, as_of)
   end
@@ -63,6 +67,32 @@ def current_due_week(rule, target_week, as_of)
   anchor + (due_index * 7)
 end
 
+# Has the series ended by this week? A rule may carry an optional end_date (the upper
+# bound mirroring start_date's lower bound). Nothing is emitted once EITHER the
+# occurrence's due-week OR the visible target week is past the end_date's grid week.
+# Gating due_week stops any new period starting after the end; gating target_week also
+# cuts the carry — after the end there is no next due-week to expire a still-carrying
+# occurrence, so an unfinished one would otherwise linger forever. Both past the end
+# means "clear the future" while past placements (already persisted) remain as history.
+def past_end?(rule, due_week, target_week)
+  end_date = Recurrence.end_date_of(rule)
+  return false if end_date.nil?
+
+  end_week = week_start_of(::Date.parse(end_date), target_week)
+  due_week > end_week || target_week > end_week
+end
+
+# Carry-until-due is a claim about weeks you have LIVED THROUGH ("it was due, you didn't
+# get to it, it's still on your plate"), so it must not project forward. Looking ahead,
+# an occurrence appears only in the week it is actually due — the off weeks of an
+# every-N-weeks rule come back empty instead of pre-filled with a copy you're assumed to
+# have missed. Only a *carry* is gated: a ghost due in the target week emits however far
+# ahead that week is, and the current week's carry (design §2.5) is untouched.
+def future_carry?(due_week, target_week, as_of)
+  return false unless due_week < target_week          # not a carry at all
+  target_week > week_start_of(::Date.parse(as_of), target_week)
+end
+
 # Snap the rule's phase anchor onto the caller's week grid.
 def anchor_week(rule, target_week, as_of)
   seed = rule['start_date'] || as_of
@@ -80,10 +110,22 @@ end
 # Placement for the item whose period (its immutable origin_date, else its date)
 # lands in the same grid week as `due_week` represents the occurrence — completed,
 # skipped, carried, or merely placed — so no ghost is emitted for it.
-def occurrence_touched?(item_id, due_week, grid_ref)
+#
+# A placement that is BOTH dayless and origin-less has no period of its own: that is a
+# MANUALLY STAGED one (create_floating_placement stamps only staged_week), so fall back
+# to the week it was staged into. It represents this occurrence when it was staged at or
+# after the occurrence came due and is still inside the occurrence's live window — i.e.
+# it IS the card already on screen, and emitting a ghost beside it would double the item.
+# Staged BEFORE the due-week it is a stale pile entry from an earlier plan and owns
+# nothing, so a later occurrence still ghosts as normal.
+def occurrence_touched?(item_id, due_week, target_week, grid_ref)
   Placement.for_item(item_id).any? do |placement|
     anchor = placement.origin_date || placement.date
-    next false if anchor.nil?                              # a dayless placement with no origin
+    if anchor.nil?
+      next false if placement.staged_week.nil?
+      staged = week_start_of(::Date.parse(placement.staged_week), grid_ref)
+      next staged >= due_week && staged <= target_week
+    end
     week_start_of(::Date.parse(anchor), grid_ref) == due_week
   end
 end

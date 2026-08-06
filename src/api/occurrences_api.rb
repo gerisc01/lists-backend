@@ -27,13 +27,16 @@ class Api < Sinatra::Base
   end
 
   # Materialize a ghost into a real Placement. Body: { "collection", "period_start"
-  # (the ghost's due-week), "date"? }. With a date the occurrence is dated straight
-  # onto that day; without one it lands floating in staging. Returns the persisted
-  # placement (with its new id) so the client can then bind/complete/skip/defer it via
-  # the existing /api/placements/:pid/* endpoints.
+  # (the ghost's due-week), "date"?, "staged_week"? }. With a date the occurrence is
+  # dated straight onto that day; without one it lands floating in staging, in the
+  # `staged_week` the client is viewing (defaults to `period_start`) — the pile is read
+  # per week, so an unstamped floating placement would show in no week at all. Returns
+  # the persisted placement (with its new id) so the client can then bind/complete/skip/
+  # defer it via the existing /api/placements/:pid/* endpoints.
   post '/api/items/:id/occurrences' do
     json = JSON.parse(request.body.read)
-    placement = materialize_occurrence(params['id'], json['collection'], json['period_start'], json['date'])
+    placement = materialize_occurrence(params['id'], json['collection'], json['period_start'],
+                                       json['date'], json['staged_week'])
     status 200
     body placement.to_schema_object.to_json
   end

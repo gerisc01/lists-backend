@@ -38,6 +38,17 @@ class RecurrenceTest < MinitestWrapper
     assert Recurrence.active_of(rule)   # absent active => active
   end
 
+  def test_accepts_an_optional_end_date
+    assert Recurrence.type_match?(floating_rule('end_date' => '2026-08-31'))
+    assert_equal '2026-08-31', Recurrence.end_date_of(floating_rule('end_date' => '2026-08-31'))
+  end
+
+  def test_end_date_is_optional
+    rule = floating_rule
+    assert Recurrence.type_match?(rule)           # absent end_date => open-ended
+    assert_nil Recurrence.end_date_of(rule)
+  end
+
   def test_paused_rule_is_valid_but_inactive
     rule = floating_rule('active' => false)
     assert Recurrence.type_match?(rule)
@@ -74,6 +85,10 @@ class RecurrenceTest < MinitestWrapper
   def test_rejects_unparseable_start_date_and_non_boolean_active
     refute Recurrence.type_match?(floating_rule('start_date' => 'not-a-date'))
     refute Recurrence.type_match?(floating_rule('active' => 'yes'))
+  end
+
+  def test_rejects_unparseable_end_date
+    refute Recurrence.type_match?(floating_rule('end_date' => 'not-a-date'))
   end
 
   # ── Enforced through the Item schema (via Scheduling) ────────────────────────

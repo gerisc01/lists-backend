@@ -17,12 +17,13 @@ require 'date'
 #     'collection_id' => 'c1',                     # whose staging the occurrence drains into
 #     'active'        => true,                      # active/paused toggle (optional, default true)
 #     'start_date'    => '2026-07-27',             # optional phase anchor for interval > 1
+#     'end_date'      => '2026-08-31',             # optional; no occurrences after this week (see occurrences.rb)
 #   }
 #
-# Scope (PR 12): absolute weekly, floating + fixed-day anchoring. Relative cadence,
-# monthly/date/week-phase anchoring, and an end_date are deferred (PR 13/14). The
-# constant arrays are the extension points — a later slice appends to them rather
-# than restructuring.
+# Scope (PR 12): absolute weekly, floating + fixed-day anchoring. Relative cadence and
+# monthly/date/week-phase anchoring are deferred. `end_date` (bound a series going
+# forward while preserving past placements) is supported. The constant arrays are the
+# extension points — a later slice appends to them rather than restructuring.
 class Recurrence
 
   CADENCES     = %w[weekly].freeze
@@ -37,8 +38,15 @@ class Recurrence
     return false unless value['collection_id'].is_a?(String) && !value['collection_id'].empty?
     return false unless anchor_valid?(value['anchor'])
     return false unless active_valid?(value['active'])
-    return false unless start_date_valid?(value['start_date'])
+    return false unless date_valid?(value['start_date'])
+    return false unless date_valid?(value['end_date'])
     true
+  end
+
+  # The optional upper bound: no occurrence is emitted after the week containing
+  # end_date (design "clear the future" — see occurrences.rb). nil => open-ended.
+  def self.end_date_of(recurrence)
+    recurrence && recurrence['end_date']
   end
 
   # `active` is optional (absent => active); a paused rule sets it false and emits no
@@ -62,7 +70,8 @@ class Recurrence
     value.nil? || [true, false].include?(value)
   end
 
-  def self.start_date_valid?(value)
+  # nil-allowed date validation, shared by start_date and end_date.
+  def self.date_valid?(value)
     return true if value.nil?
     begin
       # :: prefix to avoid clashing with SchemaType::Date and friends.

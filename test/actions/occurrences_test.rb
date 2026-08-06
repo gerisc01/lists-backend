@@ -44,6 +44,15 @@ class OccurrencesTest < MinitestWrapper
     }.merge(overrides)).tap(&:validate).tap(&:save!)
   end
 
+  # A manually staged (pile) placement: dayless AND origin-less — only staged_week —
+  # which is exactly what create_floating_placement writes.
+  def staged_placement(item_id, staged_week)
+    Placement.new({
+      'item_id' => item_id, 'collection_id' => 'c1',
+      'date' => nil, 'floating' => true, 'staged_week' => staged_week,
+    }).tap(&:validate).tap(&:save!)
+  end
+
   def week(week_start, collections: ['c1'], as_of: AS_OF)
     occurrences_for_week(collections, week_start, as_of: as_of)
   end
@@ -56,10 +65,13 @@ class OccurrencesTest < MinitestWrapper
     assert_equal 1, week(W0).length, 'W0 is a due week'
     assert_equal 1, week(W2).length, 'W2 is a due week (2 weeks later)'
     assert_equal 1, week(W4).length, 'W4 is a due week'
-    # W1 / W3 are off-phase but the prior occurrence carries (see carry test); the
-    # count is still one live occurrence, never two.
-    assert_equal 1, week(W1).length
-    assert_equal 1, week(W3).length
+    # W1 / W3 are off-phase. Viewed from W0 they are still in the FUTURE, so the W0
+    # occurrence does not carry into them (see the future-carry tests) — an off week you
+    # haven't reached yet is empty. Standing IN W1, the carry does apply (carry test below);
+    # either way it is one live occurrence, never two.
+    assert_empty week(W1)
+    assert_empty week(W3)
+    assert_equal 1, week(W1, as_of: W1).length
   end
 
   def test_a_fresh_floating_occurrence_is_dayless_and_not_carried
@@ -76,7 +88,9 @@ class OccurrencesTest < MinitestWrapper
 
   def test_an_untouched_occurrence_carries_until_the_next_is_due
     recurring_item('trash', rule)
-    carried = week(W1).first          # one week after the W0 due-week, before W2
+    # Standing in W1: one week after the W0 due-week, before W2. The W0 occurrence went
+    # untouched, so it is still on the plate and rides into the week you're now in.
+    carried = week(W1, as_of: W1).first
     assert_equal true, carried['carried']
     assert_equal W0, carried['period_start'], 'still the same W0 occurrence, re-floated'
     assert_equal W0, carried['origin_date']
@@ -91,6 +105,50 @@ class OccurrencesTest < MinitestWrapper
   def test_before_the_start_date_nothing_is_emitted
     recurring_item('trash', rule)
     assert_empty week('2026-06-29')   # the Monday before W0
+  end
+
+  # ── end_date (bound the series going forward) ────────────────────────────────
+
+  def test_an_occurrence_due_in_the_end_week_still_emits
+    # end_date sits inside the W2 due-week (Wed of the 07-20 Mon-start week).
+    recurring_item('trash', rule('end_date' => '2026-07-22'))
+    assert_equal 1, week(W2).length, 'the occurrence whose period is the end week still shows'
+  end
+
+  def test_after_the_end_week_nothing_is_emitted
+    recurring_item('trash', rule('end_date' => '2026-07-22'))
+    assert_empty week(W4), 'no new period starts after the end week'
+  end
+
+  def test_a_pre_end_occurrence_does_not_carry_past_the_end_week
+    # Without end_date, W2's occurrence carries into W3 (see the carry test). With the
+    # series ended in the W2 week, the carry is cut — nothing lingers past the end.
+    recurring_item('trash', rule('end_date' => '2026-07-22'))
+    assert_empty week(W3, as_of: W3)
+  end
+
+  # ── No backfill (the pause/resume concern) ───────────────────────────────────
+
+  def test_no_backfill_however_long_since_the_rule_started
+    # The crux of "unpause won't dump 3 months of missed events": occurrences are computed
+    # on read, never stored, and AT MOST ONE live occurrence exists per week. So however far
+    # past the start you look — e.g. resuming a long-paused weekly rule — a week shows exactly
+    # one occurrence, never a backlog of every elapsed period.
+    recurring_item('chore', rule('interval' => 1))     # weekly
+    far = (::Date.parse(W0) + 84).iso8601              # ~12 weeks after start
+    assert_equal 1, week(far, as_of: far).length, 'one occurrence, not a 12-week pile'
+  end
+
+  def test_resuming_a_paused_rule_surfaces_only_the_current_occurrence
+    # Paused (active:false) emits nothing, however far out you look. Resuming is just
+    # active:true again — the same read then yields the single current occurrence (the weeks
+    # it was paused simply never emitted; there is nothing to catch up).
+    far = (::Date.parse(W0) + 84).iso8601
+    recurring_item('chore', rule('interval' => 1, 'active' => false))
+    assert_empty week(far, as_of: far), 'paused: nothing emits'
+
+    Item.get('chore').tap { |i| i.json['scheduling']['recurrence']['active'] = true }.save!
+    assert_equal 1, week(far, as_of: far).length, 'resumed: just the current one'
   end
 
   # ── Touched => real (dedup against a persisted placement) ────────────────────
@@ -140,11 +198,76 @@ class OccurrencesTest < MinitestWrapper
 
   def test_a_carried_fixed_day_occurrence_refloats
     recurring_item('bins', rule('anchor' => { 'kind' => 'fixed-day', 'weekday' => 2 }))
-    carried = week(W1).first          # W0's Tuesday occurrence carried into W1
+    carried = week(W1, as_of: W1).first   # W0's Tuesday occurrence carried into W1
     assert_nil carried['date'], 're-floated, no longer dated'
     assert_equal true, carried['floating']
     assert_equal true, carried['carried']
     assert_equal '2026-07-07', carried['origin_date'], 'keeps its original Tuesday as the anchor'
+  end
+
+  # ── Carry never projects into the future ─────────────────────────────────────
+  # Carry-until-due says "you didn't get to it, it's still on your plate" — a claim about
+  # weeks you have already lived through. Looking AHEAD, an occurrence appears only in the
+  # week it is actually due, so an every-2-weeks rule leaves the off weeks empty.
+
+  def test_an_occurrence_does_not_carry_into_a_future_week
+    recurring_item('trash', rule)
+    assert_empty week(W1, as_of: W0), 'W1 is next week — the W0 occurrence is not carried ahead into it'
+    assert_empty week(W3, as_of: W0)
+  end
+
+  def test_a_future_due_week_still_emits_its_own_occurrence
+    recurring_item('trash', rule)
+    ghost = week(W2, as_of: W0).first
+    assert_equal W2, ghost['period_start'], 'due that week, so it shows even though the week is ahead'
+    assert_equal false, ghost['carried']
+  end
+
+  def test_a_fixed_day_rule_shows_only_its_day_in_future_due_weeks
+    # The reported bug: every 2 weeks on Wednesday showed the Wednesday in due weeks AND a
+    # floating copy in the weeks between them.
+    recurring_item('bins', rule('anchor' => { 'kind' => 'fixed-day', 'weekday' => 3 }))
+    assert_equal '2026-07-22', week(W2, as_of: W0).first['date'], 'the Wednesday of the due week'
+    assert_empty week(W1, as_of: W0), 'the off week between them is empty'
+    assert_empty week(W3, as_of: W0)
+  end
+
+  def test_a_past_off_week_still_shows_the_carry
+    # Carry is unchanged for weeks at or before the current one.
+    recurring_item('trash', rule)
+    assert_equal 1, week(W1, as_of: W2).length, 'looking back at W1 from W2, it was carrying'
+  end
+
+  # ── Manually staged placements (no origin_date, no date) ─────────────────────
+  # An item staged into the pile by hand and THEN given a rule has a placement with no
+  # period of its own. It still represents the occurrence it sits on top of, so the ghost
+  # must not be emitted beside it (that showed the item twice in one week).
+
+  def test_a_dayless_staged_placement_in_the_due_week_suppresses_the_ghost
+    recurring_item('trash', rule)
+    staged_placement('trash', W2)
+    assert_empty week(W2), 'the staged card already represents W2\'s occurrence'
+  end
+
+  def test_a_dayless_staged_placement_suppresses_a_carried_ghost
+    # Staged in W1 while W0's occurrence was carrying into it — same one card.
+    recurring_item('trash', rule)
+    staged_placement('trash', W1)
+    assert_empty week(W1, as_of: W1)
+  end
+
+  def test_a_dayless_placement_staged_before_the_due_week_does_not_suppress
+    # A stale pile entry from an earlier plan owns nothing — W2's occurrence still ghosts.
+    recurring_item('trash', rule)
+    staged_placement('trash', W0)
+    assert_equal 1, week(W2).length
+  end
+
+  def test_a_dayless_placement_with_no_staged_week_suppresses_nothing
+    recurring_item('trash', rule)
+    Placement.new({ 'item_id' => 'trash', 'collection_id' => 'c1',
+                    'date' => nil, 'floating' => true }).tap(&:validate).tap(&:save!)
+    assert_equal 1, week(W2).length
   end
 
 end

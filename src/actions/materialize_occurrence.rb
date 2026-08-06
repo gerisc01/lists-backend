@@ -23,17 +23,27 @@ require_relative '../type/placement'
 # fixed positional param lists via ActionStep.process, and the optional `date` has no
 # composition use yet). `date` nil => a floating placement in staging; a date =>
 # dated straight onto that day.
-def materialize_occurrence(item_id, collection_id, period_start, date = nil)
+def materialize_occurrence(item_id, collection_id, period_start, date = nil, staged_week = nil)
   raise ListError::NotFound, "item id '#{item_id}' not found" unless Item.exist?(item_id)
   raise ListError::NotFound, "collection id '#{collection_id}' not found" unless Collection.exist?(collection_id)
   raise ListError::BadRequest, "a period_start is required" if period_start.to_s.empty?
 
   # Idempotent on the occurrence: this item's placement already anchored to this
   # due-week represents it — re-materializing (a double-tap) returns it, never piles up.
+  # A floating one re-stamps its staged_week, the same "re-staging means I want this
+  # *this* week" rule create_floating_placement follows — otherwise touching a carried
+  # occurrence from a later week strands the row in the week it was first materialized.
   existing = Placement.for_item(item_id).find do |placement|
     placement.collection_id == collection_id && placement.origin_date == period_start
   end
-  return existing unless existing.nil?
+  unless existing.nil?
+    if existing.date.nil? && staged_week && existing.staged_week != staged_week
+      existing.staged_week = staged_week
+      existing.validate
+      existing.save!
+    end
+    return existing
+  end
 
   dated = !date.to_s.empty?
   placement = Placement.new({
@@ -42,6 +52,13 @@ def materialize_occurrence(item_id, collection_id, period_start, date = nil)
     'date' => (dated ? date : nil),
     'floating' => !dated,
     'origin_date' => period_start,
+    # The pile is read per week (floating_for_collections filters on staged_week), so a
+    # floating materialization MUST land in a week or it shows up in none of them and
+    # reconcile can never release it. The caller passes the week it is being staged into
+    # (the visible week, which for a carried occurrence is later than its due-week);
+    # absent that, the occurrence's own due-week is the only week the server can infer.
+    # A dated placement is scoped by its date and stays unstamped.
+    'staged_week' => (dated ? nil : (staged_week || period_start)),
   })
   placement.validate
   placement.save!

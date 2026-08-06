@@ -51,6 +51,39 @@ class MaterializeOccurrenceTest < MinitestWrapper
     assert_equal W2, p.origin_date
   end
 
+  # ── staged_week (the pile is read per week) ──────────────────────────────────
+
+  def test_floating_materialization_stamps_the_week_it_was_staged_into
+    p = materialize_occurrence('trash', 'c1', W2, nil, W3)
+    assert_equal W3, p.staged_week, 'the visible week, which for a carried occurrence is later than its due-week'
+  end
+
+  def test_floating_materialization_defaults_the_staged_week_to_the_period
+    p = materialize_occurrence('trash', 'c1', W2)
+    assert_equal W2, p.staged_week, 'the only week the server can infer without the caller'
+  end
+
+  def test_a_dated_materialization_leaves_the_staged_week_unset
+    p = materialize_occurrence('trash', 'c1', W2, FRI_W3, W3)
+    assert_nil p.staged_week, 'a dated placement is scoped by its date'
+  end
+
+  # The regression this fixes: an unstamped floating placement matched NO week, so the
+  # card vanished from the pile on the next refresh. This is the exact read the sidebar does.
+  def test_a_materialized_floating_occurrence_shows_in_that_weeks_staging_pile
+    materialize_occurrence('trash', 'c1', W2, nil, W3)
+    assert_equal 1, Placement.floating_for_collections(['c1'], W3).length
+    assert_empty Placement.floating_for_collections(['c1'], W2)
+  end
+
+  def test_re_materializing_from_a_later_week_restamps_the_staged_week
+    first = materialize_occurrence('trash', 'c1', W2, nil, W2)
+    again = materialize_occurrence('trash', 'c1', W2, nil, W3)
+    assert_equal first.id, again.id
+    assert_equal W3, again.staged_week, 'touching it from a later week re-stages it there'
+    assert_equal 1, Placement.for_item('trash').length
+  end
+
   # ── Idempotency ──────────────────────────────────────────────────────────────
 
   def test_re_materializing_the_same_occurrence_returns_the_same_placement
