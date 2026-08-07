@@ -202,7 +202,23 @@ class PlacementTest < MinitestWrapper
 
     map = Placement.day_map_for_collections(['c1', 'c2'], '2026-07-20', '2026-07-26')
     refute map.key?('2026-07-23')   # c3 excluded (check before the default-block access below)
-    assert_equal [@item.id, @item2.id].sort, map['2026-07-22'].sort
+    assert_equal [@item.id, @item2.id].sort, map['2026-07-22'].map { |p| p['item_id'] }.sort
+  end
+
+  # The grid renders placements, not items: it addresses one by id to write a
+  # resolution ("I did this") and reads the resolution back to strike a completed
+  # card in place. A resolved placement therefore STAYS in the day map, unlike the
+  # floating pile read which filters it out.
+  def test_day_map_for_collections_returns_full_placements_including_resolved
+    placement = new_placement({'date' => '2026-07-22', 'resolution' => 'completed'})
+    placement.validate
+    placement.save!
+
+    entry = Placement.day_map_for_collections(['c1'], '2026-07-20', '2026-07-26')['2026-07-22'].first
+    assert_equal placement.id, entry['id']
+    assert_equal @item.id, entry['item_id']
+    assert_equal 'c1', entry['collection_id']
+    assert_equal 'completed', entry['resolution']
   end
 
 end

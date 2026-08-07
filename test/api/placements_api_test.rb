@@ -128,8 +128,8 @@ class PlacementsApiTest < MinitestWrapper
     get("/api/collections/c1/placements?start=2026-07-20&end=2026-07-26")
     assert_equal 200, last_response.status
     map = JSON.parse(last_response.body)
-    assert_equal %w[i1 i2].sort, map[DATE].sort
-    assert_equal %w[i3], map['2026-07-24']
+    assert_equal %w[i1 i2].sort, map[DATE].map { |p| p['item_id'] }.sort
+    assert_equal %w[i3], map['2026-07-24'].map { |p| p['item_id'] }
   end
 
   def test_collection_range_read_excludes_other_collections
@@ -138,7 +138,7 @@ class PlacementsApiTest < MinitestWrapper
     assign('i2', collection: 'c2')      # c2
     get("/api/collections/c1/placements?start=2026-07-20&end=2026-07-26")
     map = JSON.parse(last_response.body)
-    assert_equal %w[i1], map[DATE]
+    assert_equal %w[i1], map[DATE].map { |p| p['item_id'] }
   end
 
   def test_collection_range_read_requires_start_and_end
@@ -266,7 +266,24 @@ class PlacementsApiTest < MinitestWrapper
     get('/api/placements?collections=c1,c2&start=2026-07-20&end=2026-07-26')
     assert_equal 200, last_response.status
     map = JSON.parse(last_response.body)
-    assert_equal %w[i1 i2].sort, map[DATE].sort
+    assert_equal %w[i1 i2].sort, map[DATE].map { |p| p['item_id'] }.sort
+    assert map[DATE].all? { |p| p['id'] && p['collection_id'] }, 'each entry is a full placement'
+  end
+
+  # The grid addresses a placement by id to write "I did this", and renders a resolved
+  # card struck through in place — so the range read must carry both, and must NOT
+  # filter resolved placements the way the floating pile read does.
+  def test_cross_collection_range_read_carries_id_and_resolution_and_keeps_resolved
+    assign('i1')
+    pid = JSON.parse(last_response.body)['id']
+    patch("/api/placements/#{pid}", { 'resolution' => 'completed' }.to_json,
+          { 'Content-Type' => 'application/json' })
+    assert_equal 200, last_response.status
+    get('/api/placements?collections=c1&start=2026-07-20&end=2026-07-26')
+    entry = JSON.parse(last_response.body)[DATE].first
+    assert_equal pid, entry['id']
+    assert_equal 'completed', entry['resolution']
+    refute_nil entry['resolved_at']
   end
 
   def test_cross_collection_range_read_requires_collections_and_dates

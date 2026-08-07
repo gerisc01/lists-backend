@@ -142,23 +142,29 @@ class Placement
     end
   end
 
-  # The weekly-planning range read: { date => [item_ids] } for one collection across
+  # The weekly-planning range read: { date => [placements] } for one collection across
   # a date range. Replaces the legacy Day-based GET /api/dates/:collection/items.
   def self.day_map_for_collection(collection_id, start_date, end_date)
     result = Hash.new { |h, k| h[k] = [] }
     for_date_range(start_date, end_date).each do |p|
-      result[p.date] << p.item_id if p.collection_id == collection_id
+      result[p.date] << p.to_schema_object if p.collection_id == collection_id
     end
     result
   end
 
-  # The cross-collection weekly-planning range read (PR 8): { date => [item_ids] }
+  # The cross-collection weekly-planning range read (PR 8): { date => [placements] }
   # across a SET of collections. Keeps a placement's source collection provenance —
   # a card bound from any staged collection stays on the mixed grid.
+  #
+  # Returns FULL placement objects, not bare item_ids: the grid renders placements,
+  # and needs both the id (to address a resolution write — "I did this") and the
+  # resolution itself (a completed card stays on the day struck through, rather than
+  # vanishing). Unlike the floating pile read, resolved placements are NOT filtered
+  # out here — the week's board doubles as the record of what got done.
   def self.day_map_for_collections(collection_ids, start_date, end_date)
     result = Hash.new { |h, k| h[k] = [] }
     for_date_range(start_date, end_date).each do |p|
-      result[p.date] << p.item_id if collection_ids.include?(p.collection_id)
+      result[p.date] << p.to_schema_object if collection_ids.include?(p.collection_id)
     end
     result
   end

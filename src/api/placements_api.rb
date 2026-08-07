@@ -9,8 +9,8 @@ require_relative '../actions/auto_archive'
 class Api < Sinatra::Base
   register Sinatra::ListApiFramework
 
-  # Weekly-planning range read: items placed in a collection across a date range,
-  # grouped by date → { "YYYY-MM-DD": ["item_id", ...] }. Replaces the legacy
+  # Weekly-planning range read: placements in a collection across a date range,
+  # grouped by date → { "YYYY-MM-DD": [<placement>, ...] }. Replaces the legacy
   # Day-based GET /api/dates/:collection/items?start&end.
   get '/api/collections/:id/placements' do
     if params['start'].to_s.empty? || params['end'].to_s.empty?
@@ -21,10 +21,14 @@ class Api < Sinatra::Base
     body Placement.day_map_for_collection(params['id'], params['start'], params['end']).to_json
   end
 
-  # Cross-collection weekly-planning range read (PR 8): items placed across a SET of
-  # collections in a date range → { "YYYY-MM-DD": ["item_id", ...] }. The mixed-grid
+  # Cross-collection weekly-planning range read (PR 8): placements across a SET of
+  # collections in a date range → { "YYYY-MM-DD": [<placement>, ...] }. The mixed-grid
   # counterpart of the single-collection read above; a card bound from any staged
   # collection stays on the grid. Query: ?collections=c1,c2&start&end.
+  #
+  # Full placement objects (not bare item_ids): the grid needs the placement id to
+  # write a resolution ("I did this") and the resolution to render a completed card
+  # struck through in place. Resolved placements are deliberately NOT filtered out.
   get '/api/placements' do
     collection_ids = params['collections'].to_s.split(',').reject(&:empty?)
     if collection_ids.empty?
