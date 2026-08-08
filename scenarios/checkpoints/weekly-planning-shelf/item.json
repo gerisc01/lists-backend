@@ -1,0 +1,26 @@
+{
+  "e2e-item-1": {
+    "name": "Vacuum living room",
+    "id": "e2e-item-1",
+    "templates": [
+      "todo"
+    ],
+    "updated_at": "2026-08-07T00:00:00Z"
+  },
+  "e2e-item-2": {
+    "name": "Clean bathroom",
+    "id": "e2e-item-2",
+    "templates": [
+      "todo"
+    ],
+    "updated_at": "2026-08-07T00:00:00Z"
+  },
+  "e2e-item-3": {
+    "name": "Mop kitchen floor",
+    "id": "e2e-item-3",
+    "templates": [
+      "todo"
+    ],
+    "updated_at": "2026-08-07T00:00:00Z"
+  }
+}
