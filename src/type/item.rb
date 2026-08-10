@@ -7,6 +7,7 @@ require_relative './tag'
 require_relative './template'
 require_relative './item_generic'
 require_relative './status'
+require_relative './energy'
 require_relative './scheduling'
 
 class Item
@@ -26,6 +27,12 @@ class Item
     {:key => 'status', :required => false, :type => Status, :display_name => 'Status'},
     # Append-only status history; entries shaped/validated by the Transition type.
     {:key => 'transitions', :required => false, :type => Array, :subtype => Transition, :display_name => 'Transitions'},
+    # "How much does this demand of me?" (universal spine), enforced by the Energy
+    # type. Absent reads as `moderate` — and unlike `status` the default is never
+    # stamped on create, so unrated items store nothing. Read via Energy.of_item.
+    # Its payoff surface is the planning query; it deliberately does not render on
+    # the card (docs/DECISIONS.md).
+    {:key => 'energy', :required => false, :type => Energy, :display_name => 'Energy'},
     # Planning kind ({ 'type' => 'event' | 'task' }), enforced by the Scheduling
     # type. Absent reads as `task` (§2.2). Object, not a bare enum, so the optional
     # recurrence rule lives at `scheduling.recurrence` (see recurrence.rb) rather
