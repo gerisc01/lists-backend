@@ -270,4 +270,148 @@ class OccurrencesTest < MinitestWrapper
     assert_equal 1, week(W2).length
   end
 
+  # ── Monthly cadence ──────────────────────────────────────────────────────────
+  # Monthly rules ride the same week grid: a due DATE is computed from the month, then
+  # mapped onto the caller's grid. Every Monday below is spelled out so the mapping is
+  # visible — 2026-07-15 is a Wednesday in the 07-13 week, 2026-08-15 a Saturday in the
+  # 08-10 week, which is exactly what makes the week-vs-month distinction observable.
+
+  M_JUL13 = '2026-07-13'    # the week holding Jul 15
+  M_AUG3  = '2026-08-03'    # the week BEFORE Aug 15's — August, but not yet due
+  M_AUG10 = '2026-08-10'    # the week holding Aug 15
+  M_AUG24 = '2026-08-24'    # August's majority "last week" (holds Aug 28)
+  M_AUG31 = '2026-08-31'    # holds Aug 31 but is six-sevenths September
+  M_SEP14 = '2026-09-14'    # the week holding Sep 15
+  M_NOV2  = '2026-11-02'    # November's majority "first week" (holds Nov 4)
+
+  def monthly_rule(overrides = {})
+    rule('cadence' => 'monthly', 'interval' => 1,
+         'anchor' => { 'kind' => 'date', 'day' => 15 }, 'start_date' => '2026-07-01').merge(overrides)
+  end
+
+  def test_a_monthly_date_rule_emits_a_dated_ghost_in_its_due_week
+    recurring_item('rent', monthly_rule)
+    ghost = week(M_JUL13, as_of: M_JUL13).first
+    assert_equal '2026-07-15', ghost['date']
+    assert_equal false, ghost['floating']
+    assert_equal false, ghost['carried']
+    assert_equal M_JUL13, ghost['period_start'], 'the period is the grid week holding the due date'
+  end
+
+  def test_a_monthly_occurrence_expires_at_the_next_due_week_not_the_month_boundary
+    # The crux. Aug 15 falls in the 08-10 week, so standing in the 08-03 week — already
+    # August — July's occurrence is STILL the live one and must keep carrying. Indexing by
+    # due MONTH instead of due WEEK would hand August's occurrence over a week early and
+    # silently drop July's carry.
+    recurring_item('rent', monthly_rule)
+    carried = week(M_AUG3, as_of: M_AUG3).first
+    assert_equal M_JUL13, carried['period_start'], "still July's, though the month has turned"
+    assert_equal true, carried['carried']
+
+    assert_equal M_AUG10, week(M_AUG10, as_of: M_AUG10).first['period_start'], 'now it flips'
+  end
+
+  def test_a_carried_monthly_date_occurrence_refloats
+    recurring_item('rent', monthly_rule)
+    carried = week(M_AUG3, as_of: M_AUG3).first
+    assert_nil carried['date'], 're-floated, no longer dated'
+    assert_equal true, carried['floating']
+    assert_equal '2026-07-15', carried['origin_date'], 'keeps its original day as the anchor'
+  end
+
+  def test_a_day_of_month_overflow_clamps_to_the_last_day
+    recurring_item('rent', monthly_rule('anchor' => { 'kind' => 'date', 'day' => 31 },
+                                        'start_date' => '2026-01-01'))
+    assert_equal '2026-02-28', week('2026-02-23', as_of: '2026-02-23').first['date'], 'February clamps'
+    # And the clamp must not STICK: chaining Date#>> would leave March on the 28th
+    # (Jan 31 >> 1 >> 1 is Mar 28), so March is read separately to prove it is the 31st.
+    assert_equal '2026-03-31', week('2026-03-30', as_of: '2026-03-30').first['date']
+  end
+
+  def test_a_monthly_interval_skips_the_off_months
+    recurring_item('rent', monthly_rule('interval' => 2))     # July, September, ...
+    assert_equal M_JUL13, week(M_JUL13, as_of: M_JUL13).first['period_start']
+    assert_equal M_JUL13, week(M_AUG10, as_of: M_AUG10).first['period_start'], 'August carries July'
+    assert_equal M_SEP14, week(M_SEP14, as_of: M_SEP14).first['period_start']
+  end
+
+  def test_a_mid_month_start_date_defers_to_the_next_month
+    # Authored Jul 20 with a day-5 anchor: Jul 5 has already passed, so the series must
+    # start in August rather than surfacing a two-week-old carry the moment it is created.
+    recurring_item('rent', monthly_rule('anchor' => { 'kind' => 'date', 'day' => 5 },
+                                        'start_date' => '2026-07-20'))
+    assert_empty week(M_JUL13, as_of: '2026-07-20')
+    assert_empty week('2026-07-20', as_of: '2026-07-20')
+    assert_equal '2026-08-05', week(M_AUG3, as_of: M_AUG3).first['date']
+  end
+
+  def test_a_mid_month_start_date_steps_one_month_not_one_interval
+    # "Every 3 months on the 5th" authored Aug 10 first fires Sep 5 — the step re-bases the
+    # phase onto the first month that actually fires, rather than skipping to November.
+    recurring_item('rent', monthly_rule('interval' => 3,
+                                        'anchor' => { 'kind' => 'date', 'day' => 5 },
+                                        'start_date' => '2026-08-10'))
+    assert_equal '2026-09-05', week('2026-08-31', as_of: '2026-08-31').first['date']
+  end
+
+  def test_a_monthly_rule_without_a_start_date_phases_from_as_of_without_deferring
+    # No start_date is no floor — as_of supplies phase only, mirroring the weekly fallback
+    # where the week you are standing in is a due week. Clamping forward here would hide a
+    # day-15 rule for a month whenever it was first read after the 15th.
+    rule_hash = monthly_rule
+    rule_hash.delete('start_date')
+    recurring_item('rent', rule_hash)
+    assert_equal M_AUG10, week(M_AUG10, as_of: '2026-08-20').first['period_start']
+  end
+
+  def test_the_first_week_phase_takes_the_majority_week
+    # Nov 1 2026 is a Sunday, so the week containing the 1st starts Oct 26 and is six
+    # sevenths October. November's "first week" is the majority week instead.
+    recurring_item('kitchen', monthly_rule('anchor' => { 'kind' => 'week-phase', 'phase' => 'first' }))
+    assert_equal M_NOV2, week(M_NOV2, as_of: M_NOV2).first['period_start']
+    # The 10-26 week is still carrying OCTOBER's occurrence (whose own majority week starts
+    # Sep 28) — November's has not come due there, which the naive definition would claim.
+    assert_equal '2026-09-28', week('2026-10-26', as_of: '2026-10-26').first['period_start']
+  end
+
+  def test_the_last_week_phase_takes_the_majority_week
+    # Aug 31 2026 is a Monday, so the week containing the last day is six sevenths
+    # September. August's "last week" is the majority week, 08-24.
+    recurring_item('kitchen', monthly_rule('anchor' => { 'kind' => 'week-phase', 'phase' => 'last' }))
+    assert_equal M_AUG24, week(M_AUG24, as_of: M_AUG24).first['period_start']
+    refute_equal M_AUG31, week(M_AUG31, as_of: M_AUG31).first['period_start'],
+                 'the 08-31 week belongs to September, not to August\'s last week'
+  end
+
+  def test_a_week_phase_occurrence_is_dayless
+    recurring_item('kitchen', monthly_rule('anchor' => { 'kind' => 'week-phase', 'phase' => 'first' }))
+    ghost = week('2026-08-03', as_of: '2026-08-03').first
+    assert_nil ghost['date'], 'you pick the day within that week'
+    assert_equal true, ghost['floating']
+    assert_equal ghost['period_start'], ghost['origin_date']
+  end
+
+  def test_a_monthly_series_respects_end_date
+    recurring_item('rent', monthly_rule('end_date' => '2026-07-16'))
+    assert_equal 1, week(M_JUL13, as_of: M_JUL13).length, 'the occurrence in the end week still shows'
+    assert_empty week(M_AUG10, as_of: M_AUG10), 'no new period after the end week'
+  end
+
+  def test_a_persisted_placement_in_the_monthly_period_suppresses_the_ghost
+    recurring_item('rent', monthly_rule)
+    placement('rent', '2026-07-15')
+    assert_empty week(M_JUL13, as_of: M_JUL13)
+    assert_equal 1, week(M_AUG10, as_of: M_AUG10).length, 'next month still ghosts'
+  end
+
+  def test_a_monthly_occurrence_does_not_carry_into_a_future_week
+    recurring_item('rent', monthly_rule)
+    assert_empty week(M_AUG3, as_of: M_JUL13), 'looking ahead, the off week is empty'
+  end
+
+  def test_before_the_start_month_nothing_is_emitted
+    recurring_item('rent', monthly_rule('start_date' => '2026-08-01'))
+    assert_empty week(M_JUL13, as_of: M_JUL13)
+  end
+
 end

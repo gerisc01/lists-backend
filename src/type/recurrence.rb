@@ -10,25 +10,39 @@ require 'date'
 # the schema enforces the shape server-side.
 #
 #   scheduling.recurrence = {
-#     'cadence'       => 'weekly',                 # only weekly this slice
-#     'interval'      => 2,                         # every N weeks (positive Integer)
+#     'cadence'       => 'weekly',                 # 'weekly' or 'monthly'
+#     'interval'      => 2,                         # every N weeks/months (positive Integer)
 #     'mode'          => 'absolute',               # only absolute this slice
-#     'anchor'        => { 'kind' => 'floating' }, # OR { 'kind' => 'fixed-day', 'weekday' => 0..6 }
+#     'anchor'        => { 'kind' => 'floating' }, # see ANCHOR_KINDS_BY_CADENCE below
 #     'collection_id' => 'c1',                     # whose staging the occurrence drains into
 #     'active'        => true,                      # active/paused toggle (optional, default true)
 #     'start_date'    => '2026-07-27',             # optional phase anchor for interval > 1
 #     'end_date'      => '2026-08-31',             # optional; no occurrences after this week (see occurrences.rb)
 #   }
 #
-# Scope (PR 12): absolute weekly, floating + fixed-day anchoring. Relative cadence and
-# monthly/date/week-phase anchoring are deferred. `end_date` (bound a series going
-# forward while preserving past placements) is supported. The constant arrays are the
-# extension points — a later slice appends to them rather than restructuring.
+# `interval` is CADENCE-RELATIVE — weeks under weekly, months under monthly. One field,
+# no schema branch; the unit is resolved by the cadence at read time and in the UI label.
+#
+# Scope: absolute weekly (floating + fixed-day) and absolute monthly (date + week-phase).
+# Relative cadence is deferred. `end_date` (bound a series going forward while preserving
+# past placements) is supported. The constant arrays are the extension points — a later
+# slice appends to them rather than restructuring.
 class Recurrence
 
-  CADENCES     = %w[weekly].freeze
-  MODES        = %w[absolute].freeze
-  ANCHOR_KINDS = %w[floating fixed-day].freeze
+  CADENCES = %w[weekly monthly].freeze
+  MODES    = %w[absolute].freeze
+
+  # Cadence and anchor are NOT independent (design §2.5). Plain `floating` — "lands
+  # dayless in the period, you pick the day" — is a weekly thing: a floating monthly
+  # occurrence would have to answer "which week of the month?", so a monthly rule says
+  # where it lands instead, by date ('the 3rd') or by week-phase ('the first week').
+  # This map is the single source of truth for both membership and compatibility.
+  ANCHOR_KINDS_BY_CADENCE = {
+    'weekly'  => %w[floating fixed-day],
+    'monthly' => %w[date week-phase],
+  }.freeze
+
+  WEEK_PHASES = %w[first last].freeze
 
   def self.type_match?(value)
     return false unless value.is_a?(Hash)
@@ -36,7 +50,8 @@ class Recurrence
     return false unless value['interval'].is_a?(Integer) && value['interval'].positive?
     return false unless MODES.include?(value['mode'])
     return false unless value['collection_id'].is_a?(String) && !value['collection_id'].empty?
-    return false unless anchor_valid?(value['anchor'])
+    # After the cadence guard above, so the anchor is always checked against a known cadence.
+    return false unless anchor_valid?(value['anchor'], value['cadence'])
     return false unless active_valid?(value['active'])
     return false unless date_valid?(value['start_date'])
     return false unless date_valid?(value['end_date'])
@@ -56,14 +71,24 @@ class Recurrence
     recurrence.fetch('active', true) == true
   end
 
-  def self.anchor_valid?(anchor)
+  def self.anchor_valid?(anchor, cadence)
     return false unless anchor.is_a?(Hash)
-    return false unless ANCHOR_KINDS.include?(anchor['kind'])
+    kinds = ANCHOR_KINDS_BY_CADENCE[cadence]
+    return false if kinds.nil? || !kinds.include?(anchor['kind'])
+
+    case anchor['kind']
     # fixed-day pins the occurrence to a weekday (Ruby Date#wday: 0=Sun..6=Sat).
-    if anchor['kind'] == 'fixed-day'
-      return anchor['weekday'].is_a?(Integer) && (0..6).cover?(anchor['weekday'])
+    when 'fixed-day'  then day_in_range?(anchor['weekday'], 0..6)
+    # date pins it to a day of the month. 31 is legal every month: an overflowing day
+    # CLAMPS to the month's last (Feb gets the 28th) rather than skipping the period.
+    when 'date'       then day_in_range?(anchor['day'], 1..31)
+    when 'week-phase' then WEEK_PHASES.include?(anchor['phase'])
+    else true # floating carries no shape of its own
     end
-    true
+  end
+
+  def self.day_in_range?(value, range)
+    value.is_a?(Integer) && range.cover?(value)
   end
 
   def self.active_valid?(value)
