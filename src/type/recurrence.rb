@@ -23,7 +23,7 @@ require 'date'
 # `interval` is CADENCE-RELATIVE — weeks under weekly, months under monthly. One field,
 # no schema branch; the unit is resolved by the cadence at read time and in the UI label.
 #
-# Scope: absolute weekly (floating + fixed-day) and absolute monthly (date + week-phase).
+# Scope: absolute weekly (floating + fixed-day) and absolute monthly (date + week-of-month).
 # Relative cadence is deferred. `end_date` (bound a series going forward while preserving
 # past placements) is supported. The constant arrays are the extension points — a later
 # slice appends to them rather than restructuring.
@@ -35,14 +35,12 @@ class Recurrence
   # Cadence and anchor are NOT independent (design §2.5). Plain `floating` — "lands
   # dayless in the period, you pick the day" — is a weekly thing: a floating monthly
   # occurrence would have to answer "which week of the month?", so a monthly rule says
-  # where it lands instead, by date ('the 3rd') or by week-phase ('the first week').
+  # where it lands instead, by date ('the 3rd') or by week-of-month ('the 1st week').
   # This map is the single source of truth for both membership and compatibility.
   ANCHOR_KINDS_BY_CADENCE = {
     'weekly'  => %w[floating fixed-day],
-    'monthly' => %w[date week-phase],
+    'monthly' => %w[date week-of-month],
   }.freeze
-
-  WEEK_PHASES = %w[first last].freeze
 
   def self.type_match?(value)
     return false unless value.is_a?(Hash)
@@ -78,11 +76,14 @@ class Recurrence
 
     case anchor['kind']
     # fixed-day pins the occurrence to a weekday (Ruby Date#wday: 0=Sun..6=Sat).
-    when 'fixed-day'  then day_in_range?(anchor['weekday'], 0..6)
+    when 'fixed-day'    then day_in_range?(anchor['weekday'], 0..6)
     # date pins it to a day of the month. 31 is legal every month: an overflowing day
     # CLAMPS to the month's last (Feb gets the 28th) rather than skipping the period.
-    when 'date'       then day_in_range?(anchor['day'], 1..31)
-    when 'week-phase' then WEEK_PHASES.include?(anchor['phase'])
+    when 'date'          then day_in_range?(anchor['day'], 1..31)
+    # week-of-month is the same idea a week coarser: 5 is legal every month and clamps to
+    # the month's last week. A month spans exactly 4 or 5 weeks, so only 5 ever clamps —
+    # which makes week 5 mean "the last week" in every month.
+    when 'week-of-month' then day_in_range?(anchor['week'], 1..5)
     else true # floating carries no shape of its own
     end
   end

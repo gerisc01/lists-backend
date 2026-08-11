@@ -18,7 +18,7 @@ require_relative '../type/recurrence'
 # placement read path and makes a touch persist a real Placement.
 #
 # Scope: absolute cadence, weekly (floating + fixed-day) and monthly (date +
-# week-phase). Relative cadence, splitting, and "just this once" overrides are deferred.
+# week-of-month). Relative cadence, splitting, and "just this once" overrides are deferred.
 #
 # Invariants enforced here (design §2.5):
 #   * At most ONE live occurrence per rule per week — the most recent due-week at or
@@ -55,7 +55,7 @@ end
 
 # The live occurrence a rule surfaces in the target week: its PERIOD (the grid week that
 # keys dedup and period_start) and, for a pinned anchor, the exact day it falls on.
-# `date` nil means a dayless anchor (weekly floating, monthly week-phase).
+# `date` nil means a dayless anchor (weekly floating, monthly week-of-month).
 #
 # The two are kept together because a monthly `date` anchor's day is NOT recoverable from
 # its grid week — Sep 1 2026 sits in the week starting Aug 31, so a due week of Aug 31
@@ -100,9 +100,15 @@ end
 # consecutive due dates of one rule are always >= 28 days apart — the tightest case is Jan
 # 31 -> Feb 28 — so due weeks strictly increase by >= 4 weeks and the search is unambiguous.
 def monthly_occurrence(rule, target_week, as_of)
+  anchor = rule['anchor']
+  # A rule whose anchor this version doesn't understand (a shape from a later build, or one
+  # left behind by a rename) yields no occurrences instead of raising: one bad rule must not
+  # take down the whole week's read for every other rule beside it. Checked before anything
+  # else, because first_due_month resolves a due date too.
+  return nil if monthly_due_date(anchor, target_week).nil?
+
   origin = first_due_month(rule, as_of)
   interval = rule['interval']
-  anchor = rule['anchor']
   # Always shift the first-of-month cursor by the full k*interval: chaining Date#>> is
   # lossy, because clamping sticks (Jan 31 >> 1 >> 1 is Mar 28, but >> 2 is Mar 31).
   week_of = ->(k) { week_start_of(monthly_due_date(anchor, origin >> (k * interval)), target_week) }
@@ -118,20 +124,30 @@ def monthly_occurrence(rule, target_week, as_of)
 end
 
 # A monthly rule's due date within the month that `month_ref` (a first-of-month Date)
-# starts. A `date` anchor clamps an overflowing day to the month's last, so "the 31st"
-# lands on Feb 28 rather than skipping February.
+# starts, or nil if the anchor is one this version doesn't understand (the caller then
+# emits nothing for the rule, rather than the whole week's read failing).
 #
-# A `week-phase` anchor resolves to a SURROGATE date whose only job is to pick a grid
-# week: the 4th, and the 4th-from-last, are exactly the days that select the MAJORITY
-# week — the week containing the 1st unless fewer than four of its days belong to the
-# month. The naive "week containing the 1st" would make November 2026's first week the
-# week of Oct 26 (six October days), and August 2026's last week the week of Aug 31 (six
-# September days). The surrogate never surfaces: week-phase ghosts are dayless.
+# A `date` anchor clamps an overflowing day to the month's last, so "the 31st" lands on
+# Feb 28 rather than skipping February.
+#
+# A `week-of-month` anchor resolves to a SURROGATE date whose only job is to pick a grid
+# week: the 4th, and the 4th-from-last, are exactly the days that select a MAJORITY week —
+# the week containing that date unless fewer than four of its days belong to the month.
+# The naive "week containing the 1st" would make November 2026's first week the week of
+# Oct 26 (six October days), and August 2026's last week the week of Aug 31 (six September
+# days). Majority weeks tile the calendar exactly, so week N is simply N-1 weeks past the
+# first one, and capping the surrogate at the 4th-from-last CLAMPS week 5 to the month's
+# last week with no week-counting: verified against both a Monday and a Sunday grid across
+# 2024-2032. A month spans exactly 4 or 5 majority weeks, so weeks 1-4 never clamp and
+# week 5 always lands on the last one. The surrogate never surfaces — these ghosts are
+# dayless.
 def monthly_due_date(anchor, month_ref)
   last = ::Date.new(month_ref.year, month_ref.month, -1)
   case anchor['kind']
-  when 'date'       then ::Date.new(month_ref.year, month_ref.month, [anchor['day'], last.day].min)
-  when 'week-phase' then anchor['phase'] == 'first' ? month_ref + 3 : last - 3
+  when 'date'
+    ::Date.new(month_ref.year, month_ref.month, [anchor['day'], last.day].min)
+  when 'week-of-month'
+    [month_ref + 3 + ((anchor['week'] - 1) * 7), last - 3].min
   end
 end
 
@@ -228,7 +244,7 @@ def build_ghost(item, rule, occurrence, target_week)
 
   date, floating, origin =
     if pinned.nil?
-      # A dayless anchor (weekly floating / monthly week-phase) is anchored to the
+      # A dayless anchor (weekly floating / monthly week-of-month) is anchored to the
       # due-week's first day.
       [nil, true, due_week.iso8601]
     elsif carried

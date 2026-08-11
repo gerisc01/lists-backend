@@ -5,7 +5,7 @@ require_relative '../../src/type/scheduling'
 
 # The Recurrence validation type. A rule folds into item.scheduling.recurrence and the
 # schema enforces its shape server-side (like Status / Resolution / Scheduling). Scope:
-# absolute weekly (floating + fixed-day) and absolute monthly (date + week-phase).
+# absolute weekly (floating + fixed-day) and absolute monthly (date + week-of-month).
 class RecurrenceTest < MinitestWrapper
 
   def floating_rule(overrides = {})
@@ -24,8 +24,8 @@ class RecurrenceTest < MinitestWrapper
     floating_rule('cadence' => 'monthly', 'anchor' => { 'kind' => 'date', 'day' => 15 }).merge(overrides)
   end
 
-  def monthly_phase_rule(overrides = {})
-    floating_rule('cadence' => 'monthly', 'anchor' => { 'kind' => 'week-phase', 'phase' => 'first' }).merge(overrides)
+  def monthly_week_rule(overrides = {})
+    floating_rule('cadence' => 'monthly', 'anchor' => { 'kind' => 'week-of-month', 'week' => 1 }).merge(overrides)
   end
 
   # ── Shape acceptance ─────────────────────────────────────────────────────────
@@ -64,9 +64,11 @@ class RecurrenceTest < MinitestWrapper
     assert Recurrence.type_match?(monthly_date_rule('anchor' => { 'kind' => 'date', 'day' => 31 }))
   end
 
-  def test_accepts_a_valid_monthly_week_phase_rule
-    assert Recurrence.type_match?(monthly_phase_rule)
-    assert Recurrence.type_match?(monthly_phase_rule('anchor' => { 'kind' => 'week-phase', 'phase' => 'last' }))
+  def test_accepts_a_valid_monthly_week_of_month_rule
+    (1..5).each do |week|
+      assert Recurrence.type_match?(monthly_week_rule('anchor' => { 'kind' => 'week-of-month', 'week' => week })),
+             "week #{week} should be valid"
+    end
   end
 
   def test_paused_rule_is_valid_but_inactive
@@ -96,7 +98,7 @@ class RecurrenceTest < MinitestWrapper
     refute Recurrence.type_match?(monthly_date_rule('anchor' => { 'kind' => 'floating' }))
     refute Recurrence.type_match?(monthly_date_rule('anchor' => { 'kind' => 'fixed-day', 'weekday' => 2 }))
     refute Recurrence.type_match?(floating_rule('anchor' => { 'kind' => 'date', 'day' => 15 }))
-    refute Recurrence.type_match?(floating_rule('anchor' => { 'kind' => 'week-phase', 'phase' => 'first' }))
+    refute Recurrence.type_match?(floating_rule('anchor' => { 'kind' => 'week-of-month', 'week' => 1 }))
   end
 
   def test_rejects_bad_anchor
@@ -113,10 +115,13 @@ class RecurrenceTest < MinitestWrapper
     refute Recurrence.type_match?(monthly_date_rule('anchor' => { 'kind' => 'date' }))            # missing day
   end
 
-  def test_rejects_a_bad_week_phase
-    refute Recurrence.type_match?(monthly_phase_rule('anchor' => { 'kind' => 'week-phase', 'phase' => 'middle' }))
-    refute Recurrence.type_match?(monthly_phase_rule('anchor' => { 'kind' => 'week-phase', 'phase' => 1 }))
-    refute Recurrence.type_match?(monthly_phase_rule('anchor' => { 'kind' => 'week-phase' }))     # missing phase
+  def test_rejects_a_bad_week_of_month
+    refute Recurrence.type_match?(monthly_week_rule('anchor' => { 'kind' => 'week-of-month', 'week' => 0 }))
+    refute Recurrence.type_match?(monthly_week_rule('anchor' => { 'kind' => 'week-of-month', 'week' => 6 }))
+    refute Recurrence.type_match?(monthly_week_rule('anchor' => { 'kind' => 'week-of-month', 'week' => '3' }))
+    refute Recurrence.type_match?(monthly_week_rule('anchor' => { 'kind' => 'week-of-month' }))   # missing week
+    # The pre-rename shape is no longer accepted.
+    refute Recurrence.type_match?(monthly_week_rule('anchor' => { 'kind' => 'week-phase', 'phase' => 'first' }))
   end
 
   def test_rejects_missing_collection_id

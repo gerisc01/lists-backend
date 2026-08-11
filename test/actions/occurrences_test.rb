@@ -364,31 +364,67 @@ class OccurrencesTest < MinitestWrapper
     assert_equal M_AUG10, week(M_AUG10, as_of: '2026-08-20').first['period_start']
   end
 
-  def test_the_first_week_phase_takes_the_majority_week
+  def test_week_one_takes_the_majority_week
     # Nov 1 2026 is a Sunday, so the week containing the 1st starts Oct 26 and is six
-    # sevenths October. November's "first week" is the majority week instead.
-    recurring_item('kitchen', monthly_rule('anchor' => { 'kind' => 'week-phase', 'phase' => 'first' }))
+    # sevenths October. November's first week is the majority week instead.
+    recurring_item('kitchen', monthly_rule('anchor' => { 'kind' => 'week-of-month', 'week' => 1 }))
     assert_equal M_NOV2, week(M_NOV2, as_of: M_NOV2).first['period_start']
     # The 10-26 week is still carrying OCTOBER's occurrence (whose own majority week starts
     # Sep 28) — November's has not come due there, which the naive definition would claim.
     assert_equal '2026-09-28', week('2026-10-26', as_of: '2026-10-26').first['period_start']
   end
 
-  def test_the_last_week_phase_takes_the_majority_week
-    # Aug 31 2026 is a Monday, so the week containing the last day is six sevenths
-    # September. August's "last week" is the majority week, 08-24.
-    recurring_item('kitchen', monthly_rule('anchor' => { 'kind' => 'week-phase', 'phase' => 'last' }))
-    assert_equal M_AUG24, week(M_AUG24, as_of: M_AUG24).first['period_start']
-    refute_equal M_AUG31, week(M_AUG31, as_of: M_AUG31).first['period_start'],
-                 'the 08-31 week belongs to September, not to August\'s last week'
+  # Majority weeks tile the calendar, so week N is simply N-1 weeks past week 1.
+  def test_week_numbers_step_one_week_at_a_time
+    (1..4).each do |n|
+      Item.get('kitchen')&.delete!
+      recurring_item('kitchen', monthly_rule('anchor' => { 'kind' => 'week-of-month', 'week' => n },
+                                             'start_date' => '2026-08-01'))
+      expected = (::Date.parse(M_AUG3) + ((n - 1) * 7)).iso8601
+      assert_equal expected, week(expected, as_of: expected).first['period_start'], "week #{n} of Aug 2026"
+    end
   end
 
-  def test_a_week_phase_occurrence_is_dayless
-    recurring_item('kitchen', monthly_rule('anchor' => { 'kind' => 'week-phase', 'phase' => 'first' }))
+  # A month spans exactly 4 or 5 majority weeks, so only week 5 ever clamps — which makes
+  # week 5 mean "the last week" in every month. August 2026 has four (Aug 3/10/17/24; the
+  # 08-31 week is six sevenths September), so 5 lands on Aug 24 rather than vanishing.
+  def test_week_five_clamps_to_the_last_week_of_a_four_week_month
+    recurring_item('kitchen', monthly_rule('anchor' => { 'kind' => 'week-of-month', 'week' => 5 },
+                                           'start_date' => '2026-08-01'))
+    assert_equal M_AUG24, week(M_AUG24, as_of: M_AUG24).first['period_start']
+    refute_equal M_AUG31, week(M_AUG31, as_of: M_AUG31).first['period_start'],
+                 'the 08-31 week belongs to September, not to August'
+  end
+
+  # In a five-week month week 5 is a real fifth week, not a clamp. October 2026's majority
+  # weeks run Sep 28, Oct 5, 12, 19, 26 — so week 5 is Oct 26 and week 4 is Oct 19.
+  def test_week_five_is_a_real_fifth_week_when_the_month_has_one
+    recurring_item('kitchen', monthly_rule('anchor' => { 'kind' => 'week-of-month', 'week' => 5 },
+                                           'start_date' => '2026-10-01'))
+    assert_equal '2026-10-26', week('2026-10-26', as_of: '2026-10-26').first['period_start']
+
+    Item.get('kitchen').delete!
+    recurring_item('kitchen4', monthly_rule('anchor' => { 'kind' => 'week-of-month', 'week' => 4 },
+                                            'start_date' => '2026-10-01'))
+    assert_equal '2026-10-19', week('2026-10-19', as_of: '2026-10-19').first['period_start']
+  end
+
+  def test_a_week_of_month_occurrence_is_dayless
+    recurring_item('kitchen', monthly_rule('anchor' => { 'kind' => 'week-of-month', 'week' => 1 }))
     ghost = week('2026-08-03', as_of: '2026-08-03').first
     assert_nil ghost['date'], 'you pick the day within that week'
     assert_equal true, ghost['floating']
     assert_equal ghost['period_start'], ghost['origin_date']
+  end
+
+  # A rule shape this version doesn't understand — one left behind by the week-phase rename,
+  # or written by a later build — must yield no occurrence rather than raise, or one bad rule
+  # takes down the whole week's read for every rule beside it. Exercised directly: the schema
+  # refuses to persist such a rule, which is the point.
+  def test_an_unrecognised_anchor_yields_no_occurrence_instead_of_raising
+    stale = monthly_rule('anchor' => { 'kind' => 'week-phase', 'phase' => 'first' })
+    assert_nil monthly_due_date(stale['anchor'], ::Date.new(2026, 8, 1))
+    assert_nil monthly_occurrence(stale, ::Date.parse(M_AUG3), M_AUG3)
   end
 
   def test_a_monthly_series_respects_end_date
