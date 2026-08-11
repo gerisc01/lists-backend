@@ -107,6 +107,46 @@ class ItemsApiTest < MinitestWrapper
     refute Status.done?('on-hold')
   end
 
+  # Energy rides the ordinary generated CRUD — no dedicated endpoint, because
+  # unlike status it keeps no history and needs no server-authoritative writer.
+  def test_energy_round_trips_through_the_generic_update
+    put('/api/items/1', { 'id' => '1', 'name' => 'One', 'energy' => 'chill' }.to_json,
+        { "Content-Type" => "application/json" })
+    assert_equal 200, last_response.status
+    assert_equal 'chill', reloaded['energy']
+  end
+
+  # Picking `moderate` in the UI *clears* the field rather than storing the
+  # default, and this is the mechanism it relies on: an explicit null clears.
+  # Omitting the key does NOT — the generated PUT merges — so the client has to
+  # send null deliberately. Pinned because the "default is never persisted"
+  # invariant is only true as long as this holds.
+  def test_explicit_null_clears_energy_but_omitting_it_preserves
+    put('/api/items/1', { 'id' => '1', 'name' => 'One', 'energy' => 'intense' }.to_json,
+        { "Content-Type" => "application/json" })
+    assert_equal 'intense', reloaded['energy']
+
+    put('/api/items/1', { 'id' => '1', 'name' => 'One' }.to_json,
+        { "Content-Type" => "application/json" })
+    assert_equal 'intense', reloaded['energy'], 'omitting a field must not clear it'
+
+    put('/api/items/1', { 'id' => '1', 'name' => 'One', 'energy' => nil }.to_json,
+        { "Content-Type" => "application/json" })
+    assert_nil reloaded['energy']
+  end
+
+  # The enum is enforced server-side and the bad value never lands. Asserted as
+  # "not OK" rather than a specific code: the generated CRUD has no validation
+  # rescue, so *any* schema failure surfaces as a 500 (a bad `status` through the
+  # same PUT behaves identically). That mapping is a framework-wide gap, not an
+  # energy one — tighten it there, and this test still holds.
+  def test_unknown_energy_is_rejected_by_the_schema
+    put('/api/items/1', { 'id' => '1', 'name' => 'One', 'energy' => 'somewhat' }.to_json,
+        { "Content-Type" => "application/json" })
+    refute last_response.ok?
+    assert_nil reloaded['energy']
+  end
+
   # Malformed transition entries fail validation (Transition type guards the shape).
   def test_transition_type_match
     assert Transition.type_match?({ 'from' => 'want-to', 'to' => 'doing', 'at' => 't' })

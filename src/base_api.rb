@@ -21,7 +21,11 @@ class BaseApi < Sinatra::Base
   set :show_exceptions => :after_handler
 
   set :allow_origin, '*'
-  set :allow_methods, 'GET,POST,PUT,DELETE,OPTIONS'
+  # PATCH is load-bearing: PATCH /api/placements/:pid is how a placement's resolution is
+  # written (complete / skip / reopen). Omitting it here let every browser preflight for
+  # that route fail, so tap-to-complete and Skip silently did nothing on web while working
+  # fine on native (no CORS) and in Jest (API mocked). Caught by the Playwright spine test.
+  set :allow_methods, 'GET,POST,PUT,PATCH,DELETE,OPTIONS'
   set :allow_headers, 'Content-Type, Accept, ACCOUNT_ID'
 
   helpers do
@@ -81,7 +85,7 @@ class Api < Sinatra::Base
   register Sinatra::Cors
 
   set :allow_origin, '*'
-  set :allow_methods, 'GET,POST,PUT,DELETE,OPTIONS'
+  set :allow_methods, 'GET,POST,PUT,PATCH,DELETE,OPTIONS'  # PATCH: see note above
   set :allow_headers, 'Content-Type, Accept, ACCOUNT_ID'
 
   helpers do
