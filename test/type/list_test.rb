@@ -64,25 +64,4 @@ class ListTest < MinitestWrapper
     assert_nil @list.attributes
   end
 
-  def test_list_sharing_scope_valid
-    @list.sharing_scope = 'shared'
-    assert_equal 'shared', @list.sharing_scope
-    @list.validate
-
-    @list.sharing_scope = 'private'
-    assert_equal 'private', @list.sharing_scope
-    @list.validate
-  end
-
-  def test_list_sharing_scope_absent
-    assert_nil @list.sharing_scope
-    @list.validate
-  end
-
-  def test_list_sharing_scope_invalid_rejected
-    assert_raises(Schema::ValidationError) do
-      @list.sharing_scope = 'bogus'
-    end
-  end
-
 end

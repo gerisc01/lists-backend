@@ -6,7 +6,6 @@ require_relative '../storage'
 require_relative './action'
 require_relative './item_generic'
 require_relative './template'
-require_relative './sharing_scope'
 
 class List
 
@@ -21,8 +20,6 @@ class List
     {:key => 'template', :required => false, :type => Template, :type_ref => true, :display_name => 'Template'},
     {:key => 'actions', :required => false, :type => Array, :subtype => Action, :type_ref => true, :display_name => 'Actions'},
     {:key => 'attributes', :required => false, :type => Hash, :display_name => 'Attributes'},
-    # Who can access this list (design §6.1). Structural only; absent reads as 'private'.
-    {:key => 'sharing_scope', :required => false, :type => SharingScope, :display_name => 'Sharing Scope'}
   ]
   apply_schema schema
 
