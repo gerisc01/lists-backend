@@ -30,6 +30,25 @@ ruby scenarios/start.rb
 
 The scenario manager (`scenarios/scenario_manager.rb`) loads checkpoint data from `scenarios/checkpoints/`. Available checkpoints are in that directory.
 
+## Driving the API end-to-end by hand
+
+`bundle exec ruby e2e_api.rb` serves the real API on **port 9191**, clearing `e2e-data/` on boot and
+skipping auth on the items/placements/reconcile routes. It's the cheapest way to exercise a whole
+flow without the frontend:
+
+```bash
+POST   /api/collections
+POST   /api/items
+POST   /api/items/:id/placements   {collection}
+GET    /api/placements/floating?collections=
+POST   /api/reconcile
+DELETE /api/items/:id
+```
+
+> **Check for a stale process first: `lsof -ti :9191`.** A long-running backend left over from an
+> earlier session keeps the port, your new process loses it to `EADDRINUSE`, and curl then hits the
+> **old code** — which looks exactly like your change not working. Kill it before starting.
+
 ## Running Tests
 
 ```bash

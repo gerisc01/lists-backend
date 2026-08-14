@@ -1,3 +1,11 @@
+> **FROZEN 2026-08-13.** Sharded into `docs/decisions/` — one file per decision, indexed at
+> `docs/decisions/INDEX.md`. Kept only so links into the old file still resolve.
+> **Do not add to it.**
+
+> **FROZEN 2026-08-13.** Sharded into `docs/decisions/` — one file per decision, indexed at
+> `docs/decisions/INDEX.md`. Kept only so links into the old file still resolve.
+> **Do not add to it.**
+
 # Decisions
 
 Running log of design decisions and current in-progress work. Update this at the end of any session with significant changes.
