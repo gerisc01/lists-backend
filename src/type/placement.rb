@@ -46,6 +46,12 @@ class Placement
     # not stored. See docs/DECISIONS.md "placement resolution = completed|skipped".
     {:key => 'resolution', :required => false, :type => Resolution, :display_name => 'Resolution'},
     {:key => 'resolved_at', :required => false, :type => String, :display_name => 'Resolved At'},
+    # WHO closed this instance — an account id, server-stamped from the request's
+    # authenticated account alongside `resolved_at` and cleared on reopen. Never
+    # client-supplied. Absent on every placement resolved before this field existed,
+    # and on a resolution written without an account header, so a reader must treat
+    # "unknown" as ordinary rather than as an error.
+    {:key => 'resolved_by', :required => false, :type => String, :display_name => 'Resolved By'},
     # The ORIGINAL date this placement was first bound to — immutable, stamped on
     # first dating and never overwritten when carry-forward re-floats it. The
     # "carried N weeks" count (§4.4) is *derived* from this (elapsed weeks since
@@ -66,6 +72,12 @@ class Placement
     {:key => 'staged_week', :required => false, :type => SchemaType::Date, :display_name => 'Staged Week'},
     {:key => 'time_cost', :required => false, :type => Integer, :display_name => 'Time Cost'},
     {:key => 'note', :required => false, :type => String, :display_name => 'Note'},
+    # WHO is doing this instance — an account id, absent when nobody has claimed it.
+    # Per-INSTANCE on purpose: a chore two people alternate weeks on would otherwise
+    # overwrite one field forever, losing whose turn each week was. Assignment is a
+    # display and planning axis, never a permission one — an assignee restricts
+    # nothing, and everyone in the collection stays a peer (design §6.1).
+    {:key => 'assignee', :required => false, :type => String, :display_name => 'Assignee'},
   ]
   apply_schema schema
 

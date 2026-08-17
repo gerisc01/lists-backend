@@ -5,6 +5,17 @@ module Sinatra
 
   module ListApiUtils
 
+    # The authenticated account's id, for routes that need to record WHO acted (the
+    # placement's resolved_by). `protected!` in base_api.rb proves the header names a
+    # real account and then throws it away, so this re-reads it rather than threading
+    # state through the filter. It lives here, not beside `protected!`, because the
+    # test harness builds its own trimmed `Api` without base_api.rb's helpers — a
+    # route that reached for it there would 500 under test and work in production.
+    # Returns nil wherever authentication is skipped (account creation, e2e).
+    def current_account_id
+      request.env['HTTP_ACCOUNT_ID']&.split(' ')&.last
+    end
+
     def get_json_payload(request)
       begin
         json = JSON.parse(request.body.read)

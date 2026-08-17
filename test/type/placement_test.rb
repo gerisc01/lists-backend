@@ -112,6 +112,24 @@ class PlacementTest < MinitestWrapper
     end
   end
 
+  def test_assignee_and_resolved_by_round_trip
+    p = new_placement({'assignee' => 'acct_b', 'resolved_by' => 'acct_a'})
+    p.validate
+    p.save!
+    reloaded = Placement.get(p.id)
+    assert_equal 'acct_b', reloaded.assignee
+    assert_equal 'acct_a', reloaded.resolved_by
+  end
+
+  # Unassigned is the ordinary state, so the field carries no default and an absent
+  # value must survive a round trip as absent (never a sentinel).
+  def test_placement_is_unassigned_by_default
+    p = new_placement
+    p.validate
+    p.save!
+    assert_nil Placement.get(p.id).assignee
+  end
+
   def test_past_only_true_for_a_dated_day_strictly_before
     dated = new_placement({'date' => '2026-07-22'})
     assert dated.past?('2026-07-23')                 # day is over

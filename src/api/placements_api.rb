@@ -101,11 +101,13 @@ class Api < Sinatra::Base
   end
 
   # Edit a placement's per-instance fields. Body: any of { "note", "time_cost",
-  # "resolution" } (other keys ignored). resolution is "completed"|"skipped"|null
-  # (null reopens); resolved_at is server-stamped.
+  # "resolution", "assignee" } (other keys ignored). resolution is
+  # "completed"|"skipped"|null (null reopens); resolved_at and resolved_by are
+  # server-stamped. assignee is an account id (null clears) and is independent of
+  # who is making the request — you assign other people, not just yourself.
   patch '/api/placements/:pid' do
     json = JSON.parse(request.body.read)
-    placement = update_placement(params['pid'], json)
+    placement = update_placement(params['pid'], json, current_account_id)
     status 200
     body placement.to_schema_object.to_json
   end

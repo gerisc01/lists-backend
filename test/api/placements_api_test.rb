@@ -7,6 +7,7 @@ require_relative '../../src/type/day'
 require_relative '../../src/type/item'
 require_relative '../../src/type/collection'
 require_relative '../../src/type/list'
+require_relative '../../src/type/account'
 
 class PlacementsApiTest < MinitestWrapper
   include Rack::Test::Methods
@@ -345,6 +346,67 @@ class PlacementsApiTest < MinitestWrapper
     reopened = JSON.parse(last_response.body)
     assert_nil reopened['resolution']
     assert_nil reopened['resolved_at']
+  end
+
+  # ── Assignee / actor ────────────────────────────────────────────────────────
+
+  def test_update_placement_assignee_round_trips_and_clears
+    Account.new({'id' => 'acct_b', 'name' => 'Bee'}).save!
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+
+    patch("/api/placements/#{pid}",
+          { 'assignee' => 'acct_b' }.to_json, { 'Content-Type' => 'application/json' })
+    assert_equal 200, last_response.status
+    assert_equal 'acct_b', JSON.parse(last_response.body)['assignee']
+
+    # nil is "nobody's doing it" — the ordinary state, not an error.
+    patch("/api/placements/#{pid}",
+          { 'assignee' => nil }.to_json, { 'Content-Type' => 'application/json' })
+    assert_nil JSON.parse(last_response.body)['assignee']
+  end
+
+  def test_update_placement_rejects_assignee_naming_no_account
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+    patch("/api/placements/#{pid}",
+          { 'assignee' => 'nobody' }.to_json, { 'Content-Type' => 'application/json' })
+    assert_equal 400, last_response.status
+  end
+
+  # The assignee is who SHOULD do it; resolved_by is who DID. Assigning someone else
+  # and then closing it yourself has to leave both facts intact and distinct.
+  def test_resolution_stamps_the_acting_account_not_the_assignee
+    %w[acct_a acct_b].each { |id| Account.new({'id' => id, 'name' => id}).save! }
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+    patch("/api/placements/#{pid}", { 'assignee' => 'acct_b' }.to_json,
+          { 'Content-Type' => 'application/json' })
+
+    patch("/api/placements/#{pid}", { 'resolution' => 'completed' }.to_json,
+          { 'Content-Type' => 'application/json', 'HTTP_ACCOUNT_ID' => 'acct_a' })
+    done = JSON.parse(last_response.body)
+    assert_equal 'acct_a', done['resolved_by']
+    assert_equal 'acct_b', done['assignee']
+
+    # Reopening drops who closed it, and leaves who it's assigned to alone.
+    patch("/api/placements/#{pid}", { 'resolution' => nil }.to_json,
+          { 'Content-Type' => 'application/json', 'HTTP_ACCOUNT_ID' => 'acct_a' })
+    reopened = JSON.parse(last_response.body)
+    assert_nil reopened['resolved_by']
+    assert_equal 'acct_b', reopened['assignee']
+  end
+
+  # An unauthenticated write path (e2e) still resolves — it just has no name to stamp.
+  def test_resolution_without_an_account_header_is_still_a_resolution
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+    patch("/api/placements/#{pid}", { 'resolution' => 'completed' }.to_json,
+          { 'Content-Type' => 'application/json' })
+    assert_equal 200, last_response.status
+    done = JSON.parse(last_response.body)
+    assert_equal 'completed', done['resolution']
+    assert_nil done['resolved_by']
   end
 
   def test_update_placement_accepts_skipped_resolution
