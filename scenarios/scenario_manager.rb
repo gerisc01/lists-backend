@@ -1,6 +1,8 @@
 # scenarios/scenario_manager.rb
 
 require 'fileutils'
+require 'json'
+require 'time'
 
 # --- Configuration ---
 # __dir__ gives the directory of this file ('scenarios/').
@@ -46,8 +48,26 @@ def load_scenario(scenario_name)
 
   puts "Resetting data to scenario '#{scenario_name}' by loading from '#{source_path}' into '#{CURRENT_SCENARIO_DATA_DIR}'..."
   copy_directory_contents(source_path, CURRENT_SCENARIO_DATA_DIR)
+  restamp_updated_at(CURRENT_SCENARIO_DATA_DIR)
   puts "Scenario '#{scenario_name}' loaded."
   true
+end
+
+# The client's cache asks "what changed since X?", and a checkpoint's `updated_at` is
+# whenever you recorded it — so without this, every read after a reset answers 204 and the
+# client keeps serving the scenario it had before.
+#
+# Only fixes what the scenario CONTAINS. Objects it LACKS are dropped from the file, never
+# flagged deleted, so a stale client keeps them until its cache is cleared.
+def restamp_updated_at(data_dir)
+  now = Time.now.utc.iso8601
+  Dir.glob(File.join(data_dir, '*.json')).each do |path|
+    table = JSON.parse(File.read(path))
+    next unless table.is_a?(Hash)
+    table.each_value { |obj| obj['updated_at'] = now if obj.is_a?(Hash) && obj.key?('updated_at') }
+    File.write(path, JSON.generate(table))
+  end
+  puts "Stamped #{Dir.glob(File.join(data_dir, '*.json')).length} data files as updated at #{now}."
 end
 
 # Saves data FROM CURRENT_SCENARIO_DATA_DIR TO a named scenario folder.

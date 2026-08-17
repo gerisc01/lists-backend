@@ -62,6 +62,12 @@ class ListApiTest < MinitestWrapper
     assert_equal [@item.json, @item2.json].to_json, last_response.body
   end
 
+  # A stale client asks for lists that are gone; that's a 404, not a 500.
+  def test_list_get_items_for_unknown_list
+    get '/api/lists/gone/items'
+    assert_equal 404, last_response.status
+  end
+
   # create item on list
   def test_list_create_item
     new_item = {'id' => 'new', 'name' => 'New Item'}
