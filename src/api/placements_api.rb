@@ -58,14 +58,17 @@ class Api < Sinatra::Base
     week = params['week'].to_s.empty? ? nil : params['week']
     placements = Placement.floating_for_collections(collection_ids, week)
     status 200
-    body placements.map { |p| p.to_schema_object.merge('one_off' => !item_has_shelf_home?(p.item_id)) }.to_json
+    # one_off asks about the CATALOG item, not the raw item_id: an instance child is
+    # deliberately list-free, so asking about it directly would flag every playthrough
+    # session as a board-born one-off and bucket it away from its own collection.
+    body placements.map { |p| p.to_client_object.merge('one_off' => !item_has_shelf_home?(p.catalog_item_id)) }.to_json
   end
 
   # Placements for one item (reverse lookup: "what days is this item on").
   get '/api/items/:id/placements' do
     placements = Placement.for_item(params['id'])
     status 200
-    body placements.map(&:to_schema_object).to_json
+    body placements.map(&:to_client_object).to_json
   end
 
   # Floating placements for a collection's staging pile (dayless). Full objects,

@@ -1,5 +1,6 @@
 require_relative '../type/item'
 require_relative '../type/status'
+require_relative './resolve_open_instance'
 
 # Server-authoritative lifecycle status change. The client supplies only the
 # target status; the server owns `from`, the timestamp, and the append to the
@@ -22,5 +23,12 @@ def set_status(item_id, status)
 
   item.validate
   item.save!
+
+  # The third door into an instance (resolve_open_instance.rb): starting something
+  # without planning it first. Flipping a repeat-tracked item to `doing` by hand opens
+  # an instance, so the record does not depend on using the planner. Idempotent, and a
+  # no-op both for items that never opted in and for the instance children themselves.
+  resolve_open_instance(item_id) if status == 'doing' && from != 'doing'
+
   item
 end
