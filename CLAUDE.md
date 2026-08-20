@@ -61,6 +61,7 @@ Schema fields marked `type_ref: true` store only IDs in JSON but can *accept* fu
 | Change error behavior | `src/exceptions.rb` (classes), `src/exceptions_api.rb` (HTTP mappings) |
 | Understand startup sequence | `src/base_api.rb` — `BaseApi.start` |
 | Change scenario/test data setup | `scenarios/start.rb`, `scenarios/scenario_manager.rb` |
+| Exercise the instance loop end to end | `scripts/instance_loop.rb` — drives stage → play → finish → replay → backfill over HTTP against the e2e backend in seconds; the multi-week story with no waiting |
 
 ---
 
