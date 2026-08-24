@@ -67,6 +67,24 @@ class EnableInstancesTest < MinitestWrapper
     assert_raises(ListError::BadRequest) { enable_instances('game', 'game') }
   end
 
+  # A record of a record is not inert: set_status calls resolve_open_instance on the
+  # instance's own id when a session starts it, and instance_template_for works on any
+  # item — so a third layer would actually mint. Capped at two regardless of which end
+  # of the chain gets wired first.
+  def test_refuses_to_make_a_record_template_into_a_parent
+    template('session', 'Session', [field('name', 'Name', String, true)])
+    enable_instances('game', 'playthrough')
+
+    assert_raises(ListError::BadRequest) { enable_instances('playthrough', 'session') }
+  end
+
+  def test_refuses_to_point_at_a_child_that_already_has_its_own_record
+    template('session', 'Session', [field('name', 'Name', String, true)])
+    enable_instances('playthrough', 'session')
+
+    assert_raises(ListError::BadRequest) { enable_instances('game', 'playthrough') }
+  end
+
   # The guarantee the editor's disabled input only suggests.
   def test_cannot_drop_the_contract_field_while_referenced
     enable_instances('game', 'playthrough')

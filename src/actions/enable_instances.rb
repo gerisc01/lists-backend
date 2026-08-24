@@ -33,6 +33,18 @@ def enable_instances(parent_template_id, child_template_id = nil)
     raise ListError::BadRequest, "a template cannot keep a record of itself"
   end
 
+  # Caps the chain at two: a catalog template and the record it keeps, never a record of
+  # a record. resolve_open_instance recurses on whatever `instance_template_for` returns
+  # for ANY item, including an instance itself (set_status calls it on the instance's own
+  # id when a session starts it) — so a third layer is not inert, it would actually mint.
+  # Checked from both ends because either order of wiring reaches the same three layers.
+  if Template.instance_child_ids.include?(parent.id)
+    raise ListError::BadRequest, "'#{parent.display_name}' already keeps a record for another template and cannot itself be one"
+  end
+  if (child.attributes || {})['instances'].is_a?(Hash)
+    raise ListError::BadRequest, "'#{child.display_name}' already keeps its own record and cannot also be one"
+  end
+
   ensure_contract_fields(child)
 
   parent.attributes = (parent.attributes || {}).merge('instances' => { 'template' => child.id })
