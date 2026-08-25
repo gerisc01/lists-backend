@@ -28,7 +28,16 @@ def set_status(item_id, status)
   # without planning it first. Flipping a repeat-tracked item to `doing` by hand opens
   # an instance, so the record does not depend on using the planner. Idempotent, and a
   # no-op both for items that never opted in and for the instance children themselves.
-  resolve_open_instance(item_id) if status == 'doing' && from != 'doing'
+  #
+  # Unlike the other two doors, this one STAMPS: staging means "I want this this week"
+  # and dating it means "I plan to", but `doing` is the claim that you have begun. An
+  # unstamped run here would leave the item reading `doing` while its only run reads
+  # "not started", and would then collapse to a single day when closed.
+  if status == 'doing' && from != 'doing'
+    instance_id = resolve_open_instance(item_id)
+    # resolve returns item_id untouched when nothing opted in — no instance, nothing to stamp.
+    stamp_instance_start(Item.get(instance_id), Date.today.iso8601) unless instance_id == item_id
+  end
 
   item
 end

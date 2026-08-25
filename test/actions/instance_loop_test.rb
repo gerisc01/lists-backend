@@ -143,6 +143,46 @@ class InstanceLoopTest < MinitestWrapper
     assert_equal 1, Item.get('kh').children.length
   end
 
+  # Unlike staging or dating, `doing` is the claim that you have begun — so it stamps.
+  # Without this the item reads `doing` while its only run reads "not started", and the
+  # run then collapses to a single day when closed.
+  def test_flipping_to_doing_by_hand_starts_the_run
+    set_status('kh', 'doing')
+
+    instance_id = Item.get('kh').children.first
+    assert_equal Date.today.iso8601, Item.get(instance_id).json['started']
+  end
+
+  # Staging is "I want this this week" and dating is "I plan to" — neither has begun.
+  def test_staging_and_dating_open_a_run_without_starting_it
+    staged = create_floating_placement('kh', 'c1')
+    assert_nil Item.get(staged.item_id).json['started']
+
+    dated = assign_to_date('kh', '2026-09-01', 'c1')
+    assert_nil Item.get(dated.item_id).json['started']
+  end
+
+  # Earliest wins, not first-writer-wins: the two doors can fire in either order, and a
+  # start that depended on which ran first would be arbitrary.
+  def test_a_session_played_earlier_moves_the_start_back
+    set_status('kh', 'doing')
+    placement = assign_to_date('kh', '2026-08-18', 'c1')
+
+    update_placement(placement.id, {'resolution' => 'completed'})
+
+    assert_equal '2026-08-18', Item.get(placement.item_id).json['started']
+  end
+
+  def test_a_later_session_leaves_the_start_alone
+    set_status('kh', 'doing')
+    started = Item.get(Item.get('kh').children.first).json['started']
+    placement = assign_to_date('kh', '2099-01-01', 'c1')
+
+    update_placement(placement.id, {'resolution' => 'completed'})
+
+    assert_equal started, Item.get(placement.item_id).json['started']
+  end
+
   def test_backfilling_a_past_instance
     instance = create_instance('kh', {'finished' => '2016-08-04'})
 

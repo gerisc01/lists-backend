@@ -33,11 +33,9 @@ def start_instance_for(placement)
   return if parent.nil?
   return if instance_template_for(parent).nil?
 
-  if instance.json['started'].to_s.empty?
-    instance.json['started'] = placement.date || Date.today.iso8601
-    instance.validate
-    instance.save!
-  end
+  # The placement's own date, not today: a session logged a week late still says the run
+  # began when it actually began. A floating placement has no date, so it falls back.
+  stamp_instance_start(instance, placement.date || Date.today.iso8601)
 
   advance_to_doing(instance.id, instance.json['status'])
   advance_to_doing(parent.id, parent.json['status'])
