@@ -62,6 +62,38 @@ class ListApiTest < MinitestWrapper
     assert_equal [@item.json, @item2.json].to_json, last_response.body
   end
 
+  # A group child IS an ordinary list member, so a list read still carries it — that is
+  # what get_related_ids exists for.
+  def test_list_get_items_includes_group_children
+    List.new({'id' => 'g', 'name' => 'Grouped', 'items' => ['one']}).save!
+
+    get '/api/lists/g/items'
+
+    assert_equal 200, last_response.status
+    assert_equal ['one', '2'], JSON.parse(last_response.body).map { |it| it['id'] }
+  end
+
+  # An INSTANCE is not a member of any list — it is list-free by design, carrying its own
+  # template. Returning one here leaked every playthrough into the staging picker, where a
+  # completed run could be staged as though it were a thing you do.
+  def test_list_get_items_excludes_instances
+    Item.new({'id' => 'run1', 'name' => 'One — Playthrough', 'parent' => '1'}).save!
+    parent = Item.get('1')
+    parent.json['children'] = ['run1']
+    parent.save!
+
+    get '/api/lists/b/items'
+
+    assert_equal 200, last_response.status
+    refute_includes JSON.parse(last_response.body).map { |it| it['id'] }, 'run1'
+  end
+
+  # A stale client asks for lists that are gone; that's a 404, not a 500.
+  def test_list_get_items_for_unknown_list
+    get '/api/lists/gone/items'
+    assert_equal 404, last_response.status
+  end
+
   # create item on list
   def test_list_create_item
     new_item = {'id' => 'new', 'name' => 'New Item'}

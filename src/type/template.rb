@@ -3,6 +3,8 @@ require 'ruby-schema-storage'
 
 require_relative '../exceptions'
 require_relative '../storage'
+require_relative '../exceptions'
+require_relative './reserved_fields'
 
 ## Template rules
 # - An item added to a list must meet the templates requirements
@@ -47,6 +49,37 @@ class Template
         else
             self.original_fields = values
         end
+    end
+
+    # Every template named as some other template's instance child. A key is only
+    # load-bearing while something points at it, which is what keeps the guard below
+    # narrow — retire the last parent and the field becomes ordinary again.
+    def self.instance_child_ids(excluding_id = nil)
+        list.filter_map do |template|
+            next if template.id == excluding_id
+            config = (template.attributes || {})['instances']
+            config['template'] if config.is_a?(Hash)
+        end
+    end
+
+    # Schema validation plus the contract guard. A template that some parent uses to keep
+    # a record cannot drop the field the ledger counts by — that would not fail loudly, it
+    # would silently stop counting, which is the worst shape for a data bug.
+    #
+    # Scoped as narrowly as it can be: one key, and only while referenced. Every other
+    # field on an instance template stays freely editable, renamable and removable.
+    remove_method :validate if method_defined? :validate
+    def validate
+        self.class.schema.validate(self)
+        return unless Template.instance_child_ids(self.id).include?(self.id)
+
+        missing = ReservedFields::INSTANCE_CONTRACT - (self.fields || []).map(&:key)
+        return if missing.empty?
+        # ListError::Validation, not Schema::ValidationError — this is a caller mistake and
+        # must reach the client as a 400 it can show, not a 500.
+        raise ListError::Validation,
+              "Template '#{self.display_name}' keeps a record for another template, so it " \
+              "cannot drop: #{missing.join(', ')}"
     end
 
     attr_accessor :validator_schema

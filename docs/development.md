@@ -30,6 +30,22 @@ ruby scenarios/start.rb
 
 The scenario manager (`scenarios/scenario_manager.rb`) loads checkpoint data from `scenarios/checkpoints/`. Available checkpoints are in that directory.
 
+## Driving the instance loop
+
+`scripts/instance_loop.rb` runs the whole repeat-engagement arc — stage a game, play a session,
+come back the following week, finish it, replay it two years later, backfill 2016 — against the
+disposable e2e backend. Every date and `staged_week` is a parameter, so a multi-week story takes
+about two seconds and no waiting.
+
+```bash
+bundle exec ruby e2e_api.rb       # terminal 1
+ruby scripts/instance_loop.rb     # terminal 2 — rerunnable, wipes first
+```
+
+Unit tests cover the rules in isolation; this covers the **serialized shape a client receives**.
+`catalog_item_id` and `one_off` are derived at the API boundary, and getting them wrong is what
+buries a playthrough in the One-offs pile instead of its own collection.
+
 ## Driving the API end-to-end by hand
 
 `bundle exec ruby e2e_api.rb` serves the real API on **port 9191**, clearing `e2e-data/` on boot and

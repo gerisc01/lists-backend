@@ -16,6 +16,10 @@ require_relative './defer_placement'
 require_relative './refloat_placement'
 require_relative './delete_placement'
 require_relative './auto_archive'
+require_relative './create_instance'
+require_relative './close_instance'
+require_relative './delete_instance'
+require_relative './enable_instances'
 
 def action_methods
   {
@@ -86,6 +90,22 @@ def action_methods
     'deletePlacement' => {
       'method' => :delete_placement,
       'params' => ['placement_id']
+    },
+    'createInstance' => {
+      'method' => :create_instance,
+      'params' => ['item_id', 'fields']
+    },
+    'closeInstance' => {
+      'method' => :close_instance,
+      'params' => ['instance_id', 'finished_date']
+    },
+    'deleteInstance' => {
+      'method' => :delete_instance,
+      'params' => ['instance_id']
+    },
+    'enableInstances' => {
+      'method' => :enable_instances,
+      'params' => ['parent_template_id', 'child_template_id']
     }
   }
 end

@@ -3,6 +3,7 @@ require_relative '../type/placement'
 require_relative '../type/resolution'
 require_relative '../type/account'
 require_relative './auto_archive'
+require_relative './start_instance'
 
 # Edit the per-instance fields of a placement — the note, the actual time cost
 # this time, who is doing it (`assignee`), and how this instance was closed
@@ -52,6 +53,11 @@ def update_placement(placement_id, fields, actor_id = nil)
 
   placement.validate
   placement.save!
+
+  # A completed session is what STARTS an instance — stamping its date and moving the
+  # catalog item to `doing`. Only `completed`: skipping a session is not doing it. A
+  # no-op for any placement whose item is not an instance. See start_instance.rb.
+  start_instance_for(placement) if fields['resolution'] == 'completed'
 
   # Resolving a placement (completed OR skipped) can close a one-off's finite
   # placement set — auto-archive if so (no-op for shelf items and still-open sets).

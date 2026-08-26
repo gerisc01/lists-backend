@@ -47,6 +47,8 @@ class Api < Sinatra::Base
   get '/api/lists/:listId/items' do
     list_id = params['listId']
     list = List.get(list_id)
+    # A stale client asking for a list that's gone is ordinary, not a crash.
+    raise ListError::NotFound, "List (#{list_id}) Not Found" if list.nil?
     item_ids = list.items
     items = ApiHelpers.convert_item_ids_to_items(item_ids)
     if params['since']

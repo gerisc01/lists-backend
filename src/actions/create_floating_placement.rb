@@ -1,4 +1,5 @@
 require_relative '../type/placement'
+require_relative './resolve_open_instance'
 
 # Create a floating (dayless) Placement for (item, collection): a placement that
 # lives in staging with no date yet. Sibling of assign_to_date; the floating
@@ -18,6 +19,12 @@ require_relative '../type/placement'
 def create_floating_placement(item_id, collection_id, staged_week = nil)
   raise ListError::NotFound, "item id '#{item_id}' not found" unless Item.exist?(item_id)
   raise ListError::NotFound, "collection id '#{collection_id}' not found" unless Collection.exist?(collection_id)
+
+  # Staging a repeat-tracked item stages its OPEN INSTANCE, minting one if there is
+  # none — a placement records a session of one playthrough, not of the game in the
+  # abstract. A no-op for every other item. The dedupe below then keys on the instance,
+  # which is what makes re-staging return the same row.
+  item_id = resolve_open_instance(item_id)
 
   existing = Placement.floating_for_collection(collection_id)
                       .find { |p| p.item_id == item_id && p.resolution.nil? }

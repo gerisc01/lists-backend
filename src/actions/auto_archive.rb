@@ -27,6 +27,16 @@ def maybe_auto_archive(item_id, as_of_date: Date.today.iso8601)
   return if item.nil?
   return if Status.done?(item.json['status'])  # already terminal — idempotent no-op
 
+  # An INSTANCE (a playthrough) is list-free like a one-off, but its placement set is
+  # NOT finite and closed: "all placements resolved" is true after the first completed
+  # session, so a fourteen-session playthrough would archive itself in week one.
+  #
+  # The deeper reason is that this path cannot close an instance correctly even when the
+  # count is right. It writes a status and nothing else, leaving an instance marked
+  # completed with no `finished` date and a catalog item still sitting at `doing`.
+  # Closing an instance is close_instance.rb's job, and it is explicit on purpose.
+  return unless item.parent.nil?
+
   placements = Placement.for_item(item_id)
   return if placements.empty?
   return unless placements.all? { |p| p.resolved?(item, as_of_date: as_of_date) }

@@ -99,6 +99,26 @@ class Placement
     !date.nil? && date < as_of_date
   end
 
+  # The CATALOG item this placement belongs to. `item_id` may name an INSTANCE child —
+  # one playthrough of a game — in which case identity (the name on the card, the tags,
+  # whether it has a list home) belongs to the parent, while the placement itself is
+  # correctly addressed to the instance.
+  #
+  # DERIVED on every read from item.parent rather than stored as a second pointer on the
+  # placement. Two stored pointers to the same relationship can drift apart; one cannot.
+  def catalog_item_id
+    item = Item.get(item_id)
+    return item_id if item.nil?
+    item.parent.nil? ? item_id : item.parent
+  end
+
+  # The client-facing shape: the stored placement plus the derived identity above. Every
+  # read that a card renders from goes through this, so no caller has to know that
+  # `item_id` might name an instance.
+  def to_client_object
+    to_schema_object.merge('catalog_item_id' => catalog_item_id)
+  end
+
   # ── Queries (indexed by date and by item; scans the store, which is fine at this
   # app's scale — a sole-user planner) ────────────────────────────────────────────
 
@@ -159,7 +179,7 @@ class Placement
   def self.day_map_for_collection(collection_id, start_date, end_date)
     result = Hash.new { |h, k| h[k] = [] }
     for_date_range(start_date, end_date).each do |p|
-      result[p.date] << p.to_schema_object if p.collection_id == collection_id
+      result[p.date] << p.to_client_object if p.collection_id == collection_id
     end
     result
   end
@@ -176,7 +196,7 @@ class Placement
   def self.day_map_for_collections(collection_ids, start_date, end_date)
     result = Hash.new { |h, k| h[k] = [] }
     for_date_range(start_date, end_date).each do |p|
-      result[p.date] << p.to_schema_object if collection_ids.include?(p.collection_id)
+      result[p.date] << p.to_client_object if collection_ids.include?(p.collection_id)
     end
     result
   end
