@@ -1,5 +1,7 @@
 require_relative '../type/placement'
 require_relative './resolve_open_instance'
+require_relative './resolve_group_member'
+require_relative '../type/item_generic'
 
 # Assign an item to a day: create a dated Placement for (item, date, collection).
 # A dedicated server-authoritative primitive (sibling of set_status), fronted by a
@@ -7,6 +9,10 @@ require_relative './resolve_open_instance'
 # "Placement is a first-class type". Idempotent on the (item, date, collection)
 # triple — re-assigning returns the existing placement rather than duplicating.
 def assign_to_date(item_id, date, collection_id)
+  # Same two-guard shape as staging (create_floating_placement.rb): dating a group means
+  # dating the member you'd pick up, and a Placement can only point at a real Item.
+  raise ListError::NotFound, "item id '#{item_id}' not found" unless ItemGeneric.exist?(item_id)
+  item_id = resolve_group_member(item_id)
   raise ListError::NotFound, "item id '#{item_id}' not found" unless Item.exist?(item_id)
   raise ListError::NotFound, "collection id '#{collection_id}' not found" unless Collection.exist?(collection_id)
   raise ListError::BadRequest, "a date is required" if date.to_s.empty?

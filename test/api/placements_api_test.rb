@@ -5,6 +5,7 @@ require_relative '../test-api'
 require_relative '../../src/type/placement'
 require_relative '../../src/type/day'
 require_relative '../../src/type/item'
+require_relative '../../src/type/item_group'
 require_relative '../../src/type/collection'
 require_relative '../../src/type/list'
 require_relative '../../src/type/account'
@@ -167,6 +168,41 @@ class PlacementsApiTest < MinitestWrapper
     assert_nil p['date']
     assert_equal true, p['floating']
     refute_nil p['id']
+  end
+
+  # A GROUP is one row in a list but never carries a placement — a Placement's item_id
+  # always names an Item. Staging one stages the member you'd actually pick up, so the
+  # pile ends up holding "Yakuza 3", not "the Yakuza series". This used to 404, because
+  # the guard was Item.exist? and a group lives in its own store.
+  def test_staging_a_group_stages_its_next_member
+    Item.get('i1').tap { |it| it.json['status'] = 'completed'; it.save! }
+    ItemGroup.new({'id' => 'g1', 'name' => 'Yakuza series', 'group' => %w[i1 i2]}).save!
+
+    stage('g1')
+
+    assert_equal 200, last_response.status
+    assert_equal 'i2', JSON.parse(last_response.body)['item_id']
+  end
+
+  def test_dating_a_group_dates_its_next_member
+    ItemGroup.new({'id' => 'g1', 'name' => 'Yakuza series', 'group' => %w[i1 i2]}).save!
+
+    assign('g1')
+
+    assert_equal 200, last_response.status
+    assert_equal 'i1', JSON.parse(last_response.body)['item_id']
+  end
+
+  # The group itself must never end up on a placement, so a group with nothing left to
+  # do is a clear error rather than a placement pointing at a group id.
+  def test_staging_a_finished_group_is_rejected
+    @items.first(2).each { |it| it.json['status'] = 'completed'; it.save! }
+    ItemGroup.new({'id' => 'g1', 'name' => 'Yakuza series', 'group' => %w[i1 i2]}).save!
+
+    stage('g1')
+
+    assert_equal 400, last_response.status
+    assert_equal 0, Placement.floating_for_collection('c1').size
   end
 
   def test_stage_stamps_staged_week
