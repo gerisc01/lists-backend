@@ -2,6 +2,7 @@ require_relative '../exceptions'
 require_relative '../type/collection'
 require_relative '../type/list'
 require_relative '../type/item'
+require_relative '../type/item_group'
 require_relative '../type/tag'
 require_relative '../type/status'
 require_relative '../type/energy'
@@ -77,14 +78,45 @@ module Query
     def index_item(item_id, location)
       unless @items.key?(item_id)
         item = Item.get(item_id)
-        return if item.nil? || item.json['deleted']
+        return index_group_members(item_id, location) if item.nil?
+        return if item.json['deleted']
         @items[item_id] = item.json
-        # Group children are ordinary items and are just as losable as their
-        # parent, so they inherit the parent's location and get indexed too.
-        (item.json['children'] || []).each { |child_id| index_item(child_id, location) }
+        # `children` is deliberately NOT followed. It holds INSTANCES — one run of a
+        # game — and a run is not a thing you search for: searching "kingdom" returned
+        # the game and every playthrough of it, and staging alone mints a run, so an
+        # evening's planning could double the corpus with rows nobody named.
+        #
+        # This recursion predates instances. It was written when `children` meant group
+        # members, which ARE searchable things (groups have held their own `group` field
+        # since 0072); instances inherited the walk rather than being granted it.
+        #
+        # It comes back when a query wants them — `finished IN (2016)` is the one, and it
+        # needs `finished` + parent fallback in values_for regardless. Then runs enter the
+        # corpus because something asks for them. See TODO.md § Instances.
       end
 
       (@locations[item_id] ||= []) << location
+    end
+
+    # A list holds the GROUP ROW, never its members, and a group lives in its own store —
+    # so `Item.get` on a list entry comes back nil for one, and every step of a project
+    # fell out of the corpus with it. Searching "pegboard" found nothing while a loose
+    # item in the same list was found fine.
+    #
+    # Members inherit the group's location, which is exactly what shelf home says about
+    # them elsewhere: a member is reachable from that list, through its group's row.
+    #
+    # The ROW ITSELF is deliberately not indexed. A group stores no state — status and
+    # progress are derived from its members on every read — so putting one in the corpus
+    # means either duplicating that derivation server-side or letting `status = want-to`
+    # match a project that is finished. That is a decision, not an oversight; the members
+    # are the searchable things today.
+    def index_group_members(group_id, location)
+      group = ItemGroup.get(group_id)
+      return if group.nil? || group.json['deleted']
+
+      (group.group || []).each { |member_id| index_item(member_id, location) }
+      nil
     end
 
     def tag_names_for(item)
