@@ -17,6 +17,8 @@ class ReconcileTest < MinitestWrapper
   PAST  = '2026-07-20'   # the prior Monday — a week that is over
   NEXT  = '2026-08-03'   # the next Monday — a future week (deferred target)
   TODAY = '2026-07-27'   # the same day — still live, not past
+  MIDWEEK = '2026-07-29'          # Wednesday of the AS_OF week
+  THIS_WEEK_PAST_DAY = '2026-07-27'  # Monday of that same week — a day gone, week not
 
   def setup
     @collection = Collection.new({'id' => 'c1', 'name' => 'C'})
@@ -75,8 +77,9 @@ class ReconcileTest < MinitestWrapper
     assert_equal 'completed', Item.get('t').json['status']
   end
 
-  def test_past_dated_one_off_task_lapses
-    # A dated one-off task whose day is over also lapses (the old carry-forward is gone).
+  def test_past_week_dated_one_off_task_lapses
+    # A dated one-off task left behind by a week that is over also lapses (the old
+    # carry-forward is gone).
     new_item('t')
     p = dated('t', PAST)
 
@@ -84,6 +87,20 @@ class ReconcileTest < MinitestWrapper
     assert_equal [p.id], result['lapsed']
     assert_equal 'lapsed', Placement.get(p.id).resolution
     assert_equal ['t'], result['archived']
+  end
+
+  # The week is the unit on BOTH arms (0075). A one-off you meant to do on Monday and
+  # didn't is still this week's plan on Wednesday — you can pull it to Friday. Closing it
+  # a day later marked something undone as resolved AND archived the item to 'completed'.
+  def test_a_one_off_missed_earlier_this_week_stays_open
+    new_item('t')
+    p = dated('t', THIS_WEEK_PAST_DAY)
+
+    result = reconcile(as_of_date: MIDWEEK)
+    assert_empty result['lapsed']
+    assert_empty result['archived']
+    assert_nil Placement.get(p.id).resolution
+    assert_equal 'want-to', Item.get('t').json['status']
   end
 
   def test_lapse_and_release_are_idempotent

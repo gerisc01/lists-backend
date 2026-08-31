@@ -48,14 +48,25 @@ end
 # Does any list reference this item? (Sole-user scale — a full scan is fine, mirroring
 # the Placement query helpers.)
 #
-# A GROUP MEMBER inherits its group's home. Only the group id sits in `list.items` — the
-# members are reached through it — so a bare id check reads every member as list-free and
-# therefore as a one-off. That is wrong at all four callers, and progressively worse:
-# the pile buckets a staged member under "One-offs"; reconcile LAPSES it at week end
-# instead of releasing it; auto_archive writes its status terminal; and delete_placement
-# DELETES the member outright when you remove its last placement. The member is not
-# homeless — you can navigate to it from a list, through its group's row.
+# Two kinds of item are reachable from a list WITHOUT their own id appearing in
+# `list.items`, and a bare id check reads both as list-free and therefore as board-born
+# one-offs:
+#
+#   group member   only the GROUP id sits in `list.items`; members hang off its row
+#   instance       a playthrough lives nowhere but on its parent, which is in the list
+#
+# Both are wrong at every caller, and progressively worse: the pile buckets the card
+# under "One-offs"; reconcile LAPSES it instead of leaving it alone; auto_archive writes
+# a status terminal; and delete_placement DELETES the item outright when you remove its
+# last placement — losing a group member, or a whole run of a game.
+#
+# So the question is asked of everything this item is reachable THROUGH. One hop each
+# way is enough, and they compose: a group cannot nest in a group, an instance cannot
+# have an instance, but an instance's parent may well be a member of a group.
 def item_has_shelf_home?(item_id)
-  homes = [item_id] + ItemGroup.for_members([item_id]).map(&:id)
+  item = Item.get(item_id)
+  ids = [item_id]
+  ids << item.parent unless item.nil? || item.parent.nil?
+  homes = ids + ItemGroup.for_members(ids).map(&:id)
   List.list.any? { |l| (homes & (l.items || [])).any? }
 end
