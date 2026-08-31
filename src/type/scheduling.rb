@@ -1,27 +1,24 @@
-# The planning kind of an item, for the one axis where events and tasks diverge:
-# what "past" means (design.md §2.2). A small validation type (responds to
-# `type_match?`) so the schema enforces the shape server-side, the same mechanism
-# Status / SharingScope use — but here the field is an OBJECT, not a bare enum,
-# because PR 12's recurrence rule folds into this same `scheduling` object rather
-# than sprouting a second top-level field. See docs/DECISIONS.md "event/task lands
-# as item.scheduling.type".
+# The scheduling object on an item. Today it holds exactly one thing: the recurrence
+# rule (§2.5). A small validation type (responds to `type_match?`) so the schema enforces
+# the shape server-side, the same mechanism Status / SharingScope use.
 #
-#   item.scheduling = { 'type' => 'event' | 'task' }
+#   item.scheduling = { 'recurrence' => { … } }
 #
-# Absent reads as `task` (§2.2: an unconsidered quick-add *persists*/carries rather
-# than silently vanishing — the safe default; `event` is the deliberate opt-in for
-# calendar anchors that resolve when their day passes).
+# It USED to carry an event/task kind, which decided what "past" meant: an event's day
+# passing resolved its placement, a task's did not. That was deleted on 2026-08-31 —
+# see decision 0076. Two facts killed it: no surface ever wrote `event` (the only two
+# writers of `scheduling` in the app default it to `task` and preserve it thereafter), and
+# nothing should ever be marked done without the user saying so. A `type` key left in
+# stored data is inert and still validates, so no migration was needed.
 require_relative './recurrence'
 
 class Scheduling
 
-  TYPES   = %w[event task].freeze
-  DEFAULT = 'task'
-
   def self.type_match?(value)
-    return false unless value.is_a?(Hash) && TYPES.include?(value['type'])
+    return false unless value.is_a?(Hash)
     # The optional recurrence rule folds into this same object (PR 12); when present
-    # it must satisfy the Recurrence shape. Absent => a plain event/task, unchanged.
+    # it must satisfy the Recurrence shape. Absent => a scheduling object with nothing
+    # in it yet, which is fine: the field is optional all the way down.
     return Recurrence.type_match?(value['recurrence']) if value.key?('recurrence')
     true
   end
@@ -42,22 +39,6 @@ class Scheduling
   def self.active_recurrence?(item)
     rule = recurrence_of(item.json['scheduling'])
     !rule.nil? && Recurrence.active_of(rule)
-  end
-
-  # The scheduling type for an item's raw `scheduling` value (nil/absent => DEFAULT).
-  def self.type_of(scheduling)
-    return DEFAULT if scheduling.nil?
-    scheduling['type'] || DEFAULT
-  end
-
-  # Does this item's kind mean "past = resolved" (event) rather than "past carries"
-  # (task)? Reads the item's stored scheduling, defaulting to task.
-  def self.event?(item)
-    type_of(item.json['scheduling']) == 'event'
-  end
-
-  def self.task?(item)
-    type_of(item.json['scheduling']) == 'task'
   end
 
 end

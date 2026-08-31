@@ -131,14 +131,55 @@ class QuerySearchTest < MinitestWrapper
     refute_includes ids('energy = chill'), 'gone'
   end
 
-  # Group children are ordinary items and just as losable as their parent.
-  def test_group_children_are_indexed_under_the_parents_location
-    Item.new({'id' => 'child', 'name' => 'Sand the walls', 'energy' => 'intense'}).save!
+  # A run is not a thing you search for. Staging alone mints one, so indexing children
+  # meant an evening's planning could double the corpus with rows nobody typed a name for.
+  def test_instances_are_not_indexed
+    Item.new({'id' => 'run', 'name' => 'Paint the hall — Playthrough', 'parent' => 'paint'}).save!
     parent = Item.get('paint')
-    parent.json['children'] = ['child']
+    parent.json['children'] = ['run']
     parent.save!
 
-    results = Query::Search.run('name ~ sand')
+    results = Query::Search.run('name ~ playthrough')
+    assert_equal 0, results['count']
+  end
+
+  # A list holds the group ROW; the members hang off it in another store entirely. Before
+  # this walk existed, `Item.get(group_id)` returned nil and every step of a project fell
+  # out of the corpus — a loose item in the same list was found, a grouped one never was.
+  def test_group_members_are_indexed_under_the_lists_location
+    Item.new({'id' => 'm1', 'name' => 'Buy materials'}).save!
+    Item.new({'id' => 'm2', 'name' => 'Mount the pegboard'}).save!
+    ItemGroup.new({'id' => 'g1', 'name' => 'Hang the pegboard', 'group' => %w[m1 m2]}).save!
+    list = List.get('projects')
+    list.json['items'] = (list.json['items'] || []) + ['g1']
+    list.save!
+
+    results = Query::Search.run('name ~ materials')
+    assert_equal 1, results['count']
+    assert_equal 'Home', results['groups'].first['collection_name']
+  end
+
+  # A member is an ordinary Item, so every other field resolves for it too — the point of
+  # indexing members rather than inventing a row-shaped citizen for the group.
+  def test_a_group_member_answers_the_other_fields
+    Item.new({'id' => 'm1', 'name' => 'Buy materials', 'energy' => 'chill'}).save!
+    ItemGroup.new({'id' => 'g1', 'name' => 'Hang the pegboard', 'group' => ['m1']}).save!
+    list = List.get('projects')
+    list.json['items'] = (list.json['items'] || []) + ['g1']
+    list.save!
+
+    assert_includes ids('energy = chill'), 'm1'
+    assert_includes ids('list = "Projects"'), 'm1'
+  end
+
+  # The parent is untouched by that: it is in a list, so it indexes on its own.
+  def test_a_parent_with_runs_is_still_found
+    Item.new({'id' => 'run', 'name' => 'Paint the hall — Playthrough', 'parent' => 'paint'}).save!
+    parent = Item.get('paint')
+    parent.json['children'] = ['run']
+    parent.save!
+
+    results = Query::Search.run('name ~ paint')
     assert_equal 1, results['count']
     assert_equal 'Home', results['groups'].first['collection_name']
   end

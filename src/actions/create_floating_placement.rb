@@ -1,5 +1,7 @@
 require_relative '../type/placement'
 require_relative './resolve_open_instance'
+require_relative './resolve_group_member'
+require_relative '../type/item_generic'
 
 # Create a floating (dayless) Placement for (item, collection): a placement that
 # lives in staging with no date yet. Sibling of assign_to_date; the floating
@@ -17,6 +19,12 @@ require_relative './resolve_open_instance'
 # duplicates. A resolved (e.g. lapsed) placement is not matched — re-staging a
 # lapsed one-off is a fresh instance, not a resurrection.
 def create_floating_placement(item_id, collection_id, staged_week = nil)
+  # Two guards with the resolve between them, because a group and an item are separate
+  # stores that must never mix (ItemGeneric.exist? is the "either kind" query). The
+  # second guard is what enforces it: whatever we resolved to must be a real Item,
+  # since a Placement can only ever point at one.
+  raise ListError::NotFound, "item id '#{item_id}' not found" unless ItemGeneric.exist?(item_id)
+  item_id = resolve_group_member(item_id)
   raise ListError::NotFound, "item id '#{item_id}' not found" unless Item.exist?(item_id)
   raise ListError::NotFound, "collection id '#{collection_id}' not found" unless Collection.exist?(collection_id)
 

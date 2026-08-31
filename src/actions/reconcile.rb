@@ -1,7 +1,6 @@
 require 'date'
 require_relative '../type/item'
 require_relative '../type/placement'
-require_relative '../type/scheduling'
 require_relative './auto_archive'
 
 # The one idempotent primitive that ages the board forward (design.md §2.2/§4.4,
@@ -13,13 +12,17 @@ require_relative './auto_archive'
 #   1. Release the past week — for anything left over from a week now behind us:
 #        - a floating SHELF-item placement un-stages (delete): the item stays on its
 #          shelf, which is its durable home, so nothing is lost.
-#        - a one-off TASK (floating past its staged_week, or dated past its day) LAPSES:
-#          resolution := 'lapsed' + resolved_at stamped. A one-off has no shelf to fall
-#          back to; lapsing keeps the record (retained, for a future week report /
-#          pull-forward) rather than deleting it. Events resolve by derivation (their
-#          past day = resolved via Placement#resolved?), so they are not lapsed here.
-#   2. Auto-archive one-offs whose sets are now fully resolved (past events + explicit
-#      completes/skips + lapses), via maybe_auto_archive.
+#        - a ONE-OFF left over from a week now behind us LAPSES: resolution :=
+#          'lapsed' + resolved_at stamped. A one-off has no shelf to fall back to;
+#          lapsing keeps the record (retained, for a future week report / pull-forward)
+#          rather than deleting it.
+#
+#      THE WEEK, NOT THE DAY, on both arms. Something you meant to do Tuesday and didn't is
+#      still this week's plan on Wednesday — move it to Friday. Closing it a day later
+#      marked something undone as resolved (and auto-archived the item to `completed`),
+#      which is the board telling you a thing you skipped is finished. See decision 0075.
+#   2. Auto-archive one-offs whose sets are now fully resolved (explicit completes/skips
+#      + lapses — nothing resolves by time alone, 0076), via maybe_auto_archive.
 #
 # Idempotency is structural: released shelf rows are gone, a lapsed placement is
 # resolved (so it no longer matches the release scan), and archive is a no-op once
@@ -48,7 +51,7 @@ def reconcile(as_of_date: Date.today.iso8601)
     next if item.nil?
 
     floating_past = !placement.staged_week.nil? && placement.staged_week < current_week_start
-    dated_past = placement.past?(as_of_date)         # dated + day fully over
+    dated_past_week = !placement.date.nil? && placement.date < current_week_start
 
     if item_has_shelf_home?(item.id)
       # Shelf item: staged for a past week and untouched → un-stage back to its shelf.
@@ -58,8 +61,9 @@ def reconcile(as_of_date: Date.today.iso8601)
         placement.delete!
         released << placement
       end
-    elsif Scheduling.task?(item) && (floating_past || dated_past)
-      # One-off task with no shelf home → lapse (retained). Events resolve by derivation.
+    elsif floating_past || dated_past_week
+      # One-off with no shelf home → lapse (retained). Every kind of item lapses the same
+      # way: the event/task split that used to exempt some of them is gone (0076).
       placement.resolution = 'lapsed'
       placement.resolved_at = Time.now.utc.iso8601
       placement.validate
