@@ -25,9 +25,8 @@ class ReconcileTest < MinitestWrapper
     @collection.save!
   end
 
-  def new_item(id, scheduling: nil, list: nil)
+  def new_item(id, list: nil)
     attrs = {'id' => id, 'name' => id}
-    attrs['scheduling'] = {'type' => scheduling} if scheduling
     Item.new(attrs).tap(&:save!)
     List.new({'id' => "list-#{id}", 'name' => 'Shelf', 'items' => [id]}).save! if list
     id
@@ -172,14 +171,16 @@ class ReconcileTest < MinitestWrapper
     refute_nil Placement.for_item('shelf').first.date
   end
 
-  def test_a_one_off_event_is_not_lapsed_but_archives
-    # An event resolves by derivation (past day = resolved), so it is not written as
-    # 'lapsed'; its closed set still auto-archives the one-off.
-    new_item('e', scheduling: 'event')
-    dated('e', PAST)
+  # There is no longer a kind of item that resolves by the passage of time (0076). What
+  # used to be an "event" lapses at week end like everything else, and only THEN archives.
+  def test_every_one_off_lapses_the_same_way
+    new_item('e')
+    p = dated('e', PAST)
+
     result = reconcile(as_of_date: AS_OF)
-    assert_empty result['lapsed']
-    refute_nil Placement.for_item('e').first.date  # event stays dated
+
+    assert_equal [p.id], result['lapsed']
+    assert_equal 'lapsed', Placement.get(p.id).resolution
     assert_equal ['e'], result['archived']
   end
 
@@ -210,25 +211,25 @@ class ReconcileTest < MinitestWrapper
     refute_nil Placement.get(kept.id)        # valid placement untouched
   end
 
-  # ── Auto-archive of past (events + closed sets) ──────────────────────────────
+  # ── Auto-archive of past (closed sets) ───────────────────────────────────────
 
-  def test_one_off_event_archives_when_its_day_passes
-    new_item('e', scheduling: 'event')
-    dated('e', PAST)                     # a past event is resolved by derivation
+  def test_a_one_off_archives_once_its_past_week_lapses_it
+    new_item('e')
+    dated('e', PAST)
     result = reconcile(as_of_date: AS_OF)
     assert_equal ['e'], result['archived']
     assert_equal 'completed', Item.get('e').json['status']
   end
 
-  def test_shelf_event_does_not_archive_on_past
-    new_item('e', scheduling: 'event', list: true)
+  def test_a_shelf_item_does_not_archive_on_past
+    new_item('e', list: true)
     dated('e', PAST)
     assert_empty reconcile(as_of_date: AS_OF)['archived']
     assert_equal 'want-to', Item.get('e').json['status']
   end
 
   def test_reconcile_is_idempotent_across_runs
-    new_item('e', scheduling: 'event')
+    new_item('e')
     dated('e', PAST)
     reconcile(as_of_date: AS_OF)
     second = reconcile(as_of_date: AS_OF)

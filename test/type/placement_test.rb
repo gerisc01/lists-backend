@@ -139,20 +139,15 @@ class PlacementTest < MinitestWrapper
     refute floating.past?('2030-01-01')              # dayless is never past
   end
 
-  def test_resolved_predicate_depends_on_scheduling_kind
-    task = Item.new({'id' => 'task', 'name' => 'Task'})           # default kind = task
-    event = Item.new({'id' => 'event', 'name' => 'Event', 'scheduling' => {'type' => 'event'}})
-    [task, event].each(&:save!)
-    past = new_placement({'date' => '2026-07-22'})                # no resolution set
+  # Only an explicit resolution closes a placement. A day passing does not — the event
+  # kind that used to make it do so is gone (0076).
+  def test_only_an_explicit_resolution_resolves
+    past = new_placement({'date' => '2026-07-22'})               # no resolution set
+    refute past.resolved?
 
-    # A past TASK is NOT resolved — it carries forward.
-    refute past.resolved?(task, as_of_date: '2026-07-23')
-    # A past EVENT IS resolved — its day came and went.
-    assert past.resolved?(event, as_of_date: '2026-07-23')
-    # An explicit resolution resolves regardless of kind or date.
-    done = new_placement({'resolution' => 'skipped'})
-    assert done.resolved?(task, as_of_date: '2026-07-23')
-    assert done.resolved?(event, as_of_date: '2026-07-23')
+    %w[completed skipped lapsed].each do |resolution|
+      assert new_placement({'resolution' => resolution}).resolved?
+    end
   end
 
   def test_floating_for_collection_only_returns_floating

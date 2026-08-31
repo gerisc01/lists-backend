@@ -17,7 +17,7 @@ class Resolution
   # future per-week report can tell "sat there, did nothing" apart from "chose not
   # to"). See docs/DECISIONS.md "Weekly planning is a weekly PLAN, not a backlog".
   # A fourth, derived case — an *event* whose day is past — is NOT a stored value:
-  # it's computed by Placement#resolved? from the item's scheduling kind.
+  # `Placement#resolved?` is the predicate; nothing resolves by the passage of time.
   VALUES = %w[completed skipped lapsed].freeze
 
   def self.type_match?(value)

@@ -42,7 +42,7 @@ class Placement
     # How this instance was closed — `completed` | `skipped`, enforced by the
     # Resolution type; ABSENT = open (no sentinel). `resolved_at` is server-stamped
     # when a resolution is set (mirroring set_status's timestamp). A third,
-    # *derived* resolution — an event whose day is past — is computed by `resolved?`,
+    # `resolved?` is the predicate over it,
     # not stored. See docs/DECISIONS.md "placement resolution = completed|skipped".
     {:key => 'resolution', :required => false, :type => Resolution, :display_name => 'Resolution'},
     {:key => 'resolved_at', :required => false, :type => String, :display_name => 'Resolved At'},
@@ -82,14 +82,15 @@ class Placement
   apply_schema schema
 
   # ── Resolution (per design §2.3/§4.4) ────────────────────────────────────────
-  # Is this instance resolved as of `as_of_date`? An explicit resolution
-  # (completed/skipped) always resolves; beyond that a past *event* is resolved
-  # (its day came and went) while a past *task* is NOT (it carries forward). The
-  # kind comes from the referenced item's scheduling (defaulting to task). This is
-  # the single predicate both auto-archive and reconcile read.
-  def resolved?(item, as_of_date:)
-    return true unless resolution.nil?
-    Scheduling.event?(item) && past?(as_of_date)
+  # Is this placement closed? Only an explicit resolution (completed/skipped/lapsed)
+  # closes one. Nothing is ever resolved by the passage of time.
+  #
+  # It used to take `(item, as_of_date:)` because a past *event* resolved by derivation
+  # while a past *task* did not. The event kind is gone (decision 0076) and with it the
+  # only reason this was ever more than a nil check — but the name stays, because
+  # auto_archive and reconcile both read it and "is this closed" is the question they ask.
+  def resolved?
+    !resolution.nil?
   end
 
   # A dated placement whose day is fully past (strictly before as_of_date — the

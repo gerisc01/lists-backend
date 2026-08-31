@@ -34,7 +34,7 @@ class Energy
   end
 
   # The effective energy of an item, for callers holding the item rather than
-  # the field (the shape `Scheduling.type_of` / `Scheduling.event?` established).
+  # the field (the shape `Status` and `Scheduling` established).
   def self.of_item(item)
     of(item.json['energy'])
   end
