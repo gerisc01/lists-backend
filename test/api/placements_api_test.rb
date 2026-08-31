@@ -287,6 +287,21 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal true, one_off['i2']
   end
 
+  # A staged group MEMBER is not board-born: only the group id sits in `list.items`, so
+  # the naive check read every member as homeless and the pile bucketed it under
+  # "One-offs" instead of its own collection.
+  def test_a_staged_group_member_is_not_flagged_one_off
+    ItemGroup.new({'id' => 'g1', 'name' => 'Pegboard', 'group' => %w[i1 i2]}).save!
+    List.new({'id' => 'l1', 'name' => 'Shelf', 'items' => ['g1']}).save!
+    stage('i2')
+
+    get('/api/placements/floating?collections=c1')
+    floating = JSON.parse(last_response.body)
+
+    assert_equal 'i2', floating.first['item_id']
+    assert_equal false, floating.first['one_off']
+  end
+
   def test_cross_collection_floating_read_requires_collections
     get('/api/placements/floating')
     assert_equal 400, last_response.status
