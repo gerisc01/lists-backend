@@ -4,6 +4,7 @@ require_relative '../../src/type/item_group'
 require_relative '../../src/type/collection'
 require_relative '../../src/type/list'
 require_relative '../../src/type/placement'
+require_relative '../../src/type/template'
 require_relative '../../src/actions/auto_archive'
 require_relative '../../src/actions/delete_placement'
 require_relative '../../src/actions/reconcile'
@@ -64,8 +65,68 @@ class GroupMemberShelfHomeTest < MinitestWrapper
     assert_equal 'want-to', Item.get('s1').json['status']
   end
 
-  def test_a_member_does_not_auto_archive
+  # Archive is the ONE door where board-born behavior is right for a member: its placement
+  # set is as finite and closed as a one-off's, so checking the box is the whole statement.
+  def test_a_member_archives_once_every_placement_resolves
+    p = floating('s1')
+    p.resolution = 'completed'
+    p.save!
+
+    refute_nil maybe_auto_archive('s1', as_of_date: AS_OF)
+    assert_equal 'completed', Item.get('s1').json['status']
+  end
+
+  def test_an_unplanned_member_does_not_archive
     assert_nil maybe_auto_archive('s1', as_of_date: AS_OF)
     assert_equal 'want-to', Item.get('s1').json['status']
+  end
+
+  def test_a_member_with_an_open_placement_does_not_archive
+    floating('s1')
+    p = floating('s1', 'date' => AS_OF, 'floating' => false)
+    p.resolution = 'completed'
+    p.save!
+
+    assert_nil maybe_auto_archive('s1', as_of_date: AS_OF)
+    assert_equal 'want-to', Item.get('s1').json['status']
+  end
+
+  # A member that DECLARED itself a multi-sitting thing ("this is a game") is a series of
+  # runs by definition, so its placement set is not finite and close_instance owns its
+  # ending. This is the line the whole rule is drawn on.
+  def test_a_run_keeping_member_does_not_archive
+    child = Template.new
+    child.id = 'playthrough'
+    child.key = 'playthrough'
+    child.display_name = 'Playthrough'
+    child.fields = [{ :key => 'name', :display_name => 'Name', :type => String, :required => true }]
+    child.save!
+    parent = Template.new
+    parent.id = 'game'
+    parent.key = 'game'
+    parent.display_name = 'Game'
+    parent.fields = [{ :key => 'name', :display_name => 'Name', :type => String, :required => true }]
+    parent.attributes = { 'instances' => { 'template' => 'playthrough' } }
+    parent.save!
+    Item.get('s1').tap { |i| i.json['templates'] = ['game'] }.save!
+
+    p = floating('s1')
+    p.resolution = 'completed'
+    p.save!
+
+    assert_nil maybe_auto_archive('s1', as_of_date: AS_OF)
+    assert_equal 'want-to', Item.get('s1').json['status']
+  end
+
+  # A member that ALSO holds a list row of its own is a shelf item in its own right, and
+  # the shelf rule applies to it unchanged.
+  def test_a_member_with_its_own_list_row_does_not_archive
+    List.new({'id' => 'l2', 'name' => 'Shelf 2', 'items' => ['s2']}).save!
+    p = floating('s2')
+    p.resolution = 'completed'
+    p.save!
+
+    assert_nil maybe_auto_archive('s2', as_of_date: AS_OF)
+    assert_equal 'want-to', Item.get('s2').json['status']
   end
 end
