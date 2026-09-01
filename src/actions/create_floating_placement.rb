@@ -1,6 +1,7 @@
 require_relative '../type/placement'
 require_relative './resolve_open_instance'
 require_relative './resolve_group_member'
+require_relative './revive_for_planning'
 require_relative '../type/item_generic'
 
 # Create a floating (dayless) Placement for (item, collection): a placement that
@@ -33,6 +34,12 @@ def create_floating_placement(item_id, collection_id, staged_week = nil)
   # abstract. A no-op for every other item. The dedupe below then keys on the instance,
   # which is what makes re-staging return the same row.
   item_id = resolve_open_instance(item_id)
+
+  # Planning a terminal item revives it — see revive_for_planning.rb. Placed AFTER the
+  # instance seam so it lands on whatever the placement will actually point at: for a
+  # run-keeping item that is a fresh instance at want-to, so this is a no-op and the
+  # completed playthrough behind it stays completed.
+  revive_for_planning(item_id)
 
   existing = Placement.floating_for_collection(collection_id)
                       .find { |p| p.item_id == item_id && p.resolution.nil? }

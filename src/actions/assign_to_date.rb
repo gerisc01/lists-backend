@@ -1,6 +1,7 @@
 require_relative '../type/placement'
 require_relative './resolve_open_instance'
 require_relative './resolve_group_member'
+require_relative './revive_for_planning'
 require_relative '../type/item_generic'
 
 # Assign an item to a day: create a dated Placement for (item, date, collection).
@@ -20,6 +21,12 @@ def assign_to_date(item_id, date, collection_id)
   # Same seam as staging: a dated session belongs to the open instance. See
   # resolve_open_instance.rb — a no-op unless the item's template opts in.
   item_id = resolve_open_instance(item_id)
+
+  # Planning a terminal item revives it — see revive_for_planning.rb. Placed AFTER the
+  # instance seam so it lands on whatever the placement will actually point at: for a
+  # run-keeping item that is a fresh instance at want-to, so this is a no-op and the
+  # completed playthrough behind it stays completed.
+  revive_for_planning(item_id)
 
   existing = Placement.find_dated(item_id, date, collection_id)
   return existing unless existing.nil?
