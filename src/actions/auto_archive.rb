@@ -5,6 +5,7 @@ require_relative '../type/item_group'
 require_relative '../type/status'
 require_relative '../type/placement'
 require_relative './set_status'
+require_relative './resolve_open_instance'   # instance_template_for — the run-keeping test
 
 # Auto-archive for one-offs (design.md §2.2/§3, docs/DECISIONS.md "Archive = done +
 # filtered + retained"). A one-off is a catalog item BORN ON THE BOARD WITH NO SHELF
@@ -19,13 +20,17 @@ require_relative './set_status'
 # so the transition journal is appended — archive is a status transition, never a
 # deletion. Returns the archived item (for reconcile to collect) or nil.
 def maybe_auto_archive(item_id, as_of_date: Date.today.iso8601)
+  item = Item.get(item_id)
+  return if item.nil?
+
   # Only board-born (one-off) items auto-archive. A shelf item (in any list) must NOT
   # archive when a placement resolves — a `doing` game completing a session-placement
   # stays `doing`. Having a shelf home is the whole distinction (§2.2).
-  return if item_has_shelf_home?(item_id)
-
-  item = Item.get(item_id)
-  return if item.nil?
+  #
+  # A group member is the exception, and it is not a weakening of that rule: it satisfies
+  # the one-off test in substance and fails it only on a technicality (see
+  # archivable_group_member?).
+  return if item_has_shelf_home?(item_id) && !archivable_group_member?(item)
   return if Status.done?(item.json['status'])  # already terminal — idempotent no-op
 
   # An INSTANCE (a playthrough) is list-free like a one-off, but its placement set is
@@ -43,6 +48,34 @@ def maybe_auto_archive(item_id, as_of_date: Date.today.iso8601)
   return unless placements.all?(&:resolved?)
 
   set_status(item_id, 'completed')
+end
+
+# A group member archives like the one-off it substantively is: a step of "clean the
+# garage" that you have checked off is finished, and saying so twice — once on the
+# placement, once on the status dot — is the tax that made a group read `0 of 4` after a
+# week of doing its work.
+#
+# It fails `item_has_shelf_home?` only because that helper (deliberately) answers for the
+# GROUP's row, which is what stops reconcile lapsing a member and delete_placement
+# deleting it. Both of those protect a member from being treated as board-born. Archive
+# is the one door where board-born behavior is the RIGHT answer, because the reasoning
+# behind it holds for a member exactly as written in §2.2: the placement set is finite
+# and closed, so "all placements resolved" definitionally means nothing is left.
+#
+# Three exclusions, each removing a case where the placement set is NOT finite:
+#
+#   run-keeping     a member whose template mints instances is a series of sittings by
+#                   declaration ("this is a game"). close_instance owns its ending
+#   an instance     `parent` set — same reason, one level down (already guarded above,
+#                   restated here so this predicate is true on its own)
+#   its own row     a member that ALSO sits in a list is a shelf item in its own right,
+#                   and the shelf rule applies to it unchanged
+def archivable_group_member?(item)
+  return false unless item.parent.nil?
+  return false unless instance_template_for(item).nil?
+  return false if List.list.any? { |l| (l.items || []).include?(item.id) }
+
+  ItemGroup.for_members([item.id]).any?
 end
 
 # Does any list reference this item? (Sole-user scale — a full scan is fine, mirroring
