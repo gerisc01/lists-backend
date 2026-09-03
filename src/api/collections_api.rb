@@ -6,7 +6,20 @@ require_relative 'helpers/api_helpers'
 class Api < Sinatra::Base
   register Sinatra::ListApiFramework
 
-  generate_schema_crud_methods 'collections', Collection
+  # Scoped LIST, generated rest. The client used to download every collection on the
+  # server and filter in JS; membership is the server's answer now (0087), and the read
+  # is the only place it can be enforced.
+  get '/api/collections' do
+    collections = Collection.list.reject { |c| c.json['deleted'] }
+    collections = members_only(collections)
+    status 200
+    body collections.map(&:to_schema_object).to_json
+  end
+
+  generate_schema_endpoint(:get, 'collections', Collection)
+  generate_schema_endpoint(:create, 'collections', Collection)
+  generate_schema_endpoint(:update, 'collections', Collection)
+  generate_schema_endpoint(:delete, 'collections', Collection)
 
   get '/api/collections/:collectionId/listItems' do
     collection_id = params['collectionId']

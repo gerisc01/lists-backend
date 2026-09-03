@@ -6,6 +6,7 @@ require_relative '../../src/type/item'
 require_relative '../../src/type/item_group'
 require_relative '../../src/type/list'
 require_relative '../../src/storage'
+require_relative '../../src/type/account'
 
 class CollectionsApiTest < MinitestWrapper
   include Rack::Test::Methods
@@ -127,4 +128,46 @@ class CollectionsApiTest < MinitestWrapper
     delete("/api/collections/col2/tags/t1")
     assert_nil @collection2.tags
   end
+  # The list read is where membership is enforced (0087) — the client no longer filters,
+  # so anything this returns is something you hold.
+  def test_list_returns_only_collections_you_are_a_member_of
+    Account.new({'id' => 'acct_a', 'name' => 'A'}).save!
+    Account.new({'id' => 'acct_b', 'name' => 'B'}).save!
+    Collection.new({'id' => 'mine', 'name' => 'Mine', 'members' => ['acct_a']}).save!
+    Collection.new({'id' => 'theirs', 'name' => 'Theirs', 'members' => ['acct_b']}).save!
+
+    get('/api/collections', nil, { 'HTTP_ACCOUNT_ID' => 'acct_a' })
+    ids = JSON.parse(last_response.body).map { |c| c['id'] }
+    assert_includes ids, 'mine'
+    refute_includes ids, 'theirs'
+  end
+
+  # Sharing is one write to the collection, not a write to someone else's account.
+  def test_adding_a_member_is_what_shares_a_collection
+    Account.new({'id' => 'acct_b', 'name' => 'B'}).save!
+    Collection.new({'id' => 'mine', 'name' => 'Mine', 'members' => []}).save!
+
+    put('/api/collections/mine', { 'members' => ['acct_b'] }.to_json,
+        { 'Content-Type' => 'application/json' })
+
+    get('/api/collections', nil, { 'HTTP_ACCOUNT_ID' => 'acct_b' })
+    assert_includes JSON.parse(last_response.body).map { |c| c['id'] }, 'mine'
+  end
+
+  # An unauthenticated path (the e2e harness) sees the store it just wrote; `protected!`
+  # makes that unreachable in production.
+  def test_no_account_header_is_unscoped
+    Account.new({'id' => 'acct_a', 'name' => 'A'}).save!
+    Collection.new({'id' => 'mine', 'name' => 'Mine', 'members' => ['acct_a']}).save!
+    get('/api/collections')
+    assert_includes JSON.parse(last_response.body).map { |c| c['id'] }, 'mine'
+  end
+
+  def test_a_member_naming_no_account_is_rejected
+    Collection.new({'id' => 'mine', 'name' => 'Mine'}).save!
+    put('/api/collections/mine', { 'members' => ['ghost'] }.to_json,
+        { 'Content-Type' => 'application/json' })
+    refute last_response.ok?
+  end
+
 end

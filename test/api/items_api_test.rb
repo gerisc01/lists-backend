@@ -4,6 +4,7 @@ require 'rack/test'
 require_relative '../test-api'
 require_relative '../../src/type/item'
 require_relative '../../src/type/status'
+require_relative '../../src/type/account'
 
 class ItemsApiTest < MinitestWrapper
   include Rack::Test::Methods
@@ -145,6 +146,36 @@ class ItemsApiTest < MinitestWrapper
         { "Content-Type" => "application/json" })
     refute last_response.ok?
     assert_nil reloaded['energy']
+  end
+
+  # The durable half of assignment (0083). An ordinary field write — what it needs
+  # from the API is only that it survives the round trip and rejects a stranger.
+  def test_owner_is_written_and_read_back
+    Account.new({'id' => 'acct_a', 'name' => 'A'}).save!
+    put('/api/items/1', { 'id' => '1', 'name' => 'One', 'owner' => 'acct_a' }.to_json,
+        { "Content-Type" => "application/json" })
+    assert last_response.ok?
+    assert_equal 'acct_a', reloaded['owner']
+  end
+
+  # An owner naming no account renders as a blank chip forever, which is
+  # indistinguishable from a display bug — the same rejection `assignee` makes.
+  def test_owner_naming_no_account_is_rejected
+    put('/api/items/1', { 'id' => '1', 'name' => 'One', 'owner' => 'nobody' }.to_json,
+        { "Content-Type" => "application/json" })
+    assert_equal 400, last_response.status
+    assert_nil reloaded['owner']
+  end
+
+  # Unowned is the ordinary state, not an error, and clearing has to be reachable.
+  def test_owner_can_be_cleared
+    Account.new({'id' => 'acct_a', 'name' => 'A'}).save!
+    put('/api/items/1', { 'id' => '1', 'name' => 'One', 'owner' => 'acct_a' }.to_json,
+        { "Content-Type" => "application/json" })
+    put('/api/items/1', { 'id' => '1', 'name' => 'One', 'owner' => nil }.to_json,
+        { "Content-Type" => "application/json" })
+    assert last_response.ok?
+    assert_nil reloaded['owner']
   end
 
   # Malformed transition entries fail validation (Transition type guards the shape).

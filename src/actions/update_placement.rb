@@ -2,6 +2,7 @@ require 'time'
 require_relative '../type/placement'
 require_relative '../type/resolution'
 require_relative '../type/account'
+require_relative '../type/item'
 require_relative './auto_archive'
 require_relative './start_instance'
 
@@ -15,10 +16,12 @@ require_relative './start_instance'
 # on reopen. Unknown keys are ignored; an invalid resolution value is rejected by
 # validation.
 #
-# `actor_id` is the request's authenticated account, passed in by the route — it is
-# the ACTOR, never the assignee. Assigning someone else is the whole point, so the
-# two are deliberately independent: the client says who should do it, the server
-# says who closed it.
+# `actor_id` is the request's authenticated account, passed in by the route. It is
+# NOT what `resolved_by` records: in a two-person household the person who taps the
+# checkbox is routinely not the person who did the thing (you complete a chore for
+# someone who is out), so the plan's answer is the better guess and the tap is the
+# weaker signal (decision 0084). The actor is the fallback for work the plan never
+# named, so that every resolution still carries a name.
 EDITABLE_PLACEMENT_FIELDS = %w[note time_cost resolution assignee].freeze
 
 def update_placement(placement_id, fields, actor_id = nil)
@@ -34,9 +37,11 @@ def update_placement(placement_id, fields, actor_id = nil)
     end
     placement.resolution = resolution                 # nil reopens (open again)
     placement.resolved_at = resolution.nil? ? nil : Time.now.utc.iso8601
-    # Absent actor stays absent rather than erroring: an unauthenticated write path
-    # (e2e) is still a legitimate resolution, just one with no name attached.
-    placement.resolved_by = resolution.nil? ? nil : actor_id
+    # A STAMP, resolved once here and never re-derived: the owner it may have come
+    # from can change later, and the past must not move with it (0083). Absent actor
+    # AND absent assignee stays absent rather than erroring — an unauthenticated
+    # write path (e2e) is still a legitimate resolution, just one with no name.
+    placement.resolved_by = resolution.nil? ? nil : (assignee_of(placement, fields) || actor_id)
   end
   if fields.key?('assignee')
     assignee = fields['assignee']
@@ -65,4 +70,13 @@ def update_placement(placement_id, fields, actor_id = nil)
   maybe_auto_archive(placement.item_id) if fields.key?('resolution') && !fields['resolution'].nil?
 
   placement
+end
+
+# Who the plan says is doing this placement: the override, else the item's owner.
+# Reads the assignee being written in this same request when there is one, since the
+# field is applied further down and a resolve-and-assign arrives as one call.
+def assignee_of(placement, fields)
+  assignee = fields.key?('assignee') ? fields['assignee'] : placement.assignee
+  return assignee unless assignee.nil?
+  Item.get(placement.item_id)&.owner
 end
