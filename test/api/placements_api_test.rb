@@ -528,6 +528,117 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal true, updated['floating']  # not writable here
   end
 
+  # ── Current assignees (the catalog's assignment read) ───────────────────────
+
+  def current(collections = 'c1')
+    get("/api/placements/current?collections=#{collections}")
+    JSON.parse(last_response.body)
+  end
+
+  def assign_to(pid, account)
+    patch("/api/placements/#{pid}", { 'assignee' => account }.to_json,
+          { 'Content-Type' => 'application/json' })
+  end
+
+  def account!(id)
+    Account.new({ 'id' => id, 'name' => id }).save!
+    id
+  end
+
+  def test_current_returns_only_items_an_occurrence_names
+    account!('acct_a')
+    assign('i1')
+    assign_to(JSON.parse(last_response.body)['id'], 'acct_a')
+    assign('i2')   # placed, but nobody claimed it
+
+    assert_equal({ 'i1' => 'acct_a' }, current)
+  end
+
+  def test_current_requires_a_collection
+    get('/api/placements/current')
+    assert_equal 400, last_response.status
+  end
+
+  def test_current_ignores_collections_not_asked_for
+    account!('acct_a')
+    Collection.new({ 'id' => 'c2', 'name' => 'Other' }).save!
+    assign('i1', collection: 'c2')
+    assign_to(JSON.parse(last_response.body)['id'], 'acct_a')
+
+    assert_equal({}, current('c1'))
+    assert_equal({ 'i1' => 'acct_a' }, current('c2'))
+  end
+
+  # The plan is the answer: a live occurrence nobody claimed resolves to the OWNER,
+  # so a finished one must not speak over it.
+  def test_current_prefers_an_open_occurrence_over_a_resolved_one
+    account!('acct_a')
+    assign('i1', date: '2026-07-20')
+    resolve(JSON.parse(last_response.body)['id'])
+    assign_to(Placement.for_item('i1').first.id, 'acct_a')
+    assign('i1', date: '2026-07-22')   # open, unclaimed
+
+    assert_equal({}, current)
+  end
+
+  def test_current_takes_the_soonest_open_occurrence_that_names_somebody
+    %w[acct_a acct_b].each { |id| account!(id) }
+    assign('i1', date: '2026-07-24')
+    assign_to(JSON.parse(last_response.body)['id'], 'acct_b')
+    assign('i1', date: '2026-07-22')
+    assign_to(JSON.parse(last_response.body)['id'], 'acct_a')
+
+    assert_equal({ 'i1' => 'acct_a' }, current)
+  end
+
+  # A floating placement has no day, so it must not read as "today" and outrank a
+  # dated one.
+  def test_current_sorts_a_floating_occurrence_after_every_dated_one
+    %w[acct_a acct_b].each { |id| account!(id) }
+    stage('i1')
+    assign_to(JSON.parse(last_response.body)['id'], 'acct_b')
+    assign('i1', date: '2026-07-22')
+    assign_to(JSON.parse(last_response.body)['id'], 'acct_a')
+
+    assert_equal({ 'i1' => 'acct_a' }, current)
+  end
+
+  def test_current_falls_back_to_the_last_resolved_occurrence
+    %w[acct_a acct_b].each { |id| account!(id) }
+    assign('i1', date: '2026-07-20')
+    first = JSON.parse(last_response.body)['id']
+    assign_to(first, 'acct_a')
+    resolve(first)
+
+    assign('i1', date: '2026-07-22')
+    second = JSON.parse(last_response.body)['id']
+    assign_to(second, 'acct_b')
+    resolve(second)
+
+    assert_equal({ 'i1' => 'acct_b' }, current)
+  end
+
+  # A rule will emit a fresh, unclaimed occurrence — last week's name is not a claim
+  # on next week's.
+  def test_current_says_nothing_for_a_recurring_item_with_nothing_open
+    account!('acct_a')
+    item = Item.get('i1')
+    item.json['scheduling'] = {
+      'recurrence' => {
+        'cadence' => 'weekly', 'interval' => 1, 'mode' => 'absolute',
+        'anchor' => { 'kind' => 'floating' }, 'collection_id' => 'c1',
+        'active' => true, 'start_date' => '2026-07-20',
+      },
+    }
+    item.save!
+    assign('i1', date: '2026-07-20')
+    pid = JSON.parse(last_response.body)['id']
+    assign_to(pid, 'acct_a')
+    resolve(pid)
+
+    assert_equal({}, current)
+  end
+
   # ── Auto-archive one-offs when all placements resolve (PR 6 + PR 9) ──────────
 
   def resolve(pid, value = 'completed')

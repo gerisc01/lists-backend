@@ -202,6 +202,62 @@ class Placement
     result
   end
 
+  # WHO is currently on the hook for each item across a SET of collections, as
+  # { catalog_item_id => account_id } — the catalog's answer to the question the board
+  # asks per occurrence. Only items whose applicable occurrence NAMES somebody appear:
+  # an unclaimed occurrence resolves to the item's owner, which the client already
+  # holds on the item, so an entry for it would say nothing.
+  #
+  # WHICH occurrence applies mirrors the details screen's departures list exactly — the
+  # rule lives here now, and the client reads this instead of re-deriving it:
+  #
+  #   open ones exist  => the soonest that names somebody. The plan is the answer, and a
+  #                       dateless (floating) one sorts after every dated one. If no open
+  #                       occurrence names anybody, the answer is the OWNER — so nothing
+  #                       is returned, and a resolved one never speaks over a live plan.
+  #   none, recurring  => nothing. The rule will emit a fresh, unclaimed occurrence, and
+  #                       last week's name is not a claim on next week's.
+  #   none, one-off    => the last resolved one. They did it, and that is still the most
+  #                       recent thing anyone knows about who does this.
+  #
+  # Keyed by CATALOG item, not item_id: a placement may address an instance child (one
+  # playthrough of a game) while the card rendering this is the parent's.
+  def self.current_assignees_for_collections(collection_ids)
+    in_scope = self.list.select { |p| collection_ids.include?(p.collection_id) }
+    in_scope.group_by(&:catalog_item_id).each_with_object({}) do |(item_id, placements), result|
+      assignee = applicable_assignee(item_id, placements)
+      result[item_id] = assignee unless assignee.nil?
+    end
+  end
+
+  # The three-way rule above, for one item's placements.
+  def self.applicable_assignee(item_id, placements)
+    open = placements.reject(&:resolved?)
+    return soonest_assignee(open) if open.any?
+    item = Item.get(item_id)
+    return nil if !item.nil? && Scheduling.recurring?(item)
+    last_resolved(placements)&.assignee
+  end
+
+  # The first named assignee in plan order. A floating placement has no day, so it
+  # sorts last rather than reading as "today".
+  def self.soonest_assignee(placements)
+    placements.sort_by { |p| [p.date.nil? ? 1 : 0, p.date.to_s] }
+              .map(&:assignee)
+              .compact
+              .first
+  end
+
+  # Ordered by when it was CLOSED, not by its date: something completed late is still
+  # the most recent answer. Falls back to the date for rows stamped before resolved_at
+  # existed, and breaks a tie on the date — two things resolved in the same second is
+  # the ordinary case for a batch of catch-up ticks, and the later day is the later
+  # answer.
+  def self.last_resolved(placements)
+    placements.select(&:resolved?)
+              .max_by { |p| [p.resolved_at.to_s.empty? ? p.date.to_s : p.resolved_at.to_s, p.date.to_s] }
+  end
+
   # A Day-shaped view derived from placements: { collection_id => [item_ids] } for a
   # date, plus the flagged (priority) subset. This is what lets Day/DailyItem become
   # a derived read — PR 5a proves it matches the legacy Day read; 5b cuts over to it.

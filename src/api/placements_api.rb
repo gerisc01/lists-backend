@@ -42,6 +42,27 @@ class Api < Sinatra::Base
     body Placement.day_map_for_collections(collection_ids, params['start'], params['end']).to_json
   end
 
+  # WHO is currently on the hook for each item across a SET of collections:
+  # { catalog_item_id => account_id }. Query: ?collections=c1,c2.
+  #
+  # The CATALOG's assignment read, and the counterpart of the two range reads above.
+  # Those are date-scoped because the grid renders a week; a collection list renders
+  # whatever it holds, so a window here would silently unmark any card whose occurrence
+  # fell outside it. Placement.current_assignees_for_collections carries the rule for
+  # which occurrence speaks for an item.
+  #
+  # Only items an occurrence actually NAMES are returned. Everything else resolves to
+  # `item.owner`, which the client already has, so absence is the ordinary answer and
+  # the payload stays proportional to what is assigned rather than to the collection.
+  get '/api/placements/current' do
+    collection_ids = params['collections'].to_s.split(',').reject(&:empty?)
+    if collection_ids.empty?
+      raise ListError::BadRequest, "Query parameter 'collections' must be a non-empty comma-separated list of collection ids."
+    end
+    status 200
+    body Placement.current_assignees_for_collections(collection_ids).to_json
+  end
+
   # Cross-collection floating staging pile (PR 8): floating placements across a SET
   # of collections. Query: ?collections=c1,c2,c3. Full objects (binding is by
   # placement id), each carrying its source collection_id (for grouping) plus a
