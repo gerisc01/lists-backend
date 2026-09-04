@@ -9,6 +9,7 @@ require_relative './item_generic'
 require_relative './status'
 require_relative './energy'
 require_relative './scheduling'
+require_relative './account'
 
 class Item
 
@@ -39,6 +40,12 @@ class Item
     # than a second top-level field. First reader is carry-forward (reconcile): tasks
     # carry when their day passes, events resolve.
     {:key => 'scheduling', :required => false, :type => Scheduling, :display_name => 'Scheduling'},
+    # WHOSE this usually is — an account id (decision 0083). The durable half of
+    # assignment: `placement.assignee` answers who is doing one occurrence, and a
+    # placement with no assignee resolves to this. Nothing is copied onto placements,
+    # so changing the owner carries every occurrence that was never overridden.
+    # Absent means unowned, which is the ordinary state, not an error.
+    {:key => 'owner', :required => false, :type => String, :display_name => 'Owner'},
   ]
   apply_schema schema
 
@@ -55,6 +62,13 @@ class Item
   remove_method :validate if method_defined? :validate
   def validate
     self.class.schema.validate(self)
+    # Same rejection update_placement makes for `assignee`, for the same reason: an
+    # owner naming no account renders as a blank chip forever with no way to tell it
+    # from a display bug. A type_ref would say this declaratively, but it would also
+    # make Account a load-order dependency of every item read.
+    if !self.owner.nil? && Account.get(self.owner).nil?
+      raise ListError::BadRequest, "Unknown owner '#{self.owner}'"
+    end
     unless self.templates.nil?
       self.templates.each do |template_id|
         t = Template.get(template_id)

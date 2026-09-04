@@ -7,6 +7,7 @@ require_relative './list'
 require_relative './template'
 require_relative './list_group'
 require_relative './sharing_scope'
+require_relative './account'
 
 class Collection
 
@@ -25,7 +26,12 @@ class Collection
     {:key => 'groups', :required => false, :type => Array, :subtype => ListGroup, :display_name => 'List Groups' },
     {:key => 'attributes', :required => false, :type => Hash, :display_name => 'Attributes'},
     # Who can access this collection (design §6.1). Structural only; absent reads as 'private'.
-    {:key => 'sharing_scope', :required => false, :type => SharingScope, :display_name => 'Sharing Scope'}
+    {:key => 'sharing_scope', :required => false, :type => SharingScope, :display_name => 'Sharing Scope'},
+    # WHO holds this collection — the single record of access (0086, 0087). It replaced
+    # `account.collections`, so the dependency runs Collection → Account and never back:
+    # identity does not know about content, which is also what lets this be a real
+    # type_ref instead of a hand-validated string array.
+    {:key => 'members', :required => false, :type => Array, :subtype => Account, :type_ref => true, :display_name => 'Members'}
   ]
   apply_schema schema
 

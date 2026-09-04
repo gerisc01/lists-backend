@@ -425,9 +425,9 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 400, last_response.status
   end
 
-  # The assignee is who SHOULD do it; resolved_by is who DID. Assigning someone else
-  # and then closing it yourself has to leave both facts intact and distinct.
-  def test_resolution_stamps_the_acting_account_not_the_assignee
+  # resolved_by records who the PLAN said would do it, not who tapped (0084): the
+  # person closing a chore is routinely not the person who did it.
+  def test_resolution_stamps_the_assignee_not_the_acting_account
     %w[acct_a acct_b].each { |id| Account.new({'id' => id, 'name' => id}).save! }
     stage('i1')
     pid = JSON.parse(last_response.body)['id']
@@ -437,7 +437,7 @@ class PlacementsApiTest < MinitestWrapper
     patch("/api/placements/#{pid}", { 'resolution' => 'completed' }.to_json,
           { 'Content-Type' => 'application/json', 'HTTP_ACCOUNT_ID' => 'acct_a' })
     done = JSON.parse(last_response.body)
-    assert_equal 'acct_a', done['resolved_by']
+    assert_equal 'acct_b', done['resolved_by']
     assert_equal 'acct_b', done['assignee']
 
     # Reopening drops who closed it, and leaves who it's assigned to alone.
@@ -446,6 +446,45 @@ class PlacementsApiTest < MinitestWrapper
     reopened = JSON.parse(last_response.body)
     assert_nil reopened['resolved_by']
     assert_equal 'acct_b', reopened['assignee']
+  end
+
+  # An unassigned placement resolves to its item's owner (0083), so the stamp follows
+  # the same fallback everything else reads through.
+  def test_resolution_falls_back_to_the_items_owner
+    %w[acct_a acct_b].each { |id| Account.new({'id' => id, 'name' => id}).save! }
+    item = Item.get('i1')
+    item.owner = 'acct_b'
+    item.save!
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+
+    patch("/api/placements/#{pid}", { 'resolution' => 'completed' }.to_json,
+          { 'Content-Type' => 'application/json', 'HTTP_ACCOUNT_ID' => 'acct_a' })
+    assert_equal 'acct_b', JSON.parse(last_response.body)['resolved_by']
+  end
+
+  # Nobody named it, so the tap is the only name there is — better than none.
+  def test_resolution_falls_back_to_the_actor_when_nobody_is_named
+    Account.new({'id' => 'acct_a', 'name' => 'acct_a'}).save!
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+
+    patch("/api/placements/#{pid}", { 'resolution' => 'completed' }.to_json,
+          { 'Content-Type' => 'application/json', 'HTTP_ACCOUNT_ID' => 'acct_a' })
+    assert_equal 'acct_a', JSON.parse(last_response.body)['resolved_by']
+  end
+
+  # Assign-and-close in one call: the stamp reads the assignee arriving in the same
+  # request, not the one it is replacing.
+  def test_resolution_reads_an_assignee_written_in_the_same_request
+    %w[acct_a acct_b].each { |id| Account.new({'id' => id, 'name' => id}).save! }
+    stage('i1')
+    pid = JSON.parse(last_response.body)['id']
+
+    patch("/api/placements/#{pid}",
+          { 'assignee' => 'acct_b', 'resolution' => 'completed' }.to_json,
+          { 'Content-Type' => 'application/json', 'HTTP_ACCOUNT_ID' => 'acct_a' })
+    assert_equal 'acct_b', JSON.parse(last_response.body)['resolved_by']
   end
 
   # An unauthenticated write path (e2e) still resolves — it just has no name to stamp.

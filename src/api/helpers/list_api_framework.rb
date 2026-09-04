@@ -16,6 +16,19 @@ module Sinatra
       request.env['HTTP_ACCOUNT_ID']&.split(' ')&.last
     end
 
+    # The membership filter behind every "what is there" read (0087). Applied to
+    # collections and collection groups — the two units of trust.
+    #
+    # NO account, no scoping. `current_account_id` is nil exactly where authentication
+    # is skipped (the e2e harness, the trimmed test API), and those paths need to see
+    # the store they just wrote. Under `protected!` a request always names a real
+    # account, so the open path is not reachable in production.
+    def members_only(records)
+      account_id = current_account_id
+      return records if account_id.nil?
+      records.select { |r| (r.members || []).include?(account_id) }
+    end
+
     def get_json_payload(request)
       begin
         json = JSON.parse(request.body.read)
