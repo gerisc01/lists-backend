@@ -70,13 +70,15 @@ class CollectionGroupsApiTest < MinitestWrapper
     assert_equal ['household'], JSON.parse(last_response.body).map { |g| g['id'] }
   end
 
-  # The lens grants nothing. B holds the group and still cannot see its collections —
-  # the client renders those as "no access" rows rather than dropping them silently.
-  def test_holding_a_group_grants_no_access_to_its_collections
+  # The lens grants nothing. B holds the group and still cannot see the collections it
+  # NAMES — the client renders those as "no access" rows rather than dropping them
+  # silently. Its one-off collection is the single exception (0085, 0090): that one has no
+  # life apart from the group, so holding the group is the only way anyone reaches it.
+  def test_holding_a_group_grants_only_its_one_off_collection
     as('acct_a', :post, '/api/collection-groups', group_payload('members' => %w[acct_a acct_b]))
 
     as('acct_b', :get, '/api/collections')
-    assert_empty JSON.parse(last_response.body)
+    assert_equal ['pad'], JSON.parse(last_response.body).map { |c| c['id'] }
   end
 
   def test_a_group_naming_no_collection_is_rejected

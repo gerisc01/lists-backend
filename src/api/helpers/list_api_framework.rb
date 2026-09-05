@@ -23,10 +23,14 @@ module Sinatra
     # is skipped (the e2e harness, the trimmed test API), and those paths need to see
     # the store they just wrote. Under `protected!` a request always names a real
     # account, so the open path is not reachable in production.
-    def members_only(records)
+    # `also_granted` names ids that are reachable WITHOUT carrying the account in their
+    # own roster — access derived from somewhere else rather than declared here. A board's
+    # one-off collection is the only such case today (0090); see collections_api.rb.
+    def members_only(records, also_granted: [])
       account_id = current_account_id
       return records if account_id.nil?
-      records.select { |r| (r.members || []).include?(account_id) }
+      granted = also_granted.to_a
+      records.select { |r| (r.members || []).include?(account_id) || granted.include?(r.id) }
     end
 
     def get_json_payload(request)

@@ -7,6 +7,7 @@ require_relative '../../src/type/item_group'
 require_relative '../../src/type/list'
 require_relative '../../src/storage'
 require_relative '../../src/type/account'
+require_relative '../../src/type/collection_group'
 
 class CollectionsApiTest < MinitestWrapper
   include Rack::Test::Methods
@@ -161,6 +162,39 @@ class CollectionsApiTest < MinitestWrapper
     Collection.new({'id' => 'mine', 'name' => 'Mine', 'members' => ['acct_a']}).save!
     get('/api/collections')
     assert_includes JSON.parse(last_response.body).map { |c| c['id'] }, 'mine'
+  end
+
+  # A one-off collection carries no roster of its own; the board it belongs to is what
+  # grants it (0090). Both halves matter: the member reaches it, and holding no board
+  # still reaches nothing.
+  def test_a_boards_one_off_collection_is_granted_through_the_board
+    Account.new({'id' => 'acct_a', 'name' => 'A'}).save!
+    Account.new({'id' => 'acct_b', 'name' => 'B'}).save!
+    Collection.new({'id' => 'oneoffs', 'name' => 'Home one-offs', 'members' => []}).save!
+    CollectionGroup.new({'id' => 'home', 'name' => 'Home', 'members' => ['acct_a'],
+                         'one_off_collection' => 'oneoffs'}).save!
+
+    get('/api/collections', nil, { 'HTTP_ACCOUNT_ID' => 'acct_a' })
+    assert_includes JSON.parse(last_response.body).map { |c| c['id'] }, 'oneoffs'
+
+    get('/api/collections', nil, { 'HTTP_ACCOUNT_ID' => 'acct_b' })
+    refute_includes JSON.parse(last_response.body).map { |c| c['id'] }, 'oneoffs'
+  end
+
+  # Sharing the board is what shares its one-offs — the collection itself is never
+  # written. This is the case the roster-copy approach would have gotten wrong.
+  def test_sharing_a_board_grants_its_one_off_collection
+    Account.new({'id' => 'acct_a', 'name' => 'A'}).save!
+    Account.new({'id' => 'acct_b', 'name' => 'B'}).save!
+    Collection.new({'id' => 'oneoffs', 'name' => 'Home one-offs', 'members' => []}).save!
+    CollectionGroup.new({'id' => 'home', 'name' => 'Home', 'members' => ['acct_a'],
+                         'one_off_collection' => 'oneoffs'}).save!
+
+    put('/api/collection-groups/home', { 'members' => ['acct_a', 'acct_b'] }.to_json,
+        { 'Content-Type' => 'application/json' })
+
+    get('/api/collections', nil, { 'HTTP_ACCOUNT_ID' => 'acct_b' })
+    assert_includes JSON.parse(last_response.body).map { |c| c['id'] }, 'oneoffs'
   end
 
   def test_a_member_naming_no_account_is_rejected

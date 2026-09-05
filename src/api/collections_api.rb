@@ -1,17 +1,39 @@
 require 'sinatra/base'
 require_relative '../type/collection'
+require_relative '../type/collection_group'
 require_relative 'helpers/list_api_framework'
 require_relative 'helpers/api_helpers'
 
 class Api < Sinatra::Base
   register Sinatra::ListApiFramework
 
+  helpers do
+    # A board's one-off collection holds NO members of its own (0090). It has no life
+    # apart from its board, so the board is the only thing entitled to say who reaches
+    # it, and a roster copied onto the collection would be a second answer to a question
+    # that already has one — right until the day someone shares the board and forgets it.
+    #
+    # Deriving it costs this clause. Without it an empty roster hides the collection from
+    # everyone including the board's own creator, which breaks renaming a board (the
+    # rename follows through to its one-off collection) and the "New one-offs go to" line
+    # in board edit.
+    def one_off_collections_granted_by_boards
+      account_id = current_account_id
+      return [] if account_id.nil?
+      CollectionGroup.list
+                     .reject { |g| g.json['deleted'] }
+                     .select { |g| (g.members || []).include?(account_id) }
+                     .map(&:one_off_collection)
+                     .compact
+    end
+  end
+
   # Scoped LIST, generated rest. The client used to download every collection on the
   # server and filter in JS; membership is the server's answer now (0087), and the read
   # is the only place it can be enforced.
   get '/api/collections' do
     collections = Collection.list.reject { |c| c.json['deleted'] }
-    collections = members_only(collections)
+    collections = members_only(collections, also_granted: one_off_collections_granted_by_boards)
     status 200
     body collections.map(&:to_schema_object).to_json
   end
