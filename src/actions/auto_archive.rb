@@ -19,7 +19,7 @@ require_relative './resolve_open_instance'   # instance_template_for — the run
 # placement blocks archive. Archiving reuses set_status(item,'completed')
 # so the transition journal is appended — archive is a status transition, never a
 # deletion. Returns the archived item (for reconcile to collect) or nil.
-def maybe_auto_archive(item_id, as_of_date: Date.today.iso8601)
+def maybe_auto_archive(item_id, as_of_date: Date.today.iso8601, actor_id: nil)
   item = Item.get(item_id)
   return if item.nil?
 
@@ -47,7 +47,7 @@ def maybe_auto_archive(item_id, as_of_date: Date.today.iso8601)
   return if placements.empty?
   return unless placements.all?(&:resolved?)
 
-  set_status(item_id, 'completed')
+  set_status(item_id, 'completed', actor_id)
 end
 
 # A group member archives like the one-off it substantively is: a step of "clean the

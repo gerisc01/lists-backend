@@ -111,4 +111,25 @@ class TemplateTest < MinitestWrapper
     @template.validate_obj(item)
     assert_equal first_schema_id, @template.validator_schema.object_id
   end
+
+  def reserved_template(fields)
+    Template.new({'id' => 'r1', 'key' => 'reserved', 'display_name' => 'Reserved', 'fields' => fields})
+  end
+
+  # A field keyed `status` would save and never render. Refused with a message the
+  # client shows, not a 500.
+  def test_template_cannot_declare_a_system_key
+    template = reserved_template([{'key' => 'name'}, {'key' => 'status'}])
+    error = assert_raises(ListError::Validation) { template.validate }
+    assert_includes error.message, 'status'
+  end
+
+  def test_template_may_declare_name
+    reserved_template([{'key' => 'name'}, {'key' => 'platform'}]).validate
+  end
+
+  # The legacy templates own their retired keys, so declaring them is not a collision.
+  def test_legacy_templates_may_declare_their_own_keys
+    reserved_template([{'key' => 'name'}, {'key' => 'completed'}, {'key' => 'recurring-event'}]).validate
+  end
 end

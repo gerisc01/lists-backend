@@ -26,21 +26,30 @@ end
 # One entry in an item's append-only status history. Also a validation type:
 # `type_match?` enforces the entry shape, so a malformed transition can't be
 # persisted. `set_status` is the sole writer, so this is belt-and-suspenders that
-# also documents the shape in one place. Entry is `{from, to, at}` — fully
+# also documents the shape in one place. Entry is `{from, to, at, by?}` — fully
 # self-describing from from→to, so no `reason` field is needed.
+#
+# `by` is the account whose request made the change. Absent, never null, when no person
+# acted: reconcile's auto-archive, the unauthenticated e2e path, and every entry written
+# before authors were recorded. It is the ACTOR, not the placement's `resolved_by` — the
+# journal answers "who changed this", and who did the work already lives on the
+# placement (0084).
 class Transition
 
   def self.type_match?(value)
     value.is_a?(Hash) &&
       Status::VALUES.include?(value['to']) &&
       (value['from'].nil? || Status::VALUES.include?(value['from'])) &&
-      value['at'].is_a?(String)
+      value['at'].is_a?(String) &&
+      (value['by'].nil? || value['by'].is_a?(String))
   end
 
   # Build a stamped entry. The timestamp is server-owned and cannot be supplied
-  # by a client.
-  def self.build(from:, to:)
-    { 'from' => from, 'to' => to, 'at' => Time.now.utc.iso8601 }
+  # by a client, and neither can the author — it comes from the request, not the body.
+  def self.build(from:, to:, by: nil)
+    entry = { 'from' => from, 'to' => to, 'at' => Time.now.utc.iso8601 }
+    entry['by'] = by unless by.nil?
+    entry
   end
 
 end

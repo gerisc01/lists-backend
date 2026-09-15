@@ -17,7 +17,7 @@ require_relative './set_status'
 #
 # Placements pointing at the run are deliberately left alone: the floating reads already
 # exclude orphans whose item is deleted, and reconcile prunes the dead rows for good.
-def delete_instance(instance_id)
+def delete_instance(instance_id, actor_id = nil)
   instance = Item.get(instance_id)
   raise ListError::NotFound, "item id '#{instance_id}' not found" if instance.nil?
 
@@ -29,7 +29,7 @@ def delete_instance(instance_id)
   parent.save!
 
   instance.delete!
-  revert_status_after_delete(parent) || parent
+  revert_status_after_delete(parent, actor_id) || parent
 end
 
 # A run that never happened should not leave the status move it caused behind. This is not
@@ -41,12 +41,12 @@ end
 #
 # Three guards, and the third is the one that isn't obvious — deleting an OLD run while a
 # different one is still open must not touch a status that other run is holding.
-def revert_status_after_delete(parent)
+def revert_status_after_delete(parent, actor_id = nil)
   return nil unless parent.json['status'] == 'doing'
   return nil unless open_instance_for(parent).nil?
 
   last = (parent.json['transitions'] || []).last
   return nil if last.nil? || last['to'] != 'doing' || last['from'].to_s.empty?
 
-  set_status(parent.id, last['from'])
+  set_status(parent.id, last['from'], actor_id)
 end

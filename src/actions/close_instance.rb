@@ -13,7 +13,7 @@ require_relative './set_status'
 # Closing stamps `finished`, moves the instance to `completed`, and moves the catalog
 # item with it. Once closed, the instance stops being the open one, so the next stage
 # mints a fresh instance — that is the whole replay path.
-def close_instance(instance_id, finished_date = nil)
+def close_instance(instance_id, finished_date = nil, actor_id = nil)
   instance = Item.get(instance_id)
   raise ListError::NotFound, "item id '#{instance_id}' not found" if instance.nil?
 
@@ -27,8 +27,8 @@ def close_instance(instance_id, finished_date = nil)
   instance.validate
   instance.save!
 
-  set_status(instance_id, 'completed') unless instance.json['status'] == 'completed'
-  set_status(parent.id, 'completed') unless parent.json['status'] == 'completed'
+  set_status(instance_id, 'completed', actor_id) unless instance.json['status'] == 'completed'
+  set_status(parent.id, 'completed', actor_id) unless parent.json['status'] == 'completed'
 
   instance
 end

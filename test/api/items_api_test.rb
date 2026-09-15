@@ -82,6 +82,26 @@ class ItemsApiTest < MinitestWrapper
     refute_equal '1999-01-01T00:00:00Z', reloaded['transitions'].first['at']
   end
 
+  # The author comes from the request's account, never the body.
+  def test_transition_records_the_acting_account
+    post("/api/items/1/status", { 'status' => 'doing', 'by' => 'someone_else' }.to_json,
+         { "Content-Type" => "application/json", 'HTTP_ACCOUNT_ID' => 'acct_a' })
+    assert_equal 'acct_a', reloaded['transitions'].first['by']
+  end
+
+  # No account, no author — the key is absent rather than null, like every entry
+  # written before authors were recorded.
+  def test_transition_without_an_account_has_no_author
+    post_status('1', 'doing')
+    refute reloaded['transitions'].first.key?('by')
+  end
+
+  def test_transition_type_rejects_a_non_string_author
+    entry = Transition.build(from: 'want-to', to: 'doing')
+    assert Transition.type_match?(entry)
+    refute Transition.type_match?(entry.merge('by' => 42))
+  end
+
   def test_unknown_status_is_rejected
     post_status('1', 'bogus')
     assert_equal 400, last_response.status

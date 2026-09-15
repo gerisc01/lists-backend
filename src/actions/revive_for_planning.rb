@@ -17,10 +17,10 @@ require_relative './set_status'
 # A no-op for everything not terminal, which is the overwhelming majority of calls.
 # Deliberately NOT applied to reopening a placement (update_placement with resolution nil):
 # un-ticking a box is a mis-tap escape, and it already leaves the item wherever it was.
-def revive_for_planning(item_id)
+def revive_for_planning(item_id, actor_id = nil)
   item = Item.get(item_id)
   return if item.nil?
   return unless Status.done?(item.json['status'])
 
-  set_status(item_id, 'want-to')
+  set_status(item_id, 'want-to', actor_id)
 end

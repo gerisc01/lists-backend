@@ -108,9 +108,9 @@ class Api < Sinatra::Base
     json = JSON.parse(request.body.read)
     placement =
       if json['date'].to_s.empty?
-        create_floating_placement(params['id'], json['collection'], json['staged_week'])
+        create_floating_placement(params['id'], json['collection'], json['staged_week'], current_account_id)
       else
-        assign_to_date(params['id'], json['date'], json['collection'])
+        assign_to_date(params['id'], json['date'], json['collection'], current_account_id)
       end
     status 200
     body placement.to_schema_object.to_json

@@ -19,7 +19,7 @@ require_relative '../type/item_generic'
 # returns it (re-staging means "I want this *this* week") rather than piling up
 # duplicates. A resolved (e.g. lapsed) placement is not matched — re-staging a
 # lapsed one-off is a fresh instance, not a resurrection.
-def create_floating_placement(item_id, collection_id, staged_week = nil)
+def create_floating_placement(item_id, collection_id, staged_week = nil, actor_id = nil)
   # Two guards with the resolve between them, because a group and an item are separate
   # stores that must never mix (ItemGeneric.exist? is the "either kind" query). The
   # second guard is what enforces it: whatever we resolved to must be a real Item,
@@ -39,7 +39,7 @@ def create_floating_placement(item_id, collection_id, staged_week = nil)
   # instance seam so it lands on whatever the placement will actually point at: for a
   # run-keeping item that is a fresh instance at want-to, so this is a no-op and the
   # completed playthrough behind it stays completed.
-  revive_for_planning(item_id)
+  revive_for_planning(item_id, actor_id)
 
   existing = Placement.floating_for_collection(collection_id)
                       .find { |p| p.item_id == item_id && p.resolution.nil? }

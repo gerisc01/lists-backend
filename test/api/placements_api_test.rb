@@ -661,6 +661,25 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 'completed', transitions.last['to']
   end
 
+  # The archive's journal entry names who resolved the last placement — the actor, not
+  # the assignee `resolved_by` prefers, because the journal records who changed status.
+  def test_auto_archive_transition_records_the_acting_account
+    assign('i1')
+    pid = JSON.parse(last_response.body)['id']
+    patch("/api/placements/#{pid}", { 'resolution' => 'completed' }.to_json,
+          { 'Content-Type' => 'application/json', 'HTTP_ACCOUNT_ID' => 'acct_a' })
+    assert_equal 'acct_a', Item.get('i1').json['transitions'].last['by']
+  end
+
+  def test_planning_a_finished_item_records_who_revived_it
+    Item.get('i1').tap { |i| i.json['status'] = 'completed' }.save!
+    post("/api/items/i1/placements", { 'collection' => 'c1' }.to_json,
+         { 'Content-Type' => 'application/json', 'HTTP_ACCOUNT_ID' => 'acct_a' })
+    last = Item.get('i1').json['transitions'].last
+    assert_equal 'want-to', last['to']
+    assert_equal 'acct_a', last['by']
+  end
+
   def test_board_born_item_does_not_archive_until_all_placements_resolve
     assign('i1')                                   # DATE
     first = JSON.parse(last_response.body)['id']

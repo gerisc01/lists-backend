@@ -28,7 +28,7 @@ class Api < Sinatra::Base
   # the updated item so the client can patch its cache. Body: { "status": "doing" }.
   post '/api/items/:id/status' do
     json = JSON.parse(request.body.read)
-    item = set_status(params['id'], json['status'])
+    item = set_status(params['id'], json['status'], current_account_id)
     status 200
     body item.to_schema_object.to_json
   end

@@ -9,7 +9,7 @@ require_relative '../type/item_generic'
 # thin REST endpoint and registry-registered for composition. See docs/DECISIONS.md
 # "Placement is a first-class type". Idempotent on the (item, date, collection)
 # triple — re-assigning returns the existing placement rather than duplicating.
-def assign_to_date(item_id, date, collection_id)
+def assign_to_date(item_id, date, collection_id, actor_id = nil)
   # Same two-guard shape as staging (create_floating_placement.rb): dating a group means
   # dating the member you'd pick up, and a Placement can only point at a real Item.
   raise ListError::NotFound, "item id '#{item_id}' not found" unless ItemGeneric.exist?(item_id)
@@ -26,7 +26,7 @@ def assign_to_date(item_id, date, collection_id)
   # instance seam so it lands on whatever the placement will actually point at: for a
   # run-keeping item that is a fresh instance at want-to, so this is a no-op and the
   # completed playthrough behind it stays completed.
-  revive_for_planning(item_id)
+  revive_for_planning(item_id, actor_id)
 
   existing = Placement.find_dated(item_id, date, collection_id)
   return existing unless existing.nil?

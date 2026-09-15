@@ -121,6 +121,16 @@ class ActionsApiTest < MinitestWrapper
     assert_equal 'New Name', @item.name
   end
 
+  # Registry steps get the author from the request. A body naming someone else is
+  # overwritten, so an ad-hoc call cannot attribute a change to another account.
+  def test_ad_hoc_set_status_records_the_acting_account_not_the_body
+    payload = {'item_id' => @item.id, 'status' => 'doing', 'actor_id' => 'acct_b'}.to_json
+    post("/api/actions/ad-hoc/setStatus", payload,
+         {"Content-Type" => "application/json", 'HTTP_ACCOUNT_ID' => 'acct_a'})
+    assert_equal 200, last_response.status
+    assert_equal 'acct_a', Item.get(@item.id).json['transitions'].last['by']
+  end
+
   def test_set_field_failure
     action = set_field_action
     action.save!

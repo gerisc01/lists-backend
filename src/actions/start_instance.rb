@@ -25,7 +25,7 @@ require_relative './set_status'
 # `retired` is excluded because it exists as a first-class status precisely because
 # "I'm never finishing this" differs from "I finished it" (decision 0011). Recording
 # the session is right; reinterpreting the intent is not.
-def start_instance_for(placement)
+def start_instance_for(placement, actor_id = nil)
   instance = Item.get(placement.item_id)
   return if instance.nil?
 
@@ -37,14 +37,14 @@ def start_instance_for(placement)
   # began when it actually began. A floating placement has no date, so it falls back.
   stamp_instance_start(instance, placement.date || Date.today.iso8601)
 
-  advance_to_doing(instance.id, instance.json['status'])
-  advance_to_doing(parent.id, parent.json['status'])
+  advance_to_doing(instance.id, instance.json['status'], actor_id)
+  advance_to_doing(parent.id, parent.json['status'], actor_id)
 end
 
 # Move into `doing` unless already there or explicitly retired. Routed through
 # set_status so the transition is journalled and timestamped like every other status
 # change, rather than written as a bare field.
-def advance_to_doing(item_id, current_status)
+def advance_to_doing(item_id, current_status, actor_id = nil)
   return if current_status == 'doing' || current_status == 'retired'
-  set_status(item_id, 'doing')
+  set_status(item_id, 'doing', actor_id)
 end

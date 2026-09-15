@@ -71,6 +71,7 @@ class Template
     remove_method :validate if method_defined? :validate
     def validate
         self.class.schema.validate(self)
+        validate_no_system_keys
         return unless Template.instance_child_ids(self.id).include?(self.id)
 
         missing = ReservedFields::INSTANCE_CONTRACT - (self.fields || []).map(&:key)
@@ -80,6 +81,17 @@ class Template
         raise ListError::Validation,
               "Template '#{self.display_name}' keeps a record for another template, so it " \
               "cannot drop: #{missing.join(', ')}"
+    end
+
+    # A field keyed `status` saves, and the item details screen hides it forever. Refused at
+    # the door instead, which also covers curl and scripts the editor's key picker can't.
+    def validate_no_system_keys
+        reserved = ReservedFields::SYSTEM_KEYS - ReservedFields::TEMPLATE_DECLARABLE
+        taken = (self.fields || []).map(&:key) & reserved
+        return if taken.empty?
+        raise ListError::Validation,
+              "Template '#{self.display_name}' uses a field key the app reserves: " \
+              "#{taken.join(', ')}. Rename the field."
     end
 
     attr_accessor :validator_schema

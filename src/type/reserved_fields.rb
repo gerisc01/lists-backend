@@ -20,15 +20,20 @@ module ReservedFields
   # started"), so pinning it would restrict more than the feature actually needs.
   INSTANCE_CONTRACT = %w[finished].freeze
 
-  # The wider set the app reads by name, mirroring the frontend's HIDDEN_FIELDS. Not yet
-  # enforced against collisions — a template field named "Status" still keys to `status`
-  # and is silently swallowed at render. Recorded here so the fix has one home.
+  # The wider set the app reads by name, mirroring the frontend's HIDDEN_FIELDS. A template
+  # field keyed to one of these would save fine and never render, so Template#validate
+  # refuses it — except the TEMPLATE_DECLARABLE ones below.
   SYSTEM_KEYS = %w[
     name id templates tags parent children
-    status transitions completed energy scheduling
+    status transitions completed energy scheduling owner
     recurring-event recurring-parent recurring-children todo-date
     updated_at lastAccessed
   ].freeze
+
+  # System keys a template legitimately declares, because the template is what defines
+  # them: every template has `name`, and the legacy `todo` / `recurring-item` templates
+  # own the retired keys. Retiring legacy recurring (TODO.md) shrinks this to `name`.
+  TEMPLATE_DECLARABLE = %w[name completed todo-date recurring-event recurring-parent recurring-children].freeze
 
   # The default definition for a contract field, used when opting a template in without
   # one. Display name is a suggestion — rename it to "Watched" for films and the ledger

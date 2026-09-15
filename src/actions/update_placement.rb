@@ -62,12 +62,12 @@ def update_placement(placement_id, fields, actor_id = nil)
   # A completed session is what STARTS an instance — stamping its date and moving the
   # catalog item to `doing`. Only `completed`: skipping a session is not doing it. A
   # no-op for any placement whose item is not an instance. See start_instance.rb.
-  start_instance_for(placement) if fields['resolution'] == 'completed'
+  start_instance_for(placement, actor_id) if fields['resolution'] == 'completed'
 
   # Resolving a placement (completed OR skipped) can close a one-off's finite
   # placement set — auto-archive if so (no-op for shelf items and still-open sets).
   # Reopening (resolution:nil) never archives. See auto_archive.rb.
-  maybe_auto_archive(placement.item_id) if fields.key?('resolution') && !fields['resolution'].nil?
+  maybe_auto_archive(placement.item_id, actor_id: actor_id) if fields.key?('resolution') && !fields['resolution'].nil?
 
   placement
 end

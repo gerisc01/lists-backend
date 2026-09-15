@@ -53,11 +53,11 @@ def action_methods
     },
     'setStatus' => {
       'method' => :set_status,
-      'params' => ['item_id', 'status']
+      'params' => ['item_id', 'status', 'actor_id']
     },
     'assignToDate' => {
       'method' => :assign_to_date,
-      'params' => ['item_id', 'date', 'collection_id']
+      'params' => ['item_id', 'date', 'collection_id', 'actor_id']
     },
     'removeFromDate' => {
       'method' => :remove_from_date,
@@ -69,7 +69,7 @@ def action_methods
     },
     'createFloatingPlacement' => {
       'method' => :create_floating_placement,
-      'params' => ['item_id', 'collection_id']
+      'params' => ['item_id', 'collection_id', 'staged_week', 'actor_id']
     },
     'bindPlacement' => {
       'method' => :bind_placement,
@@ -77,7 +77,7 @@ def action_methods
     },
     'updatePlacement' => {
       'method' => :update_placement,
-      'params' => ['placement_id', 'fields']
+      'params' => ['placement_id', 'fields', 'actor_id']
     },
     'deferPlacement' => {
       'method' => :defer_placement,
@@ -97,11 +97,11 @@ def action_methods
     },
     'closeInstance' => {
       'method' => :close_instance,
-      'params' => ['instance_id', 'finished_date']
+      'params' => ['instance_id', 'finished_date', 'actor_id']
     },
     'deleteInstance' => {
       'method' => :delete_instance,
-      'params' => ['instance_id']
+      'params' => ['instance_id', 'actor_id']
     },
     'enableInstances' => {
       'method' => :enable_instances,
