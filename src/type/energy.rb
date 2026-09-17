@@ -25,18 +25,18 @@ class Energy
   DEFAULT = 'moderate'
 
   def self.type_match?(value)
-    VALUES.include?(value)
+    return VALUES.include?(value)
   end
 
   # The effective energy for a raw stored value (nil/absent => DEFAULT).
   def self.of(value)
-    value || DEFAULT
+    return value || DEFAULT
   end
 
   # The effective energy of an item, for callers holding the item rather than
   # the field (the shape `Status` and `Scheduling` established).
   def self.of_item(item)
-    of(item.json['energy'])
+    return of(item.json['energy'])
   end
 
 end

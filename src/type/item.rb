@@ -69,7 +69,7 @@ class Item
     if !self.owner.nil? && Account.get(self.owner).nil?
       raise ListError::BadRequest, "Unknown owner '#{self.owner}'"
     end
-    unless self.templates.nil?
+    if !self.templates.nil?
       self.templates.each do |template_id|
         t = Template.get(template_id)
         t.validate_obj(self)

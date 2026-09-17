@@ -31,7 +31,7 @@ class ActionStep
     require_relative '../actions/item_actions' # lazy: see note at top of file
     action = self.type
     fixed_params = self.fixed_params
-    unless fixed_params.nil?
+    if !fixed_params.nil?
       json = fixed_params.merge(json)
     end
 
@@ -40,7 +40,7 @@ class ActionStep
       raise ListError::NotFound, "Action '#{action}' not found."
     else
       params = a['params'].map { |p| json[p] }
-      Kernel.send(a['method'], *params)
+      return Kernel.send(a['method'], *params)
     end
   end
 
@@ -72,7 +72,7 @@ class Action
           result_step,result_field = value.split('.')
           result_val = results[result_step]
           if !result_val.nil? && !result_field.nil?
-            raise ListError::BadRequest, "Result field '#{result_field}' not found on step '#{result_step}'." unless result_val.respond_to?(result_field)
+            raise ListError::BadRequest, "Result field '#{result_field}' not found on step '#{result_step}'." if !result_val.respond_to?(result_field)
             input[key] = result_val.send(result_field)
           end
         end

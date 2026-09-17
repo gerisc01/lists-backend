@@ -20,7 +20,7 @@ class Api < Sinatra::Base
     def one_off_collections_granted_by_boards
       account_id = current_account_id
       return [] if account_id.nil?
-      CollectionGroup.list
+      return CollectionGroup.list
                      .reject { |g| g.json['deleted'] }
                      .select { |g| (g.members || []).include?(account_id) }
                      .map(&:one_off_collection)

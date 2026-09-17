@@ -105,7 +105,7 @@ class Api < Sinatra::Base
   # (assign to a day); without one → a floating placement that lands in staging for
   # `staged_week` (the current week, so the weekly-plan pile scopes to it).
   post '/api/items/:itemId/placements' do
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     placement =
       if json['date'].to_s.empty?
         create_floating_placement(params['itemId'], json['collection'], json['staged_week'], current_account_id)
@@ -118,7 +118,7 @@ class Api < Sinatra::Base
 
   # Bind a placement to a day: floating -> dated. Body: { "date": "YYYY-MM-DD" }.
   post '/api/placements/:placementId/bind' do
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     placement = bind_placement(params['placementId'], json['date'])
     status 200
     body placement.to_schema_object.to_json
@@ -130,7 +130,7 @@ class Api < Sinatra::Base
   # server-stamped. assignee is an account id (null clears) and is independent of
   # who is making the request — you assign other people, not just yourself.
   patch '/api/placements/:placementId' do
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     placement = update_placement(params['placementId'], json, current_account_id)
     status 200
     body placement.to_schema_object.to_json
@@ -140,7 +140,7 @@ class Api < Sinatra::Base
   # "YYYY-MM-DD" } — the client's current-week start; the server computes the +1-week
   # not_before marker and stamps origin_date if absent.
   post '/api/placements/:placementId/defer' do
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     placement = defer_placement(params['placementId'], json['week_start'])
     status 200
     body placement.to_schema_object.to_json
@@ -151,7 +151,7 @@ class Api < Sinatra::Base
   # the client's current-week start; the placement re-stages into that week. Clears any
   # resolution (a lapsed past-day card comes back open); preserves origin_date.
   post '/api/placements/:placementId/unbind' do
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     placement = refloat_placement(params['placementId'], json['week_start'])
     status 200
     body placement.to_schema_object.to_json
@@ -168,7 +168,7 @@ class Api < Sinatra::Base
 
   # Remove an item from a day. Body: { "collection": "<id>", "date": "YYYY-MM-DD" }.
   delete '/api/items/:itemId/placements' do
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     placement = remove_from_date(params['itemId'], json['date'], json['collection'])
     status 200
     body(placement.nil? ? '{}' : placement.to_schema_object.to_json)
@@ -177,7 +177,7 @@ class Api < Sinatra::Base
   # Flag/unflag a dated placement as a priority (per-date cap enforced in the
   # primitive). Body: { "collection": "<id>", "date": "YYYY-MM-DD", "priority": true }.
   post '/api/items/:itemId/placements/priority' do
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     placement = set_placement_priority(params['itemId'], json['date'], json['collection'], json['priority'])
     status 200
     body placement.to_schema_object.to_json

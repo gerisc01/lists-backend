@@ -71,7 +71,7 @@ class Api < Sinatra::Base
   end
 
   post '/api/lists/:listId/items' do
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     list_id = params['listId']
     if !json['id'].nil?
       item = ItemGeneric.get(json['id'])
@@ -102,7 +102,7 @@ class Api < Sinatra::Base
   end
 
   post '/api/lists/:listId/actions' do
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     list_id = params['listId']
     list = List.get(list_id)
     action = Action.new(json)

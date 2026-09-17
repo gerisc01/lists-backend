@@ -9,5 +9,5 @@ def remove_from_date(item_id, date, collection_id)
   return nil if placement.nil?
 
   placement.delete!
-  placement
+  return placement
 end

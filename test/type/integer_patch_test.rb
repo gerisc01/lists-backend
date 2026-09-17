@@ -18,10 +18,6 @@ class IntegerPatchTest < MinitestWrapper
     @template.save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-  end
-
   def test_integer_patch_type_empty_success
     item = Item.new({'id' => '1', 'name' => 'Test', 'templates' => ['1']})
     item.validate

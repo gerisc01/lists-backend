@@ -17,11 +17,6 @@ class DeleteInstanceTest < MinitestWrapper
     Item.new({'id' => 'kh', 'name' => 'Kingdom Hearts', 'templates' => ['game']}).save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def open_run
     set_status('kh', 'doing')
     Item.get('kh').children.first

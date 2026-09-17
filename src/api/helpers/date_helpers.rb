@@ -11,8 +11,8 @@ module DateHelpers
   def self.get_collection_and_item_from_payload(body)
     json = JSON.parse(body)
     raise ListError::BadRequest, "Request body must contain 'collection' and 'item'." if !json.is_a?(Hash) || json['collection'].to_s.empty? || json['item'].to_s.empty?
-    raise ListError::NotFound, "Item id '#{json['item']}' cannot be found" unless ItemGeneric.exist?(json['item'])
-    raise ListError::NotFound, "Collection id '#{json['collection']}' cannot be found" unless Collection.exist?(json['collection'])
+    raise ListError::NotFound, "Item id '#{json['item']}' cannot be found" if !ItemGeneric.exist?(json['item'])
+    raise ListError::NotFound, "Collection id '#{json['collection']}' cannot be found" if !Collection.exist?(json['collection'])
 
     return json['collection'], json['item']
   end
@@ -113,7 +113,7 @@ module DateHelpers
         DateHelpers.remove_item_from_day(day, collection_id, child_id)
       end
       child_item = ItemGeneric.get(child_id)
-      child_item.delete! unless child_item.nil?
+      child_item.delete! if !child_item.nil?
     end
   end
 

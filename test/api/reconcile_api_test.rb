@@ -28,11 +28,6 @@ class ReconcileApiTest < MinitestWrapper
     Day.toggle_cache_source(:test)
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def new_item(id, scheduling: nil)
     attrs = {'id' => id, 'name' => id}
     attrs['scheduling'] = {'type' => scheduling} if scheduling

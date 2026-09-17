@@ -14,7 +14,7 @@ class Api < Sinatra::Base
   register Sinatra::ListApiFramework
 
   post '/api/reconcile' do
-    json = JSON.parse(request.body.read) rescue {}
+    json = get_json_payload(request, optional: true)
     result = reconcile(as_of_date: json['as_of_date'] || Date.today.iso8601)
     status 200
     body result.to_json

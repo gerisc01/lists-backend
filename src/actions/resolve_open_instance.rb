@@ -31,9 +31,9 @@ def resolve_open_instance(item_id)
   return item_id if template_id.nil?
 
   open = open_instance_for(item)
-  return open.id unless open.nil?
+  return open.id if !open.nil?
 
-  mint_instance(item, template_id).id
+  return mint_instance(item, template_id).id
 end
 
 # Which child template does this item's instances use, if any? The opt-in lives on the
@@ -48,12 +48,12 @@ def instance_template_for(item)
     next if template.nil?
 
     config = (template.attributes || {})['instances']
-    next unless config.is_a?(Hash)
+    next if !config.is_a?(Hash)
 
     child_template = config['template']
-    return child_template unless child_template.to_s.empty?
+    return child_template if !child_template.to_s.empty?
   end
-  nil
+  return nil
 end
 
 # The one open instance, or nil. Open means "not in a terminal status" — an instance
@@ -67,7 +67,7 @@ def open_instance_for(item)
     next if Status.done?(child.json['status'])
     return child
   end
-  nil
+  return nil
 end
 
 # Create a child instance and link it from the parent. Born at the default status
@@ -95,7 +95,7 @@ def mint_instance(item, template_id, fields = {})
   item.validate
   item.save!
 
-  instance
+  return instance
 end
 
 # Record that a run has begun. Two doors call this and they disagree about the DATE,
@@ -114,10 +114,10 @@ def stamp_instance_start(instance, date)
   return instance if instance.nil? || date.to_s.empty?
 
   current = instance.json['started'].to_s
-  return instance unless current.empty? || date < current
+  return instance if !current.empty? && date >= current
 
   instance.json['started'] = date
   instance.validate
   instance.save!
-  instance
+  return instance
 end

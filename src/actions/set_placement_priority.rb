@@ -24,5 +24,5 @@ def set_placement_priority(item_id, date, collection_id, priority)
   placement.priority = priority
   placement.validate
   placement.save!
-  placement
+  return placement
 end

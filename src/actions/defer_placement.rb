@@ -23,5 +23,5 @@ def defer_placement(placement_id, week_start)
   placement.staged_week = (Date.parse(week_start) + 7).iso8601
   placement.validate
   placement.save!
-  placement
+  return placement
 end

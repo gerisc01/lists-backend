@@ -21,7 +21,7 @@ require_relative './resolve_open_instance'   # instance_template_for — the run
 # deletion. Returns the archived item (for reconcile to collect) or nil.
 def maybe_auto_archive(item_id, as_of_date: Date.today.iso8601, actor_id: nil)
   item = Item.get(item_id)
-  return if item.nil?
+  return nil if item.nil?
 
   # Only board-born (one-off) items auto-archive. A shelf item (in any list) must NOT
   # archive when a placement resolves — a `doing` game completing a session-placement
@@ -41,13 +41,13 @@ def maybe_auto_archive(item_id, as_of_date: Date.today.iso8601, actor_id: nil)
   # count is right. It writes a status and nothing else, leaving an instance marked
   # completed with no `finished` date and a catalog item still sitting at `doing`.
   # Closing an instance is close_instance.rb's job, and it is explicit on purpose.
-  return unless item.parent.nil?
+  return if !item.parent.nil?
 
   placements = Placement.for_item(item_id)
   return if placements.empty?
-  return unless placements.all?(&:resolved?)
+  return if !placements.all?(&:resolved?)
 
-  set_status(item_id, 'completed', actor_id)
+  return set_status(item_id, 'completed', actor_id)
 end
 
 # A group member archives like the one-off it substantively is: a step of "clean the
@@ -71,11 +71,11 @@ end
 #   its own row     a member that ALSO sits in a list is a shelf item in its own right,
 #                   and the shelf rule applies to it unchanged
 def archivable_group_member?(item)
-  return false unless item.parent.nil?
-  return false unless instance_template_for(item).nil?
+  return false if !item.parent.nil?
+  return false if !instance_template_for(item).nil?
   return false if List.list.any? { |l| (l.items || []).include?(item.id) }
 
-  ItemGroup.for_members([item.id]).any?
+  return ItemGroup.for_members([item.id]).any?
 end
 
 # Does any list reference this item? (Sole-user scale — a full scan is fine, mirroring
@@ -99,7 +99,7 @@ end
 def item_has_shelf_home?(item_id)
   item = Item.get(item_id)
   ids = [item_id]
-  ids << item.parent unless item.nil? || item.parent.nil?
+  ids << item.parent if !item.nil? && !item.parent.nil?
   homes = ids + ItemGroup.for_members(ids).map(&:id)
-  List.list.any? { |l| (homes & (l.items || [])).any? }
+  return List.list.any? { |l| (homes & (l.items || [])).any? }
 end

@@ -26,11 +26,6 @@ class DatesApiTest < MinitestWrapper
     Day.toggle_cache_source(:test)
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def test_get_items_for_date_and_collection
     get("/api/dates/#{@day.id}/#{@collection.id}/items")
     assert_equal 200, last_response.status

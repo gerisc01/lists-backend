@@ -29,7 +29,7 @@ class List
       item.validate
       item.save!
     end
-    add_item(item)
+    return add_item(item)
   end
 
   def remove_item_with_template_ref(item)
@@ -37,7 +37,7 @@ class List
       item.remove_template(self.template) if !template.nil? && !template.empty?
       item.save!
     end
-    remove_item(item)
+    return remove_item(item)
   end
 
 end

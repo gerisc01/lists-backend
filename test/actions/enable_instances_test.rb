@@ -10,11 +10,6 @@ class EnableInstancesTest < MinitestWrapper
     @child = template('playthrough', 'Playthrough', [field('name', 'Name', String, true)])
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def test_adds_the_contract_field_when_missing
     enable_instances('game', 'playthrough')
 

@@ -31,9 +31,6 @@ class TemplateTest < MinitestWrapper
     @date_template.save!
   end
 
-  def teardown
-  end
-
   def test_template_round_trip_jsonstr
     jsonstr = @template.to_schema_object.to_json
     output = Template.from_schema_object(JSON.parse(jsonstr))

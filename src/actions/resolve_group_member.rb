@@ -25,7 +25,7 @@ def resolve_group_member(item_id)
           "group '#{item_id}' has no member left to do — every member is finished, retired or on hold"
   end
 
-  member.id
+  return member.id
 end
 
 # The member you would pick up, and the same rule the frontend derives for the card
@@ -37,12 +37,12 @@ end
 # you would pick up.
 def group_next(group)
   members = (group.group || []).map { |id| Item.get(id) }.compact
-  members.find { |it| status_of(it) == 'doing' } ||
+  return members.find { |it| status_of(it) == 'doing' } ||
     members.find { |it| status_of(it) == 'want-to' }
 end
 
 # Absent status reads as the birth default, which is a live state — the default is
 # deliberately never persisted (see Status::DEFAULT).
 def status_of(item)
-  item.json['status'] || Status::DEFAULT
+  return item.json['status'] || Status::DEFAULT
 end

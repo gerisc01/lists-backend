@@ -7,6 +7,7 @@ class MinitestWrapper < Minitest::Test
   ENV['RACK_ENV'] = 'test'
 
   def after_teardown()
+    super
     TypeStorage.clear_test_storage
     if defined?(Day)
       Day.clear_cache

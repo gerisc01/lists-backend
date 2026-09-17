@@ -19,8 +19,8 @@ require_relative './set_status'
 # un-ticking a box is a mis-tap escape, and it already leaves the item wherever it was.
 def revive_for_planning(item_id, actor_id = nil)
   item = Item.get(item_id)
-  return if item.nil?
-  return unless Status.done?(item.json['status'])
+  return nil if item.nil?
+  return if !Status.done?(item.json['status'])
 
-  set_status(item_id, 'want-to', actor_id)
+  return set_status(item_id, 'want-to', actor_id)
 end

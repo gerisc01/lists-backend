@@ -10,18 +10,13 @@ class ResolveGroupMemberTest < MinitestWrapper
     @plain.save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   # Build a group whose members carry the given statuses, in order. A nil status is
   # stored as no status at all — the birth default is deliberately never persisted.
   def group_with(*statuses)
     ids = statuses.each_with_index.map do |status, i|
       id = "y#{i + 1}"
       fields = {'id' => id, 'name' => "Yakuza #{i + 1}"}
-      fields['status'] = status unless status.nil?
+      fields['status'] = status if !status.nil?
       Item.new(fields).save!
       id
     end

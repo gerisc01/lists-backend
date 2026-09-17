@@ -19,7 +19,7 @@ class Api < Sinatra::Base
     # It is always written from the request, even as nil, so neither a body nor an
     # action's stored fixed_params can name someone else as the author.
     def with_actor(json)
-      json.merge('actor_id' => current_account_id)
+      return json.merge('actor_id' => current_account_id)
     end
   end
 
@@ -30,7 +30,7 @@ class Api < Sinatra::Base
       'type' => params['action_type'],
       'fixed_params' => {}
     })]
-    json = with_actor(JSON.parse(request.body.read))
+    json = with_actor(get_json_payload(request))
     action.steps.each do |step|
       step.process(json)
     end
@@ -40,7 +40,7 @@ class Api < Sinatra::Base
   post '/api/actions/:action_id' do
     action = Action.get(params['action_id'])
     raise ListError::NotFound, "Action '#{params['action_id']}' not found." if action.nil?
-    json = with_actor(JSON.parse(request.body.read))
+    json = with_actor(get_json_payload(request))
     action.steps.each do |step|
       step.process(json)
     end

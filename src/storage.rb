@@ -16,23 +16,23 @@ module TypeStorage
     elsif @instance.nil?
       @instance = SchemaTypeStorage.new
     end
-    @instance
+    return @instance
   end
 
   def self.is_e2e_test
-    !ENV['LISTS_BACKEND_E2E_TEST'].nil? && ENV['LISTS_BACKEND_E2E_TEST'].downcase.start_with?('t')
+    return !ENV['LISTS_BACKEND_E2E_TEST'].nil? && ENV['LISTS_BACKEND_E2E_TEST'].downcase.start_with?('t')
   end
 
   def self.scenario_var_set
-    !ENV['SCENARIO_STORAGE'].nil? && ENV['SCENARIO_STORAGE'].downcase.start_with?('t')
+    return !ENV['SCENARIO_STORAGE'].nil? && ENV['SCENARIO_STORAGE'].downcase.start_with?('t')
   end
 
   def self.test_var_set
-    !ENV['TEST_STORAGE'].nil? && ENV['TEST_STORAGE'].downcase.start_with?('t')
+    return !ENV['TEST_STORAGE'].nil? && ENV['TEST_STORAGE'].downcase.start_with?('t')
   end
 
   def self.clear_e2e_data
-    @instance.clear_cache unless @instance.nil?
+    @instance.clear_cache if !@instance.nil?
     Dir.glob('e2e-data/*').each do |file|
       File.delete(file)
     end
@@ -40,7 +40,7 @@ module TypeStorage
   end
 
   def self.clear_test_storage
-    @instance.clear_cache unless @instance.nil?
+    @instance.clear_cache if !@instance.nil?
     Dir.glob('data-test/*').each do |file|
       File.delete(file)
     end

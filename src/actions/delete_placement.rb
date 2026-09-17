@@ -24,5 +24,5 @@ def delete_placement(placement_id)
     item.delete!
   end
 
-  placement
+  return placement
 end

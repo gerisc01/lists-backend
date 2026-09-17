@@ -24,10 +24,10 @@ def create_floating_placement(item_id, collection_id, staged_week = nil, actor_i
   # stores that must never mix (ItemGeneric.exist? is the "either kind" query). The
   # second guard is what enforces it: whatever we resolved to must be a real Item,
   # since a Placement can only ever point at one.
-  raise ListError::NotFound, "item id '#{item_id}' not found" unless ItemGeneric.exist?(item_id)
+  raise ListError::NotFound, "item id '#{item_id}' not found" if !ItemGeneric.exist?(item_id)
   item_id = resolve_group_member(item_id)
-  raise ListError::NotFound, "item id '#{item_id}' not found" unless Item.exist?(item_id)
-  raise ListError::NotFound, "collection id '#{collection_id}' not found" unless Collection.exist?(collection_id)
+  raise ListError::NotFound, "item id '#{item_id}' not found" if !Item.exist?(item_id)
+  raise ListError::NotFound, "collection id '#{collection_id}' not found" if !Collection.exist?(collection_id)
 
   # Staging a repeat-tracked item stages its OPEN INSTANCE, minting one if there is
   # none — a placement records a session of one playthrough, not of the game in the
@@ -43,7 +43,7 @@ def create_floating_placement(item_id, collection_id, staged_week = nil, actor_i
 
   existing = Placement.floating_for_collection(collection_id)
                       .find { |p| p.item_id == item_id && p.resolution.nil? }
-  unless existing.nil?
+  if !existing.nil?
     if staged_week && existing.staged_week != staged_week
       existing.staged_week = staged_week
       existing.validate
@@ -61,5 +61,5 @@ def create_floating_placement(item_id, collection_id, staged_week = nil, actor_i
   })
   placement.validate
   placement.save!
-  placement
+  return placement
 end

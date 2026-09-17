@@ -15,18 +15,18 @@ require_relative './recurrence'
 class Scheduling
 
   def self.type_match?(value)
-    return false unless value.is_a?(Hash)
+    return false if !value.is_a?(Hash)
     # The optional recurrence rule folds into this same object (PR 12); when present
     # it must satisfy the Recurrence shape. Absent => a scheduling object with nothing
     # in it yet, which is fine: the field is optional all the way down.
     return Recurrence.type_match?(value['recurrence']) if value.key?('recurrence')
-    true
+    return true
   end
 
   # The recurrence rule sub-object (nil/absent => not recurring).
   def self.recurrence_of(scheduling)
     return nil if scheduling.nil?
-    scheduling['recurrence']
+    return scheduling['recurrence']
   end
 
   # Does this item carry a recurrence rule at all (active or paused)?
@@ -38,7 +38,7 @@ class Scheduling
   # (active: false) is recurring? but not active_recurrence? (design §2.5).
   def self.active_recurrence?(item)
     rule = recurrence_of(item.json['scheduling'])
-    !rule.nil? && Recurrence.active_of(rule)
+    return !rule.nil? && Recurrence.active_of(rule)
   end
 
 end

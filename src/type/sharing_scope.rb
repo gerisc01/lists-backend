@@ -10,7 +10,7 @@ class SharingScope
   DEFAULT = 'private'
 
   def self.type_match?(value)
-    VALUES.include?(value)
+    return VALUES.include?(value)
   end
 
 end

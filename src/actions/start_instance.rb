@@ -27,10 +27,10 @@ require_relative './set_status'
 # the session is right; reinterpreting the intent is not.
 def start_instance_for(placement, actor_id = nil)
   instance = Item.get(placement.item_id)
-  return if instance.nil?
+  return nil if instance.nil?
 
   parent = instance.parent.nil? ? nil : Item.get(instance.parent)
-  return if parent.nil?
+  return nil if parent.nil?
   return if instance_template_for(parent).nil?
 
   # The placement's own date, not today: a session logged a week late still says the run
@@ -38,7 +38,7 @@ def start_instance_for(placement, actor_id = nil)
   stamp_instance_start(instance, placement.date || Date.today.iso8601)
 
   advance_to_doing(instance.id, instance.json['status'], actor_id)
-  advance_to_doing(parent.id, parent.json['status'], actor_id)
+  return advance_to_doing(parent.id, parent.json['status'], actor_id)
 end
 
 # Move into `doing` unless already there or explicitly retired. Routed through
@@ -46,5 +46,5 @@ end
 # change, rather than written as a bare field.
 def advance_to_doing(item_id, current_status, actor_id = nil)
   return if current_status == 'doing' || current_status == 'retired'
-  set_status(item_id, 'doing', actor_id)
+  return set_status(item_id, 'doing', actor_id)
 end

@@ -43,11 +43,11 @@ class Api < Sinatra::Base
   end
 
   post '/e2e/scenario' do
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     scenario_name = json['name']
     scenario_path = File.join(BACKEND_ROOT, 'scenarios', 'checkpoints', scenario_name)
 
-    unless Dir.exist?(scenario_path)
+    if !Dir.exist?(scenario_path)
       halt 404, { 'error' => "Scenario '#{scenario_name}' not found" }.to_json
     end
 

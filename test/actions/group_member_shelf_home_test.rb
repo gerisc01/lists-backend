@@ -27,10 +27,6 @@ class GroupMemberShelfHomeTest < MinitestWrapper
     List.new({'id' => 'l1', 'name' => 'Shelf', 'items' => ['g1']}).save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-  end
-
   def floating(item_id, overrides = {})
     Placement.new({
       'item_id' => item_id, 'collection_id' => 'c1', 'floating' => true,

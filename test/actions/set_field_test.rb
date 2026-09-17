@@ -20,11 +20,6 @@ class SetFieldTest < MinitestWrapper
     @item.save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def test_set_field
     set_field(@item.id, 'name', 'Two')
     assert_equal 'Two', @item.name
@@ -34,12 +29,12 @@ class SetFieldTest < MinitestWrapper
     set_field(@item.id, 'date', '2024-07-01')
     assert_equal '2024-07-01', @item.json['date']
 
-    assert_raises(ListError::BadRequest) { set_field(@item.id, 'date', 'NOT_A_DATE') }
+    assert_raises(Schema::ValidationError) { set_field(@item.id, 'date', 'NOT_A_DATE') }
 
   end
 
   def test_set_field_not_found_failure
-    assert_raises(ListError::BadRequest) { set_field('NOT_FOUND', 'name', 'Two') }
+    assert_raises(ListError::NotFound) { set_field('NOT_FOUND', 'name', 'Two') }
   end
 
 end

@@ -30,7 +30,7 @@ class ItemGroup
   # correctly anyway, but only after walking the whole store to do it.
   def self.for_members(item_ids)
     return [] if item_ids.empty?
-    self.list.select { |g| (g.group & item_ids).any? }
+    return self.list.select { |g| (g.group & item_ids).any? }
   end
 
   def add_template(template)

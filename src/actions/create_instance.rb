@@ -24,9 +24,9 @@ def create_instance(item_id, fields = {})
   end
 
   fields = (fields || {}).reject { |key, _| RESERVED_INSTANCE_FIELDS.include?(key) }
-  fields['status'] = 'completed' unless fields['finished'].to_s.empty?
+  fields['status'] = 'completed' if !fields['finished'].to_s.empty?
 
-  mint_instance(item, template_id, fields)
+  return mint_instance(item, template_id, fields)
 end
 
 # Identity is the server's to assign — a client supplying its own parent or templates

@@ -35,7 +35,7 @@ module Query
     end
 
     def matches?(node, item)
-      case node
+      return case node
       when And then matches?(node.left, item) && matches?(node.right, item)
       when Or then matches?(node.left, item) || matches?(node.right, item)
       when Not then !matches?(node.expr, item)
@@ -64,7 +64,7 @@ module Query
                 "'#{value}' is not a valid #{node.field}. Valid values: #{allowed.join(', ')}"
         end
       end
-      nil
+      return nil
     end
 
     private
@@ -72,7 +72,7 @@ module Query
     def condition_matches?(condition, item)
       values = @resolver.values_for(condition.field, item)
 
-      case condition.op
+      return case condition.op
       when :empty then values.empty?
       when :not_empty then values.any?
       when :eq then any_equal?(values, condition.values)
@@ -87,12 +87,12 @@ module Query
     end
 
     def any_equal?(actual, wanted)
-      actual.any? { |a| wanted.any? { |w| a.to_s.casecmp?(w.to_s) } }
+      return actual.any? { |a| wanted.any? { |w| a.to_s.casecmp?(w.to_s) } }
     end
 
     def any_contains?(actual, needle)
       needle = needle.to_s.downcase
-      actual.any? { |a| a.to_s.downcase.include?(needle) }
+      return actual.any? { |a| a.to_s.downcase.include?(needle) }
     end
 
   end

@@ -39,7 +39,7 @@ module ReservedFields
   # one. Display name is a suggestion — rename it to "Watched" for films and the ledger
   # is unaffected, because only the KEY is the contract.
   def self.contract_field(key)
-    {
+    return {
       'key' => key,
       'display_name' => key.capitalize,
       'type' => 'SchemaType::Date',

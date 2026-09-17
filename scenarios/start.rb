@@ -11,7 +11,7 @@ def start_api_server
   pid = fork do
     # --- Logging Setup ---
     log_dir = File.join(PROJECT_ROOT, 'scenarios', 'logs')
-    FileUtils.mkdir_p(log_dir) unless Dir.exist?(log_dir)
+    FileUtils.mkdir_p(log_dir) if !Dir.exist?(log_dir)
     log_file_path = File.join(log_dir, 'scenario_api.log')
 
     # Only stdout is redirected — keeps Sinatra's startup noise out of the CLI
@@ -54,7 +54,7 @@ def start_api_server
     puts "---"
     pid = nil
   end
-  pid
+  return pid
 end
 
 if __FILE__ == $PROGRAM_NAME
@@ -81,7 +81,7 @@ if __FILE__ == $PROGRAM_NAME
     command_line = $stdin.gets
     command_line.strip! if command_line
 
-    unless command_line
+    if !command_line
       puts "\nExiting Scenario Manager due to EOF."
       break
     end

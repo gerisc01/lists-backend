@@ -18,10 +18,6 @@ class ItemGroupsApiTest < MinitestWrapper
     ItemGroup.new({'id' => 'g2', 'name' => 'Hang the pegboard', 'group' => %w[i3]}).save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-  end
-
   def for_members(ids)
     get "/api/itemGroups/forMembers?ids=#{ids}", {}, { 'HTTP_ACCOUNT_ID' => 'a1' }
     JSON.parse(last_response.body)
@@ -59,5 +55,15 @@ class ItemGroupsApiTest < MinitestWrapper
 
     for_members('i1')
     assert_equal 200, last_response.status
+  end
+
+  def test_add_missing_item_failure
+    put '/api/itemGroups/g1/addItem/NOT_FOUND'
+    assert_equal 400, last_response.status
+  end
+
+  def test_remove_last_item_failure
+    put '/api/itemGroups/g2/removeItem/i3'
+    assert_equal 400, last_response.status
   end
 end

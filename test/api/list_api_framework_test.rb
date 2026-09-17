@@ -23,10 +23,6 @@ class ListApiFrameworkTest < MinitestWrapper
     }
   end
 
-  def teardown
-    mocha_teardown
-  end
-
   # create
   def test_create_success
     ListApiFrameworkTest::GenericClass.stubs(:new).with(@objs['1']).returns(@items['1']).once

@@ -9,12 +9,12 @@ class SchemaType
 
     def self.field_value_validation(field, value)
       value.each do |day|
-        raise Schema::ValidationError.new("Invalid value: #{day}") unless DAYS.include?(day.to_s.upcase)
+        raise Schema::ValidationError.new("Invalid value: #{day}") if !DAYS.include?(day.to_s.upcase)
       end
     end
 
     def self.type_match?(value)
-      value.is_a?(Array)
+      return value.is_a?(Array)
     end
 
   end

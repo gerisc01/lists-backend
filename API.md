@@ -125,7 +125,7 @@ Confirmed in `src/exceptions_api.rb`.
 | HTTP Status | `error` field | `type` field | Raised by |
 |---|---|---|---|
 | `400` | `"Bad Request"` | `"Invalid JSON"` | Unparseable request body (`JSON::ParserError`) |
-| `400` | `"Bad Request"` | `"Validation Exception"` | `ListError::Validation` (schema/template validation failure) |
+| `400` | `"Bad Request"` | `"Validation Exception"` | `ListError::Validation` or the gem's `Schema::ValidationError` (schema/template validation failure) |
 | `400` | `"Bad Request"` | `"Bad Request Error"` | `ListError::BadRequest` (general) |
 | `401` | `"Unauthorized"` | _(absent)_ | Missing/invalid `ACCOUNT_ID` (handled inline via `halt`, not this error map) |
 | `404` | `"Not Found"` | _(absent)_ | `ListError::NotFound` |
@@ -250,10 +250,8 @@ See [Item shape](#item-shape), [Instances](#instances-repeat-engagement), [Statu
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/itemGroups/forMembers?ids=a,b,c` | The groups claiming any of those item ids — the member → group lookup, which the schema has no back-pointer for. `[]` for ids in no group, and for no ids. Declared above the generated CRUD so Sinatra doesn't parse `forMembers` as an `:itemGroupId`. `200`. |
-| `PUT` | `/api/itemGroups/:groupId/addItem/:itemId` | `itemId` must be an existing `Item`. Appends to `group`. `200`. |
-| `PUT` | `/api/itemGroups/:groupId/removeItem/:itemId` | Refuses if it's the last remaining member (groups require ≥1 item). `200`. |
-
-**Bug:** both guard clauses (`src/api/item_groups_api.rb:26` and `:34`) use `throw ListError::BadRequest, "..."` instead of `raise`. Nothing in the app `catch`es that tag, so Sinatra's catch-all `error do` block handles it and returns **`500`** ("Internal Server Error" — an uncaught throw), not the intended `400`.
+| `PUT` | `/api/itemGroups/:groupId/addItem/:itemId` | `itemId` must be an existing `Item` (`400` otherwise). Appends to `group`. `200`. |
+| `PUT` | `/api/itemGroups/:groupId/removeItem/:itemId` | `400` if it's the last remaining member (groups require ≥1 item). `200`. |
 
 See [ItemGroup shape](#itemgroup-shape).
 
@@ -321,6 +319,8 @@ See [Tag shape](#tag-shape).
   "enableInstances":          { "method": "enable_instances",          "params": ["parent_template_id", "child_template_id"] }
 }
 ```
+
+A step whose record is missing fails the whole request with `404` naming the id; a bad input or a validation failure is `400`.
 
 `materialize_occurrence` and `reconcile` are **not** in this registry — invoked only via their own dedicated REST routes (`POST /api/items/:itemId/occurrences`, `POST /api/reconcile`), not composable into ad-hoc/saved actions.
 
@@ -829,7 +829,7 @@ Only one ghost per rule is ever live at a time (the most recent due-week at or b
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `name` | `String` | No | |
-| `group` | `Array<String>` | **Yes** | Item ids; must have ≥1 entry — removing the last one via the API is blocked (see [bug note](#item-groups) — currently returns `500` instead of the intended `400`). |
+| `group` | `Array<String>` | **Yes** | Item ids; must have ≥1 entry — removing the last one via the API returns `400`. |
 
 Detected at creation time only by the presence of a `"group"` key in the POST body (`ItemGeneric.from_schema_object`) — no explicit type discriminator field. Template add/remove operations on a group propagate to every member `Item`. Staging/dating a group resolves to the member you'd pick up (`doing` wins, else the first `want-to`; on-hold and terminal members are skipped) — `400` if every member is finished, retired, or on hold.
 

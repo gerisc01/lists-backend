@@ -13,11 +13,6 @@ class DuplicateItemTest < MinitestWrapper
     [ @item, @list, @list_empty ].each { |obj| obj.save! }
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def test_duplicate_item_to_existing_list
     assert_equal [@item.id], @list.items
     new_item = duplicate_item(@item.id, @list.id)
@@ -40,8 +35,8 @@ class DuplicateItemTest < MinitestWrapper
   end
 
   def test_duplicate_item_not_found_failure
-    assert_raises(ListError::BadRequest) { duplicate_item('NOT_FOUND', @list.id) }
-    assert_raises(ListError::BadRequest) { duplicate_item(@item.id, 'NOT_FOUND') }
+    assert_raises(ListError::NotFound) { duplicate_item('NOT_FOUND', @list.id) }
+    assert_raises(ListError::NotFound) { duplicate_item(@item.id, 'NOT_FOUND') }
     assert_equal 1, Item.list.size
   end
 

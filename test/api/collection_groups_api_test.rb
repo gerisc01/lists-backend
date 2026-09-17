@@ -22,7 +22,7 @@ class CollectionGroupsApiTest < MinitestWrapper
 
   def as(account_id, verb, path, payload = nil)
     headers = { 'Content-Type' => 'application/json' }
-    headers['HTTP_ACCOUNT_ID'] = account_id unless account_id.nil?
+    headers['HTTP_ACCOUNT_ID'] = account_id if !account_id.nil?
     send(verb, path, payload&.to_json, headers)
   end
 

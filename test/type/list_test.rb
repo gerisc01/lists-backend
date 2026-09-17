@@ -22,10 +22,6 @@ class ListTest < MinitestWrapper
     @list.template = @template
   end
 
-  def teardown
-    mocha_teardown
-  end
-
   def test_list_add_item_success
     item_json = {
       'name' => 'Successful Item',

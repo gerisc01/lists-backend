@@ -62,9 +62,9 @@ class Api < Sinatra::Base
       })
     end
 
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     raise ListError::BadRequest, "Request body must contain 'collection' and 'item'." if !json.is_a?(Hash) || json['collection'].to_s.empty? || json['item'].to_s.empty?
-    raise ListError::NotFound, "Collection id '#{json['collection']}' cannot be found" unless Collection.exist?(json['collection'])
+    raise ListError::NotFound, "Collection id '#{json['collection']}' cannot be found" if !Collection.exist?(json['collection'])
 
     day.priorities = [] if day.priorities.nil?
     daily_item = day.priorities.find { |d| d.id == json['collection'] }
@@ -101,9 +101,9 @@ class Api < Sinatra::Base
     day = Day.get(params['day'])
     raise ListError::NotFound, "Day '#{params['day']}' cannot be found" if day.nil?
 
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     raise ListError::BadRequest, "Request body must contain 'collection' and 'item'." if !json.is_a?(Hash) || json['collection'].to_s.empty? || json['item'].to_s.empty?
-    raise ListError::NotFound, "Collection id '#{json['collection']}' cannot be found" unless Collection.exist?(json['collection'])
+    raise ListError::NotFound, "Collection id '#{json['collection']}' cannot be found" if !Collection.exist?(json['collection'])
 
     daily_item = day.priorities.find { |d| d.id == json['collection'] }
     if !daily_item.nil?
@@ -121,7 +121,7 @@ class Api < Sinatra::Base
   put '/api/dates/:day/:collectionId/priorities' do
     raise ListError::BadRequest, "Path must contain both a date and a collection id." if params['day'].to_s.empty? || params['collectionId'].to_s.empty?
     day = Day.get(params['day'])
-    raise ListError::NotFound, "Collection id '#{params['collectionId']}' cannot be found" unless Collection.exist?(params['collectionId'])
+    raise ListError::NotFound, "Collection id '#{params['collectionId']}' cannot be found" if !Collection.exist?(params['collectionId'])
 
     if day.nil?
       day = Day.new({
@@ -129,7 +129,7 @@ class Api < Sinatra::Base
       })
     end
 
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     raise ListError::BadRequest, "Request body must be an array of item ids." if !json.is_a?(Array)
 
     day.priorities = [] if day.priorities.nil?

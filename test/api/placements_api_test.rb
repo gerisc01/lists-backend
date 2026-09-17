@@ -26,11 +26,6 @@ class PlacementsApiTest < MinitestWrapper
     Day.toggle_cache_source(:test)
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def assign(item_id, date: DATE, collection: 'c1')
     post("/api/items/#{item_id}/placements",
          { 'collection' => collection, 'date' => date }.to_json,

@@ -50,7 +50,7 @@ def enable_instances(parent_template_id, child_template_id = nil)
   parent.attributes = (parent.attributes || {}).merge('instances' => { 'template' => child.id })
   parent.validate
   parent.save!
-  parent
+  return parent
 end
 
 # Add any contract field the child is missing, leaving existing ones untouched — including
@@ -65,5 +65,5 @@ def ensure_contract_fields(template)
   template.fields = fields
   template.validate
   template.save!
-  template
+  return template
 end

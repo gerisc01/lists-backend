@@ -19,5 +19,5 @@ def bind_placement(placement_id, date)
   placement.origin_date ||= date
   placement.validate
   placement.save!
-  placement
+  return placement
 end

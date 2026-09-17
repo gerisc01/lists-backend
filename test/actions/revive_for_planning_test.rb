@@ -19,10 +19,6 @@ class ReviveForPlanningTest < MinitestWrapper
     Item.new({'id' => 'live', 'name' => 'Live thing', 'status' => 'doing'}).save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-  end
-
   def test_staging_a_completed_item_revives_it
     create_floating_placement('garage', 'c1')
     assert_equal 'want-to', Item.get('garage').json['status']

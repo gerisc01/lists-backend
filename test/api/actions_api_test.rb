@@ -26,11 +26,6 @@ class ActionsApiTest < MinitestWrapper
     @list2.save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def test_ad_hoc_action_success
     payload = {'item_id' => @item.id, 'from_list' => @list.id, 'to_list' => @list2.id}.to_json
     post("/api/actions/ad-hoc/moveItem", payload, {"Content-Type" => "application/json"})
@@ -54,11 +49,11 @@ class ActionsApiTest < MinitestWrapper
     action.save!
     payload = {'item_id' => 'NOT_FOUND', 'from_list' => @list.id}.to_json
     post("/api/actions/#{action.id}", payload, {"Content-Type" => "application/json"})
-    assert_equal 400, last_response.status
+    assert_equal 404, last_response.status
 
     payload = {'item_id' => @item.id, 'from_list' => 'NOT_FOUND'}.to_json
     post("/api/actions/#{action.id}", payload, {"Content-Type" => "application/json"})
-    assert_equal 400, last_response.status
+    assert_equal 404, last_response.status
   end
 
   def test_copy_item_success
@@ -77,7 +72,7 @@ class ActionsApiTest < MinitestWrapper
     action.save!
     payload = {'item_id' => 'NOT_FOUND'}.to_json
     post("/api/actions/#{action.id}", payload, {"Content-Type" => "application/json"})
-    assert_equal 400, last_response.status
+    assert_equal 404, last_response.status
   end
 
   def test_remove_item_multiple
@@ -109,7 +104,7 @@ class ActionsApiTest < MinitestWrapper
 
     payload = {'item_id' => @item.id, 'from_list' => 'NOT_FOUND'}.to_json
     post("/api/actions/#{action.id}", payload, {"Content-Type" => "application/json"})
-    assert_equal 400, last_response.status
+    assert_equal 404, last_response.status
   end
 
   def test_set_field
@@ -140,7 +135,7 @@ class ActionsApiTest < MinitestWrapper
 
     payload = {'item_id' => 'NOT_FOUND', 'value' => 'Other Name'}.to_json
     post("/api/actions/#{action.id}", payload, {"Content-Type" => "application/json"})
-    assert_equal 400, last_response.status
+    assert_equal 404, last_response.status
   end
 
   def test_multiple_actions

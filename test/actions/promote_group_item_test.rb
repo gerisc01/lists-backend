@@ -18,11 +18,6 @@ class PromoteGroupItemTest < MinitestWrapper
     [ @item, @item2, @item3, @group, @group2, @group3, @list, @list_empty ].each { |obj| obj.save! }
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def test_promote_group_item_single_item
     promote_group_item(@group.id, @item.id, @list.id)
     assert_equal [@group2.id, @group3.id, @item.id], @list.items
@@ -40,9 +35,9 @@ class PromoteGroupItemTest < MinitestWrapper
   end
 
   def test_promote_group_item_not_found_failures
-    assert_raises(ListError::BadRequest) { promote_group_item('NOT_FOUND', @item.id, @list.id) }
+    assert_raises(ListError::NotFound) { promote_group_item('NOT_FOUND', @item.id, @list.id) }
     assert_raises(ListError::BadRequest) { promote_group_item(@group.id, 'NOT_FOUND', @list.id) }
-    assert_raises(ListError::BadRequest) { promote_group_item(@group.id, @item.id, 'NOT_FOUND') }
+    assert_raises(ListError::NotFound) { promote_group_item(@group.id, @item.id, 'NOT_FOUND') }
   end
 
   def test_promote_group_item_not_in_list_failure

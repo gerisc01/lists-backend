@@ -30,10 +30,6 @@ class DatesRecurringApiTest < MinitestWrapper
     Day.toggle_cache_source(:test)
   end
 
-  def teardown
-    mocha_teardown
-  end
-
   # Non-Recurring Date => Recurring Date
   def test_create_recurring_item_from_non_recurring
     payload = { "collection": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json

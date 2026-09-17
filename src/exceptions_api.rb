@@ -1,4 +1,5 @@
 require 'sinatra/base'
+require 'ruby-schema'
 require_relative './exceptions.rb'
 
 class Api < Sinatra::Base
@@ -12,6 +13,12 @@ class Api < Sinatra::Base
   end
 
   error ListError::Validation do
+    error_body = {"error" => "Bad Request", "type" => "Validation Exception", "message" => env['sinatra.error'].message}
+    status 400
+    body error_body.to_json
+  end
+
+  error Schema::ValidationError do
     error_body = {"error" => "Bad Request", "type" => "Validation Exception", "message" => env['sinatra.error'].message}
     status 400
     body error_body.to_json

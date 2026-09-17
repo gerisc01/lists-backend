@@ -105,7 +105,7 @@ module Query
       end
 
       tokens << Token.new(:eof, nil, chars.length)
-      tokens
+      return tokens
     end
 
   end
@@ -123,7 +123,7 @@ module Query
       parser = new(Lexer.tokenize(input))
       ast = parser.send(:parse_or)
       parser.send(:expect_eof)
-      ast
+      return ast
     end
 
     def initialize(tokens)
@@ -134,23 +134,23 @@ module Query
     private
 
     def peek
-      @tokens[@pos]
+      return @tokens[@pos]
     end
 
     def advance
       token = @tokens[@pos]
       @pos += 1
-      token
+      return token
     end
 
     def keyword?(word)
-      peek.type == :keyword && peek.value == word
+      return peek.type == :keyword && peek.value == word
     end
 
     def accept_keyword(word)
-      return false unless keyword?(word)
+      return false if !keyword?(word)
       advance
-      true
+      return true
     end
 
     def expect_eof
@@ -162,31 +162,31 @@ module Query
     def parse_or
       node = parse_and
       node = Or.new(node, parse_and) while accept_keyword('OR')
-      node
+      return node
     end
 
     def parse_and
       node = parse_unary
       node = And.new(node, parse_unary) while accept_keyword('AND')
-      node
+      return node
     end
 
     def parse_unary
       return Not.new(parse_unary) if accept_keyword('NOT')
-      parse_primary
+      return parse_primary
     end
 
     def parse_primary
       if peek.type == :lparen
         advance
         node = parse_or
-        unless peek.type == :rparen
+        if peek.type != :rparen
           raise ListError::BadRequest, "Missing ')' — unclosed group at position #{peek.pos}"
         end
         advance
         return node
       end
-      parse_condition
+      return parse_condition
     end
 
     def parse_condition
@@ -200,14 +200,14 @@ module Query
       # spelling keeps working, but the prefix carries no meaning: every field is
       # item-scoped because every result is an item.
       field = token.value.sub(/\Aitem\./i, '').downcase
-      unless FIELDS.include?(field)
+      if !FIELDS.include?(field)
         raise ListError::BadRequest,
               "Unknown field '#{field}'. Valid fields: #{FIELDS.join(', ')}"
       end
 
       if accept_keyword('IS')
         negated = accept_keyword('NOT')
-        unless accept_keyword('EMPTY')
+        if !accept_keyword('EMPTY')
           raise ListError::BadRequest, "Expected EMPTY after IS at position #{peek.pos}"
         end
         return Condition.new(field, negated ? :not_empty : :empty, [])
@@ -220,30 +220,30 @@ module Query
 
       if keyword?('NOT')
         advance
-        unless accept_keyword('IN')
+        if !accept_keyword('IN')
           raise ListError::BadRequest, "Expected IN after NOT at position #{peek.pos}"
         end
         return Condition.new(field, :not_in, parse_value_list)
       end
 
       op_token = advance
-      unless op_token.type == :operator
+      if op_token.type != :operator
         raise ListError::BadRequest,
               "Expected an operator after '#{field}' at position #{op_token.pos}, got '#{op_token.value || 'end of query'}'"
       end
       op = { '=' => :eq, '!=' => :ne, '~' => :contains, '!~' => :not_contains }[op_token.value]
 
       value_token = advance
-      unless value_token.type == :value
+      if value_token.type != :value
         raise ListError::BadRequest,
               "Expected a value after '#{op_token.value}' at position #{value_token.pos}"
       end
 
-      Condition.new(field, op, [value_token.value])
+      return Condition.new(field, op, [value_token.value])
     end
 
     def parse_value_list
-      unless peek.type == :lparen
+      if peek.type != :lparen
         raise ListError::BadRequest, "Expected '(' after IN at position #{peek.pos}"
       end
       advance
@@ -251,20 +251,20 @@ module Query
       values = []
       loop do
         token = advance
-        unless token.type == :value
+        if token.type != :value
           raise ListError::BadRequest, "Expected a value inside IN (...) at position #{token.pos}"
         end
         values << token.value
-        break unless peek.type == :comma
+        break if peek.type != :comma
         advance
       end
 
-      unless peek.type == :rparen
+      if peek.type != :rparen
         raise ListError::BadRequest, "Missing ')' closing IN (...) at position #{peek.pos}"
       end
       advance
 
-      values
+      return values
     end
 
   end

@@ -43,11 +43,6 @@ class CollectionsApiTest < MinitestWrapper
     @collection2.save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def test_remove_template
     assert_equal ['i', 'j'], @item.templates
     delete("/api/collections/col/templates/i")

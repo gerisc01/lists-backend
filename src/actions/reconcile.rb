@@ -46,7 +46,7 @@ def reconcile(as_of_date: Date.today.iso8601)
 
   # 1. Release the past week. Scan is fine at sole-user scale.
   Placement.list.each do |placement|
-    next unless placement.resolution.nil?            # already-closed placements are done
+    next if !placement.resolution.nil?            # already-closed placements are done
     item = Item.get(placement.item_id)
     next if item.nil?
 
@@ -79,7 +79,7 @@ def reconcile(as_of_date: Date.today.iso8601)
     maybe_auto_archive(item_id, as_of_date: as_of_date)
   end.compact
 
-  {
+  return {
     'released' => released.map(&:id),
     'lapsed' => lapsed.map(&:id),
     'archived' => archived.map(&:id),
@@ -92,5 +92,5 @@ end
 # non-negative, so Sunday (0) correctly maps back 6 days to the prior Monday.
 def monday_of(iso_date)
   d = Date.parse(iso_date)
-  (d - ((d.wday - 1) % 7)).iso8601
+  return (d - ((d.wday - 1) % 7)).iso8601
 end

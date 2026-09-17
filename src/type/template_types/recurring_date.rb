@@ -27,7 +27,7 @@ class SchemaType
     end
 
     def self.type_match?(value)
-      value.is_a?(Hash)
+      return value.is_a?(Hash)
     end
 
   end

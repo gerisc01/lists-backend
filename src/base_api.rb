@@ -44,7 +44,7 @@ class BaseApi < Sinatra::Base
     # Allow OPTIONS requests for CORS preflight without authentication
     # Authenticate other requests unless it's a specific path (like accounts creation)
     if request.request_method != 'OPTIONS'
-      protected! unless request.path_info == '/api/accounts'
+      protected! if request.path_info != '/api/accounts'
     end
     content_type 'application/json'
   end
@@ -55,7 +55,7 @@ class BaseApi < Sinatra::Base
     Api.set :bind, bind
 
     # Check if the todo template already exists, if not create it
-    unless Template.exist?('todo')
+    if !Template.exist?('todo')
       todo_template = Template.new
       todo_template.id = 'todo'
       todo_template.key = 'todo'
@@ -101,7 +101,7 @@ class Api < Sinatra::Base
 
   before do
     if request.request_method != 'OPTIONS'
-      protected! unless request.path_info == '/api/accounts' || TypeStorage.is_e2e_test
+      protected! if request.path_info != '/api/accounts' && !TypeStorage.is_e2e_test
     end
     content_type 'application/json'
   end

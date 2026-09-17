@@ -21,7 +21,7 @@ class Resolution
   VALUES = %w[completed skipped lapsed].freeze
 
   def self.type_match?(value)
-    VALUES.include?(value)
+    return VALUES.include?(value)
   end
 
 end

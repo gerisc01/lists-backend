@@ -24,8 +24,8 @@ require_relative '../type/placement'
 # composition use yet). `date` nil => a floating placement in staging; a date =>
 # dated straight onto that day.
 def materialize_occurrence(item_id, collection_id, period_start, date = nil, staged_week = nil)
-  raise ListError::NotFound, "item id '#{item_id}' not found" unless Item.exist?(item_id)
-  raise ListError::NotFound, "collection id '#{collection_id}' not found" unless Collection.exist?(collection_id)
+  raise ListError::NotFound, "item id '#{item_id}' not found" if !Item.exist?(item_id)
+  raise ListError::NotFound, "collection id '#{collection_id}' not found" if !Collection.exist?(collection_id)
   raise ListError::BadRequest, "a period_start is required" if period_start.to_s.empty?
 
   # Idempotent on the occurrence: this item's placement already anchored to this
@@ -36,7 +36,7 @@ def materialize_occurrence(item_id, collection_id, period_start, date = nil, sta
   existing = Placement.for_item(item_id).find do |placement|
     placement.collection_id == collection_id && placement.origin_date == period_start
   end
-  unless existing.nil?
+  if !existing.nil?
     if existing.date.nil? && staged_week && existing.staged_week != staged_week
       existing.staged_week = staged_week
       existing.validate
@@ -62,5 +62,5 @@ def materialize_occurrence(item_id, collection_id, period_start, date = nil, sta
   })
   placement.validate
   placement.save!
-  placement
+  return placement
 end

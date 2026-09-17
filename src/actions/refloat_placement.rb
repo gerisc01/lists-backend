@@ -30,5 +30,5 @@ def refloat_placement(placement_id, week_start)
   placement.resolved_at = nil
   placement.validate
   placement.save!
-  placement
+  return placement
 end

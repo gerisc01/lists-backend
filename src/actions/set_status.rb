@@ -10,7 +10,7 @@ require_relative './resolve_open_instance'
 # later step-chained actions. `actor_id` is the authenticated account behind the request;
 # nil where nobody acted (see Transition).
 def set_status(item_id, status, actor_id = nil)
-  unless Status::VALUES.include?(status)
+  if !Status::VALUES.include?(status)
     raise ListError::BadRequest, "Unknown status '#{status}'"
   end
 
@@ -37,8 +37,8 @@ def set_status(item_id, status, actor_id = nil)
   if status == 'doing' && from != 'doing'
     instance_id = resolve_open_instance(item_id)
     # resolve returns item_id untouched when nothing opted in — no instance, nothing to stamp.
-    stamp_instance_start(Item.get(instance_id), Date.today.iso8601) unless instance_id == item_id
+    stamp_instance_start(Item.get(instance_id), Date.today.iso8601) if instance_id != item_id
   end
 
-  item
+  return item
 end

@@ -29,10 +29,6 @@ class FilterTest < MinitestWrapper
     Item.stubs(:get).with('4').returns(Item.new(items[3])).never
   end
 
-  def teardown
-    mocha_teardown
-  end
-
   def test_filter_empty
     matching_ids = Filter.find_matching_items('1', "list.name = Second")
     assert_equal 0, matching_ids.size

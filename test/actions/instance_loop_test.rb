@@ -41,11 +41,6 @@ class InstanceLoopTest < MinitestWrapper
     @list.save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def test_staging_points_the_placement_at_an_instance
     placement = create_floating_placement('kh', 'c1', '2026-08-17')
 

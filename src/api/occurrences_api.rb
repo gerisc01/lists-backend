@@ -34,7 +34,7 @@ class Api < Sinatra::Base
   # the persisted placement (with its new id) so the client can then bind/complete/skip/
   # defer it via the existing /api/placements/:placementId/* endpoints.
   post '/api/items/:itemId/occurrences' do
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     placement = materialize_occurrence(params['itemId'], json['collection'], json['period_start'],
                                        json['date'], json['staged_week'])
     status 200

@@ -1,10 +1,12 @@
 require 'sinatra/base'
 require_relative '../type/account'
+require_relative 'helpers/list_api_framework'
 
 class Api < Sinatra::Base
+  register Sinatra::ListApiFramework
 
   post '/api/accounts' do
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     raise ListError::BadRequest, "Missing 'name' field." if json['name'].nil?
     new_account = Account.new({'name' => json['name']})
     new_account.validate
@@ -40,7 +42,7 @@ class Api < Sinatra::Base
     # end copy/paste
     account = Account.get(params['accountId'])
     raise ListError::NotFound, "Account '#{params['accountId']}' not found." if account.nil?
-    account.merge!(JSON.parse(request.body.read))
+    account.merge!(get_json_payload(request))
     account.validate
     account.save!
     status 200
@@ -58,7 +60,7 @@ class Api < Sinatra::Base
     # end copy/paste
     account = Account.get(params['accountId'])
     raise ListError::NotFound, "Account '#{params['accountId']}' not found." if account.nil?
-    account.delete! unless account.nil?
+    account.delete! if !account.nil?
     status 204
   end
 

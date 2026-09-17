@@ -37,10 +37,10 @@ require_relative '../type/recurrence'
 def occurrences_for_week(collection_ids, week_start, as_of: Date.today.iso8601)
   target_week = ::Date.parse(week_start)
 
-  Item.list.each_with_object([]) do |item, ghosts|
-    next unless Scheduling.active_recurrence?(item)
+  return Item.list.each_with_object([]) do |item, ghosts|
+    next if !Scheduling.active_recurrence?(item)
     rule = Scheduling.recurrence_of(item.json['scheduling'])
-    next unless collection_ids.include?(rule['collection_id'])
+    next if !collection_ids.include?(rule['collection_id'])
 
     occurrence = current_occurrence(rule, target_week, as_of)
     next if occurrence.nil?                                 # rule hasn't started yet
@@ -68,9 +68,9 @@ Occurrence = Struct.new(:week, :date)
 # off the grid week either way.
 def current_occurrence(rule, target_week, as_of)
   if rule['cadence'] == 'monthly'
-    monthly_occurrence(rule, target_week, as_of)
+    return monthly_occurrence(rule, target_week, as_of)
   else
-    weekly_occurrence(rule, target_week, as_of)
+    return weekly_occurrence(rule, target_week, as_of)
   end
 end
 
@@ -86,7 +86,7 @@ def weekly_occurrence(rule, target_week, as_of)
   due_index = (weeks_since / interval) * interval          # floor to a due multiple
   due_week = anchor + (due_index * 7)
   pinned = rule['anchor']['kind'] == 'fixed-day' ? due_week + weekday_offset(due_week, rule['anchor']['weekday']) : nil
-  Occurrence.new(due_week, pinned)
+  return Occurrence.new(due_week, pinned)
 end
 
 # Monthly occurrences are `interval` months apart, and the live one is the latest whose
@@ -120,7 +120,7 @@ def monthly_occurrence(rule, target_week, as_of)
   return nil if index.negative?
 
   due = monthly_due_date(anchor, origin >> (index * interval))
-  Occurrence.new(week_start_of(due, target_week), anchor['kind'] == 'date' ? due : nil)
+  return Occurrence.new(week_start_of(due, target_week), anchor['kind'] == 'date' ? due : nil)
 end
 
 # A monthly rule's due date within the month that `month_ref` (a first-of-month Date)
@@ -143,7 +143,7 @@ end
 # dayless.
 def monthly_due_date(anchor, month_ref)
   last = ::Date.new(month_ref.year, month_ref.month, -1)
-  case anchor['kind']
+  return case anchor['kind']
   when 'date'
     ::Date.new(month_ref.year, month_ref.month, [anchor['day'], last.day].min)
   when 'week-of-month'
@@ -167,7 +167,7 @@ def first_due_month(rule, as_of)
   month = ::Date.new(seed.year, seed.month, 1)
   return month if rule['start_date'].nil?
 
-  monthly_due_date(rule['anchor'], month) < seed ? month >> 1 : month
+  return monthly_due_date(rule['anchor'], month) < seed ? month >> 1 : month
 end
 
 # Has the series ended by this week? A rule may carry an optional end_date (the upper
@@ -182,7 +182,7 @@ def past_end?(rule, due_week, target_week)
   return false if end_date.nil?
 
   end_week = week_start_of(::Date.parse(end_date), target_week)
-  due_week > end_week || target_week > end_week
+  return due_week > end_week || target_week > end_week
 end
 
 # Carry-until-due is a claim about weeks you have LIVED THROUGH ("it was due, you didn't
@@ -192,21 +192,21 @@ end
 # have missed. Only a *carry* is gated: a ghost due in the target week emits however far
 # ahead that week is, and the current week's carry (design §2.5) is untouched.
 def future_carry?(due_week, target_week, as_of)
-  return false unless due_week < target_week          # not a carry at all
-  target_week > week_start_of(::Date.parse(as_of), target_week)
+  return false if due_week >= target_week          # not a carry at all
+  return target_week > week_start_of(::Date.parse(as_of), target_week)
 end
 
 # Snap the rule's phase anchor onto the caller's week grid.
 def anchor_week(rule, target_week, as_of)
   seed = rule['start_date'] || as_of
-  week_start_of(::Date.parse(seed), target_week)
+  return week_start_of(::Date.parse(seed), target_week)
 end
 
 # The grid week-start (a Date) that `date` falls in, using `grid_ref` (any valid week
 # start) to define the grid. Rounds down to the nearest grid week boundary.
 def week_start_of(date, grid_ref)
   weeks = ((date - grid_ref).to_i / 7.0).floor
-  grid_ref + (weeks * 7)
+  return grid_ref + (weeks * 7)
 end
 
 # Has this occurrence (the rule's due-week) already been touched? A persisted
@@ -222,7 +222,7 @@ end
 # Staged BEFORE the due-week it is a stale pile entry from an earlier plan and owns
 # nothing, so a later occurrence still ghosts as normal.
 def occurrence_touched?(item_id, due_week, target_week, grid_ref)
-  Placement.for_item(item_id).any? do |placement|
+  return Placement.for_item(item_id).any? do |placement|
     anchor = placement.origin_date || placement.date
     if anchor.nil?
       next false if placement.staged_week.nil?
@@ -255,7 +255,7 @@ def build_ghost(item, rule, occurrence, target_week)
       [pinned.iso8601, false, pinned.iso8601]
     end
 
-  {
+  return {
     'ghost' => true,
     'rule_item_id' => item.id,
     'item_id' => item.id,
@@ -271,5 +271,5 @@ end
 # Days from a week-start Date to the given weekday (Ruby Date#wday, 0=Sun..6=Sat)
 # within that same grid week.
 def weekday_offset(week_start, weekday)
-  (weekday - week_start.wday) % 7
+  return (weekday - week_start.wday) % 7
 end

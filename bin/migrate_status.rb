@@ -46,7 +46,7 @@ ids.each do |id|
   item = Item.get(id)
   next if item.nil?
   next if Status::TERMINAL.include?(item.json['status']) # already migrated -> idempotent
-  next unless item.json['completed'] == true
+  next if item.json['completed'] != true
 
   if apply
     begin
@@ -64,8 +64,8 @@ end
 
 verb = apply ? 'migrated' : 'would migrate'
 puts "#{verb} #{migrated} item(s) to 'completed' (of #{ids.size} items)."
-unless failed.empty?
+if !failed.empty?
   puts "#{failed.size} item(s) FAILED to save (left unchanged):"
   failed.each { |f| puts "  #{f}" }
 end
-puts '(dry run — pass --apply to write)' unless apply
+puts '(dry run — pass --apply to write)' if !apply

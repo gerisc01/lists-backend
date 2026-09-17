@@ -61,8 +61,14 @@ end
 
 ## Error Handling
 
-Raise the specific error where the problem is found. The route lets it propagate;
-`exceptions_api.rb` maps it to a status.
+**Whatever the caller talks to directly handles the errors the caller sees.** That layer raises
+the specific error; `exceptions_api.rb` maps it to a status.
+
+| Layer | A missing record |
+|---|---|
+| Route | raises `NotFound` when a lookup returns `nil` |
+| Entry-point action — called by a route or an Action step with ids from the request | raises `NotFound` naming the id |
+| Lookup or helper — called by other code | `return nil`; the caller decides |
 
 | Problem | Raise | Status |
 |---|---|---|
@@ -71,7 +77,8 @@ Raise the specific error where the problem is found. The route lets it propagate
 | a schema rule fails | `ListError::Validation` (or the gem's `Schema::ValidationError`) | 400 |
 
 - The message names the id or field: `"Item (#{item_id}) Not Found"`.
-- **No silent returns.** A nil that shouldn't happen raises; it never `return`s quietly.
+- **No silent returns.** A helper that can come back empty says so: `return nil if item.nil?`, not
+  a bare `return`. An entry point never swallows a problem to return quietly.
 - **No blanket rescue.** Don't wrap an action in `rescue Exception` — it catches interrupts and turns
   a 404 into a 400. Rescue a specific error only to translate it.
 - `raise`, never `throw`.
@@ -80,7 +87,7 @@ Raise the specific error where the problem is found. The route lets it propagate
 
 | Do | Not |
 |---|---|
-| `return result` on a method's last line when it returns a value | an implicit return |
+| `return result` on a method's last line — even if no caller uses it yet | an implicit return |
 | `if !x.nil?`, `if !list.items.include?(id)` | `unless` |
 | `x.to_s.empty?` for "missing or blank" | `x.nil? \|\| x == ''` |
 | hash rockets in schema fields: `{:key => 'name', :required => true}` | mixed styles in one list |
@@ -88,6 +95,9 @@ Raise the specific error where the problem is found. The route lets it propagate
 | 2-space indent | 4 |
 
 **Copied twice → a helper.** A helper removes the duplication and names what the code does.
+
+**Explicit return by default.** Leave it off only when the method has nothing meaningful to return
+(it only saves, prints, or loops).
 
 ## Actions
 

@@ -103,7 +103,7 @@ class Filter
   def self.get_by_dot_notation(hash, fields)
     return hash if fields.nil? || fields.empty?
     new_hash = hash[fields.slice(0)]
-    get_by_dot_notation(new_hash, fields[1..])
+    return get_by_dot_notation(new_hash, fields[1..])
   end
 
 end

@@ -15,11 +15,6 @@ class RemoveItemTest < MinitestWrapper
     [ @item, @item2, @group, @list, @list_empty ].each { |obj| obj.save! }
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def test_remove_multiple_items
     remove_item(@item.id, @list.id)
     assert_equal [@group.id, @item2.id], @list.items
@@ -49,7 +44,7 @@ class RemoveItemTest < MinitestWrapper
   end
 
   def test_remove_item_not_found_list_failure
-    assert_raises(ListError::BadRequest) { remove_item(@item.id, 'NOT_FOUND') }
+    assert_raises(ListError::NotFound) { remove_item(@item.id, 'NOT_FOUND') }
   end
 
   def test_remove_item_not_found_index

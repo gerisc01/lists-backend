@@ -40,10 +40,10 @@ def rel(path) = path.delete_prefix("#{ROOT}/")
 
 def walk(path)
   abs = File.expand_path(path, ROOT)
-  return [] unless File.exist?(abs)
+  return [] if !File.exist?(abs)
   return abs.end_with?('.rb') ? [abs] : [] if File.file?(abs)
 
-  Dir.glob(File.join(abs, '**', '*.rb')).reject { |f| rel(f).split('/').any? { |p| p.start_with?('.') || %w[data cache logs].include?(p) } }
+  return Dir.glob(File.join(abs, '**', '*.rb')).reject { |f| rel(f).split('/').any? { |p| p.start_with?('.') || %w[data cache logs].include?(p) } }
 end
 
 def comment_tokens(src)
@@ -61,7 +61,7 @@ def comment_tokens(src)
       embdoc = nil
     end
   end
-  toks
+  return toks
 end
 
 # Consecutive full-line comments form one block; a trailing comment is its own block.
@@ -82,7 +82,7 @@ def blocks(file)
       out << { start: t[:line], end: last_line, text: t[:text].dup, trailing: trailing, tokens: [t] }
     end
   end
-  out.map do |b|
+  return out.map do |b|
     n = b[:end] - b[:start] + 1
     header = script && b[:start] <= 2 && !b[:trailing]
     flags = []
@@ -111,21 +111,21 @@ def code_shape(src)
     next if %i[on_sp on_embdoc_beg on_embdoc on_embdoc_end].include?(type)
 
     if %i[on_comment on_nl on_ignored_nl].include?(type)
-      shape << :nl unless shape.last == :nl
+      shape << :nl if shape.last != :nl
     else
       shape << [type, text]
     end
   end
-  shape
+  return shape
 end
 
 def strip_comments(src)
   shape = code_shape(src)
-  shape.map { |t| t == :nl ? "\n" : t[1] }.join(' ')
+  return shape.map { |t| t == :nl ? "\n" : t[1] }.join(' ')
 end
 
 def code_text(files)
-  files.map { |f| strip_comments(File.read(f)) }.join("\n")
+  return files.map { |f| strip_comments(File.read(f)) }.join("\n")
 end
 
 def leads(files)
@@ -143,12 +143,12 @@ def leads(files)
     names = b[:text].scan(/`([A-Za-z_][A-Za-z0-9_]{2,}[?!]?)(?:[.#][A-Za-z0-9_?!]+)*/).flatten.uniq
     file_refs = b[:text].scan(%r{\b([A-Za-z_][A-Za-z0-9_/.-]*\.(?:rb|js|ts|tsx|sh|json))\b}).flatten.uniq
     file_refs.each do |n|
-      out << { kind: 'orphan', file: b[:file], line: b[:line], what: n } unless paths.any? { |p| p == n || p.end_with?("/#{n}") }
+      out << { kind: 'orphan', file: b[:file], line: b[:line], what: n } if !paths.any? { |p| p == n || p.end_with?("/#{n}") }
     end
     names.each do |n|
       next if n.match?(skip) || file_refs.include?(n)
 
-      out << { kind: 'orphan', file: b[:file], line: b[:line], what: n } unless hay.match?(/(?<![A-Za-z0-9_])#{Regexp.escape(n)}(?![A-Za-z0-9_])/)
+      out << { kind: 'orphan', file: b[:file], line: b[:line], what: n } if !hay.match?(/(?<![A-Za-z0-9_])#{Regexp.escape(n)}(?![A-Za-z0-9_])/)
     end
   end
 
@@ -162,7 +162,7 @@ def leads(files)
       out << { kind: 'ghost', file: rel(f), line: 0, what: what }
     end
   end
-  out
+  return out
 end
 
 def verify(ref)

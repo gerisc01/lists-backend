@@ -13,7 +13,7 @@ module Sinatra
     # route that reached for it there would 500 under test and work in production.
     # Returns nil wherever authentication is skipped (account creation, e2e).
     def current_account_id
-      request.env['HTTP_ACCOUNT_ID']&.split(' ')&.last
+      return request.env['HTTP_ACCOUNT_ID']&.split(' ')&.last
     end
 
     # The membership filter behind every "what is there" read (0087). Applied to
@@ -30,16 +30,18 @@ module Sinatra
       account_id = current_account_id
       return records if account_id.nil?
       granted = also_granted.to_a
-      records.select { |r| (r.members || []).include?(account_id) || granted.include?(r.id) }
+      return records.select { |r| (r.members || []).include?(account_id) || granted.include?(r.id) }
     end
 
-    def get_json_payload(request)
+    def get_json_payload(request, optional: false)
+      raw = request.body.read
+      return {} if optional && raw.strip.empty?
       begin
-        json = JSON.parse(request.body.read)
+        json = JSON.parse(raw)
       rescue JSON::ParserError
         raise ListError::BadRequest, "Request payload must be valid JSON"
       end
-      json
+      return json
     end
 
     def schema_endpoint_get(clazz, id, since)
@@ -98,7 +100,7 @@ module Sinatra
 
     def schema_endpoint_delete(clazz, id)
       instance = clazz.get(id)
-      instance.delete! unless instance.nil?
+      instance.delete! if !instance.nil?
       status 204
     end
 

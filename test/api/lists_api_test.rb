@@ -38,11 +38,6 @@ class ListApiTest < MinitestWrapper
     @action.save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   # add item
   def test_add_item
     put('/api/lists/a/addItem/1')
@@ -139,6 +134,12 @@ class ListApiTest < MinitestWrapper
     put('/api/lists/a/items/1', {'name' => ''}.to_json, {"Content-Type" => "application/json"})
     assert last_response.status != 200
     assert_nil Item.get('1').templates
+  end
+
+  def test_list_create_validation_failure
+    post('/api/lists', {}.to_json, {"Content-Type" => "application/json"})
+    assert_equal 400, last_response.status
+    assert_equal 'Validation Exception', JSON.parse(last_response.body)['type']
   end
 
   def test_list_update

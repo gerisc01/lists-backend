@@ -18,10 +18,6 @@ class WeekDaysTest < MinitestWrapper
     @template.save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-  end
-
   def test_week_days_type_match
     item = Item.new({'id' => '1', 'name' => 'Test', 'days' => ['M'], 'templates' => ['1']})
     item.validate

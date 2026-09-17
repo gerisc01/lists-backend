@@ -13,11 +13,11 @@ class ItemGeneric
   end
 
   def self.exist?(id)
-    Item.exist?(id) || ItemGroup.exist?(id)
+    return Item.exist?(id) || ItemGroup.exist?(id)
   end
 
   def self.get(id)
-    Item.get(id) || ItemGroup.get(id)
+    return Item.get(id) || ItemGroup.get(id)
   end
 
   def self.type_match?(type)

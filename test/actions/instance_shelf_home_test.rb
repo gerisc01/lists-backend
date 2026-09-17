@@ -27,10 +27,6 @@ class InstanceShelfHomeTest < MinitestWrapper
     Item.get('kh').tap { |i| i.json['children'] = ['run'] }.save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-  end
-
   def shelf_list(items)
     List.new({'id' => 'l1', 'name' => 'Shelf', 'items' => items}).save!
   end

@@ -32,7 +32,7 @@ def update_placement(placement_id, fields, actor_id = nil)
 
   if fields.key?('resolution')
     resolution = fields['resolution']
-    unless resolution.nil? || Resolution::VALUES.include?(resolution)
+    if !resolution.nil? && !Resolution::VALUES.include?(resolution)
       raise ListError::BadRequest, "Unknown resolution '#{resolution}'"
     end
     placement.resolution = resolution                 # nil reopens (open again)
@@ -69,7 +69,7 @@ def update_placement(placement_id, fields, actor_id = nil)
   # Reopening (resolution:nil) never archives. See auto_archive.rb.
   maybe_auto_archive(placement.item_id, actor_id: actor_id) if fields.key?('resolution') && !fields['resolution'].nil?
 
-  placement
+  return placement
 end
 
 # Who the plan says is doing this placement: the override, else the item's owner.
@@ -77,6 +77,6 @@ end
 # field is applied further down and a resolve-and-assign arrives as one call.
 def assignee_of(placement, fields)
   assignee = fields.key?('assignee') ? fields['assignee'] : placement.assignee
-  return assignee unless assignee.nil?
-  Item.get(placement.item_id)&.owner
+  return assignee if !assignee.nil?
+  return Item.get(placement.item_id)&.owner
 end

@@ -43,23 +43,23 @@ class Recurrence
   }.freeze
 
   def self.type_match?(value)
-    return false unless value.is_a?(Hash)
-    return false unless CADENCES.include?(value['cadence'])
-    return false unless value['interval'].is_a?(Integer) && value['interval'].positive?
-    return false unless MODES.include?(value['mode'])
-    return false unless value['collection_id'].is_a?(String) && !value['collection_id'].empty?
+    return false if !value.is_a?(Hash)
+    return false if !CADENCES.include?(value['cadence'])
+    return false if !value['interval'].is_a?(Integer) || !value['interval'].positive?
+    return false if !MODES.include?(value['mode'])
+    return false if !value['collection_id'].is_a?(String) || value['collection_id'].empty?
     # After the cadence guard above, so the anchor is always checked against a known cadence.
-    return false unless anchor_valid?(value['anchor'], value['cadence'])
-    return false unless active_valid?(value['active'])
-    return false unless date_valid?(value['start_date'])
-    return false unless date_valid?(value['end_date'])
-    true
+    return false if !anchor_valid?(value['anchor'], value['cadence'])
+    return false if !active_valid?(value['active'])
+    return false if !date_valid?(value['start_date'])
+    return false if !date_valid?(value['end_date'])
+    return true
   end
 
   # The optional upper bound: no occurrence is emitted after the week containing
   # end_date (design "clear the future" — see occurrences.rb). nil => open-ended.
   def self.end_date_of(recurrence)
-    recurrence && recurrence['end_date']
+    return recurrence && recurrence['end_date']
   end
 
   # `active` is optional (absent => active); a paused rule sets it false and emits no
@@ -70,11 +70,11 @@ class Recurrence
   end
 
   def self.anchor_valid?(anchor, cadence)
-    return false unless anchor.is_a?(Hash)
+    return false if !anchor.is_a?(Hash)
     kinds = ANCHOR_KINDS_BY_CADENCE[cadence]
     return false if kinds.nil? || !kinds.include?(anchor['kind'])
 
-    case anchor['kind']
+    return case anchor['kind']
     # fixed-day pins the occurrence to a weekday (Ruby Date#wday: 0=Sun..6=Sat).
     when 'fixed-day'    then day_in_range?(anchor['weekday'], 0..6)
     # date pins it to a day of the month. 31 is legal every month: an overflowing day
@@ -89,11 +89,11 @@ class Recurrence
   end
 
   def self.day_in_range?(value, range)
-    value.is_a?(Integer) && range.cover?(value)
+    return value.is_a?(Integer) && range.cover?(value)
   end
 
   def self.active_valid?(value)
-    value.nil? || [true, false].include?(value)
+    return value.nil? || [true, false].include?(value)
   end
 
   # nil-allowed date validation, shared by start_date and end_date.
@@ -102,9 +102,9 @@ class Recurrence
     begin
       # :: prefix to avoid clashing with SchemaType::Date and friends.
       ::Date.parse(value.to_s)
-      true
+      return true
     rescue ArgumentError, TypeError
-      false
+      return false
     end
   end
 

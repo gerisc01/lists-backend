@@ -32,10 +32,6 @@ class DropdownTest < MinitestWrapper
     @template2.save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-  end
-
   def test_dropdown_def_validation_missing_option
     temp = Template.new
     temp.id = '100'

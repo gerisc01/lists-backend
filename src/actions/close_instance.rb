@@ -27,8 +27,8 @@ def close_instance(instance_id, finished_date = nil, actor_id = nil)
   instance.validate
   instance.save!
 
-  set_status(instance_id, 'completed', actor_id) unless instance.json['status'] == 'completed'
-  set_status(parent.id, 'completed', actor_id) unless parent.json['status'] == 'completed'
+  set_status(instance_id, 'completed', actor_id) if instance.json['status'] != 'completed'
+  set_status(parent.id, 'completed', actor_id) if parent.json['status'] != 'completed'
 
-  instance
+  return instance
 end

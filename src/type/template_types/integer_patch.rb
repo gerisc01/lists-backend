@@ -16,7 +16,7 @@ class Integer
   end
 
   def self.type_match?(value)
-    value.is_a?(Integer) || value.is_a?(String)
+    return value.is_a?(Integer) || value.is_a?(String)
   end
 
 end

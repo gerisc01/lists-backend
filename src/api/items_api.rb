@@ -27,7 +27,7 @@ class Api < Sinatra::Base
   # the set_status primitive (also registry-registered for composition) and returns
   # the updated item so the client can patch its cache. Body: { "status": "doing" }.
   post '/api/items/:itemId/status' do
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     item = set_status(params['itemId'], json['status'], current_account_id)
     status 200
     body item.to_schema_object.to_json

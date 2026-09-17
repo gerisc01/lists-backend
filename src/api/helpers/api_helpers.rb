@@ -15,7 +15,7 @@ module ApiHelpers
       next if item_id.nil? || items.has_key?(item_id)
 
       it = ItemGeneric.get(item_id)
-      unless it.nil?
+      if !it.nil?
         items[it.id] = it.to_schema_object
         related_ids = get_related_ids(it)
         items_to_retrieve += related_ids
@@ -40,7 +40,7 @@ module ApiHelpers
         related_ids.push(group_id)
       end
     end
-    related_ids
+    return related_ids
   end
 
   def self.convert_since_format(instances, since)

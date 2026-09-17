@@ -41,7 +41,7 @@ end
 # Loads data FROM a named scenario folder INTO the CURRENT_SCENARIO_DATA_DIR.
 def load_scenario(scenario_name)
   source_path = File.join(SCENARIOS_BASE_DIR, scenario_name)
-  unless File.directory?(source_path)
+  if !File.directory?(source_path)
     puts "Error: Scenario '#{scenario_name}' not found at '#{source_path}'."
     return false
   end
@@ -50,7 +50,7 @@ def load_scenario(scenario_name)
   copy_directory_contents(source_path, CURRENT_SCENARIO_DATA_DIR)
   restamp_updated_at(CURRENT_SCENARIO_DATA_DIR)
   puts "Scenario '#{scenario_name}' loaded."
-  true
+  return true
 end
 
 # The client's cache asks "what changed since X?", and a checkpoint's `updated_at` is
@@ -63,7 +63,7 @@ def restamp_updated_at(data_dir)
   now = Time.now.utc.iso8601
   Dir.glob(File.join(data_dir, '*.json')).each do |path|
     table = JSON.parse(File.read(path))
-    next unless table.is_a?(Hash)
+    next if !table.is_a?(Hash)
     table.each_value { |obj| obj['updated_at'] = now if obj.is_a?(Hash) && obj.key?('updated_at') }
     File.write(path, JSON.generate(table))
   end
@@ -82,14 +82,14 @@ def create_checkpoint(scenario_name)
   puts "Creating checkpoint '#{scenario_name}' by saving from '#{CURRENT_SCENARIO_DATA_DIR}' to '#{destination_path}'..."
   copy_directory_contents(CURRENT_SCENARIO_DATA_DIR, destination_path)
   puts "Checkpoint '#{scenario_name}' created at '#{destination_path}'."
-  true
+  return true
 end
 
 # Overwrites an existing named scenario folder with current CURRENT_SCENARIO_DATA_DIR.
 def update_checkpoint(scenario_name)
   destination_path = File.join(SCENARIOS_BASE_DIR, scenario_name)
 
-  unless Dir.exist?(destination_path)
+  if !Dir.exist?(destination_path)
     puts "Error: Checkpoint '#{scenario_name}' does not exist. Use 'checkpoint' to create a new one."
     return false
   end
@@ -97,28 +97,28 @@ def update_checkpoint(scenario_name)
   puts "Updating checkpoint '#{scenario_name}' from '#{CURRENT_SCENARIO_DATA_DIR}'..."
   copy_directory_contents(CURRENT_SCENARIO_DATA_DIR, destination_path)
   puts "Checkpoint '#{scenario_name}' updated."
-  true
+  return true
 end
 
 # Deletes a named scenario folder after confirmation.
 def delete_checkpoint(scenario_name)
   destination_path = File.join(SCENARIOS_BASE_DIR, scenario_name)
 
-  unless Dir.exist?(destination_path)
+  if !Dir.exist?(destination_path)
     puts "Error: Checkpoint '#{scenario_name}' does not exist."
     return false
   end
 
   print "Are you sure you want to delete checkpoint '#{scenario_name}'? This cannot be undone. (y/n): "
   confirmation = $stdin.gets&.strip&.downcase
-  unless confirmation == 'y'
+  if confirmation != 'y'
     puts "Delete cancelled."
     return false
   end
 
   FileUtils.rm_rf(destination_path)
   puts "Checkpoint '#{scenario_name}' deleted."
-  true
+  return true
 end
 
 # Lists all named scenario checkpoints in SCENARIOS_BASE_DIR.

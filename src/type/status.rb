@@ -14,11 +14,11 @@ class Status
   TERMINAL = %w[completed retired].freeze
 
   def self.type_match?(value)
-    VALUES.include?(value)
+    return VALUES.include?(value)
   end
 
   def self.done?(value)
-    TERMINAL.include?(value)
+    return TERMINAL.include?(value)
   end
 
 end
@@ -37,7 +37,7 @@ end
 class Transition
 
   def self.type_match?(value)
-    value.is_a?(Hash) &&
+    return value.is_a?(Hash) &&
       Status::VALUES.include?(value['to']) &&
       (value['from'].nil? || Status::VALUES.include?(value['from'])) &&
       value['at'].is_a?(String) &&
@@ -48,8 +48,8 @@ class Transition
   # by a client, and neither can the author — it comes from the request, not the body.
   def self.build(from:, to:, by: nil)
     entry = { 'from' => from, 'to' => to, 'at' => Time.now.utc.iso8601 }
-    entry['by'] = by unless by.nil?
-    entry
+    entry['by'] = by if !by.nil?
+    return entry
   end
 
 end

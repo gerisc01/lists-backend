@@ -35,11 +35,6 @@ class OccurrencesApiTest < MinitestWrapper
     Day.toggle_cache_source(:test)
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def materialize(body)
     post('/api/items/trash/occurrences', body.to_json, JSON_HEADERS)
   end

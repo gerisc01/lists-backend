@@ -32,7 +32,7 @@ module Query
     end
 
     def self.build
-      new.tap(&:load!)
+      return new.tap(&:load!)
     end
 
     def load!
@@ -48,13 +48,13 @@ module Query
           (list.json['items'] || []).each { |item_id| index_item(item_id, location) }
         end
       end
-      self
+      return self
     end
 
     # The resolver contract the Evaluator depends on: field name + item -> values.
     # Always an array; a single-valued field is a one-element one.
     def values_for(field, item)
-      case field
+      return case field
       when 'name' then [item['name']].compact
       # Absent status reads as the birth default, and absent energy as moderate —
       # so `energy = moderate` finds everything nobody has rated, which is the
@@ -70,13 +70,13 @@ module Query
     end
 
     def locations_for(item_id)
-      @locations[item_id] || []
+      return @locations[item_id] || []
     end
 
     private
 
     def index_item(item_id, location)
-      unless @items.key?(item_id)
+      if !@items.key?(item_id)
         item = Item.get(item_id)
         return index_group_members(item_id, location) if item.nil?
         return if item.json['deleted']
@@ -116,11 +116,11 @@ module Query
       return if group.nil? || group.json['deleted']
 
       (group.group || []).each { |member_id| index_item(member_id, location) }
-      nil
+      return nil
     end
 
     def tag_names_for(item)
-      @tag_names[item['id']] ||= (item['tags'] || []).map { |tag_id| tag_name(tag_id) }.compact
+      return @tag_names[item['id']] ||= (item['tags'] || []).map { |tag_id| tag_name(tag_id) }.compact
     end
 
     # Tags are per-collection records, so the same label exists as different ids in
@@ -144,7 +144,7 @@ module Query
       evaluator.validate!(ast)
 
       matched = index.items.values.select { |item| evaluator.matches?(ast, item) }
-      group(matched, index)
+      return group(matched, index)
     end
 
     # Grouped by collection to match how results are read ("Recipes · Tacos") and
@@ -172,7 +172,7 @@ module Query
       sorted = groups.values.sort_by { |g| g['collection_name'].to_s.downcase }
       sorted.each { |g| g['items'].sort_by! { |i| i['name'].to_s.downcase } }
 
-      {
+      return {
         'count' => items.length,
         'groups' => sorted,
       }

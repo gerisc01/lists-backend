@@ -33,21 +33,21 @@ drop_boards = ARGV.include?('--drop-boards')
 prune       = ARGV.include?('--prune-orphan-oneoffs')
 dir         = ARGV.reject { |a| a.start_with?('--') }.first || 'scenarios/data'
 
-abort "No such directory: #{dir}" unless Dir.exist?(dir)
+abort "No such directory: #{dir}" if !Dir.exist?(dir)
 
 # Load a store file into {records, extras}. The gitignored data/ store carries a couple of
 # stray top-level scalars alongside the records; they are passed through untouched.
 def load_table(dir, name)
   path = File.join(dir, "#{name}.json")
-  return [{}, {}, path] unless File.exist?(path)
+  return [{}, {}, path] if !File.exist?(path)
   raw = JSON.parse(File.read(path))
   records = raw.select { |_, v| v.is_a?(Hash) }
   extras  = raw.reject { |k, _| records.key?(k) }
-  [records, extras, path]
+  return [records, extras, path]
 end
 
 def write_table(path, records, extras, apply)
-  return unless apply
+  return if !apply
   File.write(path, JSON.generate(records.merge(extras)))
 end
 
@@ -78,7 +78,7 @@ collections.each do |cid, collection|
   members = (existing + from_attrs + from_accounts).uniq
 
   dangling = members.reject { |aid| accounts.key?(aid) }
-  unless dangling.empty?
+  if !dangling.empty?
     warns << "collection #{cid} (#{collection['name']}): dropped #{dangling.size} member id(s) with no account: #{dangling.join(', ')}"
     members -= dangling
   end
@@ -92,11 +92,11 @@ collections.each do |cid, collection|
   had_attr_members = collection['attributes'].is_a?(Hash) && collection['attributes'].key?('members')
   changed = (members.sort != existing.sort) || had_attr_members
 
-  next unless changed
+  next if !changed
   membership_changes += 1
   puts "#{apply ? 'set' : 'would set'} members on #{cid} (#{collection['name']}) -> [#{members.join(', ')}]"
 
-  collection['members'] = members unless members.empty?
+  collection['members'] = members if !members.empty?
   if had_attr_members
     collection['attributes'].delete('members')
     collection.delete('attributes') if collection['attributes'].empty?
@@ -110,7 +110,7 @@ end
 # boards that happen to share a name — not one shared board. Splitting them is the safe
 # read; merging would hand each account the other's pile.
 board_conversions = 0
-unless drop_boards
+if !drop_boards
   accounts.each do |account_id, account|
     boards = account.dig('attributes', 'boards')
     next if boards.nil? || boards.empty?
@@ -170,7 +170,7 @@ accounts.each do |account_id, account|
     account.delete('attributes') if account['attributes'].empty?
     changed = true
   end
-  next unless changed
+  next if !changed
   account_changes += 1
   account['updated_at'] = now
   puts "#{apply ? 'cleaned' : 'would clean'} account #{account_id} (#{account['name']})"
@@ -183,7 +183,7 @@ orphans = collections.select do |cid, c|
   c.dig('attributes', 'type') == ONE_OFF_TYPE && !referenced.include?(cid)
 end
 
-unless orphans.empty?
+if !orphans.empty?
   if prune
     orphans.each_key do |cid|
       collections.delete(cid)
@@ -200,18 +200,18 @@ end
 
 write_table(account_path, accounts, account_extras, apply)
 write_table(collection_path, collections, coll_extras, apply)
-write_table(group_path, groups, group_extras, apply) unless groups.empty? && !File.exist?(group_path)
+write_table(group_path, groups, group_extras, apply) if !groups.empty? || File.exist?(group_path)
 
 puts
 puts "#{dir}: #{membership_changes} collection(s) given members, " \
      "#{board_conversions} board(s) converted, #{account_changes} account(s) cleaned."
 puts "boards dropped (--drop-boards)" if drop_boards
-unless notes.empty?
+if !notes.empty?
   puts "notes:"
   notes.each { |n| puts "  #{n}" }
 end
-unless warns.empty?
+if !warns.empty?
   puts "WARNINGS:"
   warns.each { |w| puts "  #{w}" }
 end
-puts '(dry run — pass --apply to write)' unless apply
+puts '(dry run — pass --apply to write)' if !apply
