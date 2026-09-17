@@ -5,6 +5,7 @@ spending time on, and a week planner. Sinatra on Ruby 3.4.2, JSON files for stor
 
 | Read | For |
 |---|---|
+| [API.md](API.md) | every endpoint, for a client — refresh with `/api-docs` |
 | [SCHEMA.md](SCHEMA.md) | how types, validation, and storage come from the `ruby-schema` gem |
 | [PR_GUIDE.md](PR_GUIDE.md) | PR size and template |
 | [games-lists NEXT.md](../games-lists/NEXT.md) · [issues](https://github.com/gerisc01/games-lists/issues?q=label%3Abe) | what's next; the backlog is issues labelled `be` |
@@ -57,7 +58,7 @@ request → Api before hook (auth) → route in src/api/*_api.rb → action in s
 ```
 Account
 Collection ── lists ── List ── items (ordered ids) ── Item
-    │ templates · tags · actions · groups · members        │ status · energy · scheduling (· recurrence) · owner
+    │ templates · tags · actions · groups · members        │ status · energy · scheduling.recurrence · owner
 CollectionGroup (a board) ── collections · members · one_off_collection
 Placement ── item_id · collection_id · date | floating · resolution · staged_week · assignee
 Day (date → item ids, the older date model; the planner reads placements)
@@ -73,7 +74,7 @@ Day (date → item ids, the older date model; the planner reads placements)
 | Membership | reads of collections and boards return only records whose `members` include the caller, plus the one-off collection of a board they're on (`members_only`) |
 | Placements | one instance of doing an item: on a `date` or `floating` in the staging pile for `staged_week`. `PATCH /api/placements/:pid` sets `resolution` (complete / skip / reopen). The day grid returns resolved placements; the pile doesn't |
 | Recurrence | a rule at `item.scheduling.recurrence`: weekly (`floating`, `fixed-day`) or monthly (`date`, `week-of-month`). Untouched occurrences are computed per week (`src/actions/occurrences.rb`), never stored. `POST /api/items/:id/occurrences` turns one into a real placement |
-| Reconcile | `POST /api/reconcile` — idempotent weekly sweep: carries unfinished tasks, resolves past events, archives. `bin/reconcile_loop.sh` calls it |
+| Reconcile | `POST /api/reconcile` — idempotent sweep of weeks now past: a staged shelf item goes back to its shelf, a one-off lapses, and one-offs whose placements are all resolved are archived. Nothing resolves by time alone. `bin/reconcile_loop.sh` calls it |
 | Actions | named multi-step operations (`src/actions/item_actions.rb` registry), run by `POST /api/actions/...`. `reconcile` and `materialize_occurrence` are plain functions, not registry entries |
 | Errors | `ListError::BadRequest` / `Validation` → 400, `NotFound` → 404, anything else → 500; body `{error, message}` |
 

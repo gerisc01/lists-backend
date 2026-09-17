@@ -79,7 +79,7 @@ trace through the code.]
 One line per file with a note on what changed in it.]
 
 ## Docs
-[Whether README.md, SCHEMA.md or CLAUDE.md needed a change — see below.]
+[Whether README.md, SCHEMA.md, API.md or CLAUDE.md needed a change — see below.]
 
 ## Out of scope / follow-up
 [Anything noticed but intentionally left out of this PR.]
@@ -95,7 +95,7 @@ The *How it fits together* and *Docs* sections are the most important ones for t
 
 ## Docs section
 
-For each of `README.md`, `SCHEMA.md` and `CLAUDE.md`, say whether this PR changed what it describes.
+For each of `README.md`, `SCHEMA.md`, `API.md` and `CLAUDE.md`, say whether this PR changed what it describes.
 If none needed a change, say which sections you checked.
 
 ---
