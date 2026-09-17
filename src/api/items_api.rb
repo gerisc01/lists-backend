@@ -10,7 +10,7 @@ class Api < Sinatra::Base
   # Results come back grouped by collection.
   #
   # MUST stay above `generate_schema_crud_methods`: that generates
-  # `GET /api/items/:id`, Sinatra matches routes in definition order, and a
+  # `GET /api/items/:itemId`, Sinatra matches routes in definition order, and a
   # generated route defined first would swallow this one as an item lookup with
   # id "query".
   get '/api/items/query' do
@@ -26,9 +26,9 @@ class Api < Sinatra::Base
   # Server-authoritative lifecycle status change. Thin front door that delegates to
   # the set_status primitive (also registry-registered for composition) and returns
   # the updated item so the client can patch its cache. Body: { "status": "doing" }.
-  post '/api/items/:id/status' do
+  post '/api/items/:itemId/status' do
     json = JSON.parse(request.body.read)
-    item = set_status(params['id'], json['status'], current_account_id)
+    item = set_status(params['itemId'], json['status'], current_account_id)
     status 200
     body item.to_schema_object.to_json
   end

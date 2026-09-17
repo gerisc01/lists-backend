@@ -73,7 +73,7 @@ ACCOUNT_ID: <account-id>
 { "error": "Unauthorized", "message": "Invalid API key" }
 ```
 
-`GET`/`PUT`/`DELETE /api/accounts/:account_id` additionally re-run this same check inline (`src/api/account_api.rb`) — those routes aren't otherwise distinguished from any other authenticated account hitting them.
+`GET`/`PUT`/`DELETE /api/accounts/:accountId` additionally re-run this same check inline (`src/api/account_api.rb`) — those routes aren't otherwise distinguished from any other authenticated account hitting them.
 
 ---
 
@@ -93,7 +93,7 @@ Verified against `src/api/helpers/list_api_framework.rb` (`schema_endpoint_list`
 
 The underlying store query filters by `since` (`clazz.list(since:, include_deleted: true)`) before this layer sorts objects vs. deleted_ids.
 
-### `?since=` on single-object endpoints (`GET /api/<type>/:id`)
+### `?since=` on single-object endpoints (`GET /api/<type>/:<type>Id`)
 
 | Condition | HTTP Status | Body |
 |---|---|---|
@@ -158,9 +158,9 @@ Confirmed in `src/exceptions_api.rb`.
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/api/accounts` | Create an account. Body: `{ "name": "..." }` (required). Returns `201` + account object. |
-| `GET` | `/api/accounts/:account_id` | Get account. `404` if not found. |
-| `PUT` | `/api/accounts/:account_id` | Merge fields, validate, save. Returns `200` + updated object. |
-| `DELETE` | `/api/accounts/:account_id` | Returns `204`. |
+| `GET` | `/api/accounts/:accountId` | Get account. `404` if not found. |
+| `PUT` | `/api/accounts/:accountId` | Merge fields, validate, save. Returns `200` + updated object. |
+| `DELETE` | `/api/accounts/:accountId` | Returns `204`. |
 
 See [Account shape](#account-shape).
 
@@ -173,10 +173,10 @@ See [Account shape](#account-shape).
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/collection-groups` | List, filtered to groups whose `members` includes the caller's account id (`members_only`). Non-deleted only. |
-| `GET` | `/api/collection-groups/:id` | Get (supports `?since=`) |
+| `GET` | `/api/collection-groups/:collectionGroupId` | Get (supports `?since=`) |
 | `POST` | `/api/collection-groups` | Create |
-| `PUT` | `/api/collection-groups/:id` | Update |
-| `DELETE` | `/api/collection-groups/:id` | Delete |
+| `PUT` | `/api/collection-groups/:collectionGroupId` | Update |
+| `DELETE` | `/api/collection-groups/:collectionGroupId` | Delete |
 
 See [CollectionGroup shape](#collectiongroup-shape).
 
@@ -189,10 +189,10 @@ See [CollectionGroup shape](#collectiongroup-shape).
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/collections` | List, filtered to collections the caller's account is a member of, **plus** any collection that is the `one_off_collection` of a `CollectionGroup` the caller belongs to (`one_off_collections_granted_by_boards` — a board's one-off scratch collection carries no roster of its own; access is derived from the board). Non-deleted only. |
-| `GET` | `/api/collections/:id` | Get (supports `?since=`) — **not** membership-filtered |
+| `GET` | `/api/collections/:collectionId` | Get (supports `?since=`) — **not** membership-filtered |
 | `POST` | `/api/collections` | Create |
-| `PUT` | `/api/collections/:id` | Update |
-| `DELETE` | `/api/collections/:id` | Delete |
+| `PUT` | `/api/collections/:collectionId` | Update |
+| `DELETE` | `/api/collections/:collectionId` | Delete |
 | `GET` | `/api/collections/:collectionId/listItems` | All items across all lists in the collection (deduped, recursively includes group members via `children`). Supports `?since=`. |
 | `DELETE` | `/api/collections/:collectionId/actions/:actionId` | Cascade-remove an action from the collection, all its lists, and all `collection.groups[].actions`. `404` if collection missing, `400` if action not on the collection. |
 | `DELETE` | `/api/collections/:collectionId/templates/:templateId` | Cascade-remove a template: clears `list.template` on any list using it and strips the template from every item in that list, then removes it from `collection.templates`. |
@@ -210,8 +210,8 @@ See [Collection shape](#collection-shape).
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` / `POST` / `PUT` / `DELETE` | `/api/lists[/:id]` | Standard CRUD |
-| `PUT` | `/api/lists/:id` | Same as update, **plus**: if the list had a `template` and the update clears it, the template is stripped from every item currently in the list. |
+| `GET` / `POST` / `DELETE` | `/api/lists[/:listId]` | Standard CRUD |
+| `PUT` | `/api/lists/:listId` | Standard update, **plus**: if the list had a `template` and the update clears it, the template is stripped from every item currently in the list. |
 | `GET` | `/api/lists/:listId/items` | All items in the list, recursively including `Item.children` and `ItemGroup.group` members. Supports `?since=`. `404` if the list itself doesn't exist. |
 | `POST` | `/api/lists/:listId/items` | Create an item and add it to the list. Body: item fields; optional `"id"` (`400` if it already exists). Dispatches to `ItemGroup` if the body has a `"group"` key, else `Item`. Applies the list's `template` if set. Returns `201` + created item (raw `item.json`, not `to_schema_object`). |
 | `PUT` | `/api/lists/:listId/items/:itemId` | Merge fields into an existing item; ensures the list's template is applied first if missing; validates; saves. Returns `200` + `to_schema_object`. |
@@ -229,15 +229,15 @@ See [List shape](#list-shape).
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` / `POST` / `PUT` / `DELETE` | `/api/items[/:id]` | Standard CRUD |
-| `POST` | `/api/items/:id/status` | Server-authoritative status change. Body: `{ "status": "doing" }`. Delegates to `set_status(item_id, status, actor_id)` (`actor_id` = `current_account_id`) — server owns `from`, appends a stamped `Transition` to `item.transitions`, then saves. Flipping to `doing` also opens/stamps a run-keeping instance if the item's template opts in — see [Instances](#instances-repeat-engagement). Returns `200` + updated item. `400` if `status` isn't one of `Status::VALUES`; `404` if item missing. |
+| `GET` / `POST` / `PUT` / `DELETE` | `/api/items[/:itemId]` | Standard CRUD |
+| `POST` | `/api/items/:itemId/status` | Server-authoritative status change. Body: `{ "status": "doing" }`. Delegates to `set_status(item_id, status, actor_id)` (`actor_id` = `current_account_id`) — server owns `from`, appends a stamped `Transition` to `item.transitions`, then saves. Flipping to `doing` also opens/stamps a run-keeping instance if the item's template opts in — see [Instances](#instances-repeat-engagement). Returns `200` + updated item. `400` if `status` isn't one of `Status::VALUES`; `404` if item missing. |
 | `GET` | `/api/items/query` | Cross-collection item search. `?q=<query>` (required, URL-encoded) in the [Query language](#query-language). Returns `200` + `{ count, groups: [...] }` grouped by collection. No matches is an empty `200`, never a `404`. `400` (naming the position, unknown field, or valid enum values) for a malformed query or missing `q`. |
 
-**Route order matters:** `/api/items/query` is declared *above* `generate_schema_crud_methods` in `items_api.rb`, so it isn't swallowed by the generated `GET /api/items/:id` as a lookup for id `"query"`.
+**Route order matters:** `/api/items/query` is declared *above* `generate_schema_crud_methods` in `items_api.rb`, so it isn't swallowed by the generated `GET /api/items/:itemId` as a lookup for id `"query"`.
 
 `owner` (an account id, or absent = unowned) is a plain schema field written through ordinary CRUD — no dedicated endpoint. `PUT` validates it names a real `Account` (`400 Unknown owner '<id>'` otherwise).
 
-Item placement/occurrence sub-resources are under `/api/items/:id/placements` and `/api/items/:id/occurrences` — see [Placements](#placements) and [Occurrences](#occurrences). The legacy `/api/items/:item/dates` route lives under [Dates — legacy](#dates-legacy-dormant).
+Item placement/occurrence sub-resources are under `/api/items/:itemId/placements` and `/api/items/:itemId/occurrences` — see [Placements](#placements) and [Occurrences](#occurrences). The legacy `/api/items/:itemId/dates` route lives under [Dates — legacy](#dates-legacy-dormant).
 
 See [Item shape](#item-shape), [Instances](#instances-repeat-engagement), [Status & Transition shape](#status--transition-shape), [Query language](#query-language).
 
@@ -249,7 +249,7 @@ See [Item shape](#item-shape), [Instances](#instances-repeat-engagement), [Statu
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/itemGroups/forMembers?ids=a,b,c` | The groups claiming any of those item ids — the member → group lookup, which the schema has no back-pointer for. `[]` for ids in no group, and for no ids. Declared above the generated CRUD so Sinatra doesn't parse `forMembers` as a `:id`. `200`. |
+| `GET` | `/api/itemGroups/forMembers?ids=a,b,c` | The groups claiming any of those item ids — the member → group lookup, which the schema has no back-pointer for. `[]` for ids in no group, and for no ids. Declared above the generated CRUD so Sinatra doesn't parse `forMembers` as an `:itemGroupId`. `200`. |
 | `PUT` | `/api/itemGroups/:groupId/addItem/:itemId` | `itemId` must be an existing `Item`. Appends to `group`. `200`. |
 | `PUT` | `/api/itemGroups/:groupId/removeItem/:itemId` | Refuses if it's the last remaining member (groups require ≥1 item). `200`. |
 
@@ -267,7 +267,7 @@ Write-time validation (`Template#validate`, `src/type/template.rb`):
 - Refuses a field keyed to a reserved system key (`ReservedFields::SYSTEM_KEYS` minus the few a template legitimately owns) — `400 Validation Exception` naming the key.
 - If this template is named as another template's instance-record child (`attributes.instances.template`, see [Instances](#instances-repeat-engagement)), refuses to drop the `finished` field the ledger counts by.
 
-The opt-in that turns a template into a repeat-engagement tracker (`attributes.instances`) is written only through `POST /api/actions/ad-hoc/enableInstances` (see [Instances](#instances-repeat-engagement)) — never directly via `PUT /api/templates/:id`, though nothing at the route level blocks it.
+The opt-in that turns a template into a repeat-engagement tracker (`attributes.instances`) is written only through `POST /api/actions/ad-hoc/enableInstances` (see [Instances](#instances-repeat-engagement)) — never directly via `PUT /api/templates/:templateId`, though nothing at the route level blocks it.
 
 See [Template and Field shape](#template-and-field-shape).
 
@@ -288,7 +288,7 @@ See [Tag shape](#tag-shape).
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/actions/types` | **Must be registered before the CRUD routes** (a literal-path guard so `types` isn't parsed as an action id). Returns the full `action_methods` registry (see below). |
-| `GET` / `POST` / `PUT` / `DELETE` | `/api/actions[/:id]` | Standard CRUD |
+| `GET` / `POST` / `PUT` / `DELETE` | `/api/actions[/:actionId]` | Standard CRUD |
 | `POST` | `/api/actions/:action_id` | Runs every step of a saved action. Body: params the steps need; merged with `actor_id` = the caller's account (`with_actor`), then over each step's `fixed_params`; `dynamic_params` can pull a prior step's result field in. `200`, no body. `404` if action not found. |
 | `POST` | `/api/actions/ad-hoc/:action_type` | Builds a throwaway one-step action of type `action_type` and executes it immediately with the request body (plus `actor_id`) as params. `200`, no body. |
 
@@ -322,7 +322,7 @@ See [Tag shape](#tag-shape).
 }
 ```
 
-`materialize_occurrence` and `reconcile` are **not** in this registry — invoked only via their own dedicated REST routes (`POST /api/items/:id/occurrences`, `POST /api/reconcile`), not composable into ad-hoc/saved actions.
+`materialize_occurrence` and `reconcile` are **not** in this registry — invoked only via their own dedicated REST routes (`POST /api/items/:itemId/occurrences`, `POST /api/reconcile`), not composable into ad-hoc/saved actions.
 
 See [Action Step Types](#7-action-step-types) for the full behavior of each entry, and [Instances](#instances-repeat-engagement) for the four instance-lifecycle entries.
 
@@ -334,20 +334,20 @@ See [Action Step Types](#7-action-step-types) for the full behavior of each entr
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/collections/:id/placements` | Weekly-planning range read for **one** collection: `?start=YYYY-MM-DD&end=YYYY-MM-DD` (both required, `start <= end`). Returns `{ "YYYY-MM-DD": [<placement>, ...] }` — full placement objects (`to_client_object`, which adds `catalog_item_id`). |
+| `GET` | `/api/collections/:collectionId/placements` | Weekly-planning range read for **one** collection: `?start=YYYY-MM-DD&end=YYYY-MM-DD` (both required, `start <= end`). Returns `{ "YYYY-MM-DD": [<placement>, ...] }` — full placement objects (`to_client_object`, which adds `catalog_item_id`). |
 | `GET` | `/api/placements` | Same range read across a **set** of collections. `?collections=c1,c2&start=&end=` (all required). Returns **full placement objects**, not bare item ids — the grid addresses a placement by `id` to write `resolution` and reads it back to strike a completed card in place. **Resolved placements are NOT filtered out** — the week's board doubles as the record of what got done. |
 | `GET` | `/api/placements/floating` | Cross-collection floating staging pile. `?collections=c1,c2,c3` (required) `&week=YYYY-MM-DD` (the visible week's Monday). **Week-scoped**: returns only placements whose `staged_week == week` and are still open (`resolution` nil); omitting `week` falls back to the unfiltered pile. Each object also carries a derived `one_off` boolean (`true` when the **catalog** item — not a raw instance child — has no shelf/list home). |
 | `GET` | `/api/placements/current` | The **catalog's** assignment read: `?collections=c1,c2` (required). Returns `{ "<catalog_item_id>": "<account_id>" }` for every item whose applicable occurrence names somebody. No date window. Rule (`Placement.applicable_assignee`): open placements exist → the soonest that names somebody (floating sorts after every dated one); none, and the item is recurring → nothing (a fresh unclaimed occurrence is coming); none, one-off → the last *resolved* one's assignee. Items no occurrence names are **absent**, not null — they resolve to `item.owner` client-side. |
-| `GET` | `/api/collections/:id/placements/floating` | Floating (dayless) placements for **one** collection's staging pile. Full `to_schema_object`s (no `one_off`/`catalog_item_id` merge on this route). |
-| `GET` | `/api/items/:id/placements` | All placements referencing this item (reverse lookup). Full `to_client_object`s. |
-| `POST` | `/api/items/:id/placements` | Create a placement. Body: `{ "collection": "<id>", "date"?: "YYYY-MM-DD", "staged_week"?: "YYYY-MM-DD" }`. With `date` → dated (`assign_to_date`, idempotent on `(item, date, collection)`). Without → floating (`create_floating_placement`, deduped on `(item, collection)` for open placements; a re-stage **re-stamps** `staged_week`). Both resolve a group id to the member you'd pick up, resolve a repeat-tracked item to its open instance (minting one if needed), and revive a terminal item to `want-to`. Returns `200` + placement. |
-| `POST` | `/api/placements/:pid/bind` | Bind a floating placement to a day. Body: `{ "date": "YYYY-MM-DD" }`. Sets `date`, clears `floating`; stamps `origin_date` only if absent. |
-| `PATCH` | `/api/placements/:pid` | Edit per-instance fields. Body: any of `{ "note", "time_cost", "resolution", "assignee" }` (other keys ignored). `resolution` is `"completed"`\|`"skipped"`\|`null` (`null` reopens; `400` on an unrecognized value) — stamps `resolved_at` and `resolved_by` server-side when set, clears both on reopen. `resolved_by` defaults to the effective assignee (the value being written in this same call, else the placement's stored one, else `item.owner`), falling back to the caller's own account id only if none of those name anyone. `assignee` is an account id or `null` (clears); `400 Unknown assignee '<id>'` if it names no `Account`. A `"completed"` resolution on an instance-tracked item also starts that instance (stamps its `started` date, moves item + instance to `doing` unless already there/retired). Any non-null resolution can trigger `maybe_auto_archive` on the item afterward. |
-| `POST` | `/api/placements/:pid/defer` | Defer a floating placement +1 week. Body: `{ "week_start": "YYYY-MM-DD" }`. Sets `staged_week = week_start + 7 days`. |
-| `POST` | `/api/placements/:pid/unbind` | Re-float a dated placement back into staging (dated → floating), the inverse of `/bind`. Body: `{ "week_start": "YYYY-MM-DD" }`. Clears `date`, sets `floating`, sets `staged_week = week_start`. **Clears any `resolution`/`resolved_at`**; **preserves `origin_date`**. |
-| `DELETE` | `/api/placements/:pid` | Delete a placement outright (id-addressed — works on floating placements). If the underlying item is a board-born one-off (no shelf home) with no other placements left, the orphan item is deleted too. Returns the deleted placement. |
-| `DELETE` | `/api/items/:id/placements` | Remove a **dated** placement. Body: `{ "collection": "<id>", "date": "YYYY-MM-DD" }`. Looks up by `(item, date, collection)`; no-op (returns `{}`) if none found. |
-| `POST` | `/api/items/:id/placements/priority` | Flag/unflag a dated placement as a priority. Body: `{ "collection": "<id>", "date": "YYYY-MM-DD", "priority": true|false }`. `404` if no matching dated placement. `400` if flagging would exceed `Placement::MAX_PRIORITIES_PER_DATE` (3) already-flagged placements on that date. |
+| `GET` | `/api/collections/:collectionId/placements/floating` | Floating (dayless) placements for **one** collection's staging pile. Full `to_schema_object`s (no `one_off`/`catalog_item_id` merge on this route). |
+| `GET` | `/api/items/:itemId/placements` | All placements referencing this item (reverse lookup). Full `to_client_object`s. |
+| `POST` | `/api/items/:itemId/placements` | Create a placement. Body: `{ "collection": "<id>", "date"?: "YYYY-MM-DD", "staged_week"?: "YYYY-MM-DD" }`. With `date` → dated (`assign_to_date`, idempotent on `(item, date, collection)`). Without → floating (`create_floating_placement`, deduped on `(item, collection)` for open placements; a re-stage **re-stamps** `staged_week`). Both resolve a group id to the member you'd pick up, resolve a repeat-tracked item to its open instance (minting one if needed), and revive a terminal item to `want-to`. Returns `200` + placement. |
+| `POST` | `/api/placements/:placementId/bind` | Bind a floating placement to a day. Body: `{ "date": "YYYY-MM-DD" }`. Sets `date`, clears `floating`; stamps `origin_date` only if absent. |
+| `PATCH` | `/api/placements/:placementId` | Edit per-instance fields. Body: any of `{ "note", "time_cost", "resolution", "assignee" }` (other keys ignored). `resolution` is `"completed"`\|`"skipped"`\|`null` (`null` reopens; `400` on an unrecognized value) — stamps `resolved_at` and `resolved_by` server-side when set, clears both on reopen. `resolved_by` defaults to the effective assignee (the value being written in this same call, else the placement's stored one, else `item.owner`), falling back to the caller's own account id only if none of those name anyone. `assignee` is an account id or `null` (clears); `400 Unknown assignee '<id>'` if it names no `Account`. A `"completed"` resolution on an instance-tracked item also starts that instance (stamps its `started` date, moves item + instance to `doing` unless already there/retired). Any non-null resolution can trigger `maybe_auto_archive` on the item afterward. |
+| `POST` | `/api/placements/:placementId/defer` | Defer a floating placement +1 week. Body: `{ "week_start": "YYYY-MM-DD" }`. Sets `staged_week = week_start + 7 days`. |
+| `POST` | `/api/placements/:placementId/unbind` | Re-float a dated placement back into staging (dated → floating), the inverse of `/bind`. Body: `{ "week_start": "YYYY-MM-DD" }`. Clears `date`, sets `floating`, sets `staged_week = week_start`. **Clears any `resolution`/`resolved_at`**; **preserves `origin_date`**. |
+| `DELETE` | `/api/placements/:placementId` | Delete a placement outright (id-addressed — works on floating placements). If the underlying item is a board-born one-off (no shelf home) with no other placements left, the orphan item is deleted too. Returns the deleted placement. |
+| `DELETE` | `/api/items/:itemId/placements` | Remove a **dated** placement. Body: `{ "collection": "<id>", "date": "YYYY-MM-DD" }`. Looks up by `(item, date, collection)`; no-op (returns `{}`) if none found. |
+| `POST` | `/api/items/:itemId/placements/priority` | Flag/unflag a dated placement as a priority. Body: `{ "collection": "<id>", "date": "YYYY-MM-DD", "priority": true|false }`. `404` if no matching dated placement. `400` if flagging would exceed `Placement::MAX_PRIORITIES_PER_DATE` (3) already-flagged placements on that date. |
 
 All of the above are thin front doors over registry-registered primitives in `src/actions/*.rb` (same primitives back the `/api/actions/types` entries above), so any of these behaviors are also reachable via `POST /api/actions/:action_id` or `POST /api/actions/ad-hoc/:action_type`.
 
@@ -360,7 +360,7 @@ All of the above are thin front doors over registry-registered primitives in `sr
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/occurrences` | Ghost occurrences for a week, across a set of collections. `?collections=c1,c2&week_start=YYYY-MM-DD` (both required). `as_of` defaults to today server-side (not a query param on this route). Returns an array of [ghost occurrence objects](#ghost-occurrence-shape). Only **untouched** occurrences are returned. |
-| `POST` | `/api/items/:id/occurrences` | Materialize a ghost into a real `Placement`. Body: `{ "collection": "<id>", "period_start": "<the ghost's due-week, YYYY-MM-DD>", "date"?: "YYYY-MM-DD", "staged_week"?: "YYYY-MM-DD" }`. With `date` → dated straight onto that day; without → floating, staged into `staged_week` (defaults to `period_start`). Idempotent: if a placement already exists for this item with matching `collection_id` and `origin_date == period_start`, that placement is returned (a floating one re-stamps `staged_week`). Returns `200` + the persisted placement. |
+| `POST` | `/api/items/:itemId/occurrences` | Materialize a ghost into a real `Placement`. Body: `{ "collection": "<id>", "period_start": "<the ghost's due-week, YYYY-MM-DD>", "date"?: "YYYY-MM-DD", "staged_week"?: "YYYY-MM-DD" }`. With `date` → dated straight onto that day; without → floating, staged into `staged_week` (defaults to `period_start`). Idempotent: if a placement already exists for this item with matching `collection_id` and `origin_date == period_start`, that placement is returned (a floating one re-stamps `staged_week`). Returns `200` + the persisted placement. |
 
 Recurrence scope as currently validated (`src/type/recurrence.rb`): `cadence` is `"weekly"` or `"monthly"`; `mode` is `"absolute"` only. Anchor kind is cadence-dependent — weekly: `"floating"` | `"fixed-day"` (`weekday` 0–6, Ruby `Date#wday`, Sun=0); monthly: `"date"` (`day` 1–31, clamped to the month's last day) | `"week-of-month"` (`week` 1–5, 5 clamped to the month's last week). Optional `active` (pause without deleting), `start_date` (phase floor), `end_date` (no occurrences due or carrying past its grid week). Relative cadence and mid-series splitting are not implemented.
 
@@ -384,20 +384,20 @@ Structurally idempotent: released rows are gone, a lapsed placement is resolved 
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/dates` / `/api/dates/:id` | Standard list/get of raw `Day` objects — **only** list/get are generated (`generate_schema_endpoint :list/:get, 'dates', Day`); there is no create/update/delete route for `Day` via this macro. Supports `?since=`. |
-| `GET` | `/api/dates/:day/:collection/items` | Item ids for one day + collection. `[]` if missing. |
-| `GET` | `/api/dates/:collection/items?start=&end=` | Item ids across a date range for one collection → `{ "date": [item_id] }`, dateless entries omitted. Superseded by `GET /api/collections/:id/placements`. |
+| `GET` | `/api/dates` / `/api/dates/:dateId` | Standard list/get of raw `Day` objects — **only** list/get are generated (`generate_schema_endpoint :list/:get, 'dates', Day`); there is no create/update/delete route for `Day` via this macro. Supports `?since=`. |
+| `GET` | `/api/dates/:day/:collectionId/items` | Item ids for one day + collection. `[]` if missing. |
+| `GET` | `/api/dates/:collectionId/items?start=&end=` | Item ids across a date range for one collection → `{ "date": [item_id] }`, dateless entries omitted. Superseded by `GET /api/collections/:collectionId/placements`. |
 | `POST` | `/api/dates/:day/items` | Assign an item to a day/collection (creates the `Day` if needed); syncs `todo-date` if the item has the `todo` template. |
 | `DELETE` | `/api/dates/:day/items` | Unassign; clears `todo-date` if applicable; deletes the `Day` record if left with no items/priorities. |
 | `POST` | `/api/dates/:day/priority` | Add to the day/collection's priority list. `404` if collection missing. |
 | `DELETE` | `/api/dates/:day/priorities` | Remove from the priority list. |
-| `PUT` | `/api/dates/:day/:collection/priorities` | Replace the entire priority list for a day/collection with a given ordered array of item ids. |
+| `PUT` | `/api/dates/:day/:collectionId/priorities` | Replace the entire priority list for a day/collection with a given ordered array of item ids. |
 | `POST` | `/api/dates/:day/recurring` | Create a **legacy parent/child** recurring series starting `:day`. Body: `{ "collection", "item", "type", "interval", "end-date"? }`. Only `type: "weekly"` actually generates child items. `400` if the item is already recurring. Adds the `recurring-item` template. |
 | `PUT` | `/api/dates/:day/recurring` | Modify an existing legacy series (by parent or child id); can re-date and/or re-anchor the parent to a different item. |
 | `DELETE` | `/api/dates/:day/recurring` | Delete legacy series occurrences from `:day` forward (by parent or child id). |
-| `GET` | `/api/items/:item/dates` | All dates this item is currently assigned to, per the `Day`-index pstore cache (`Day.get_days_for_item`). |
+| `GET` | `/api/items/:itemId/dates` | All dates this item is currently assigned to, per the `Day`-index pstore cache (`Day.get_days_for_item`). |
 
-**Bug:** `PUT /api/dates/:day/:collection/priorities`'s not-found message (`src/api/dates_api.rb:124`) interpolates an empty string instead of the collection id: `"Collection id '#{}' cannot be found"` — should read `params['collection']`.
+**Bug:** `PUT /api/dates/:day/:collectionId/priorities`'s not-found message (`src/api/dates_api.rb:124`) interpolates an empty string instead of the collection id: `"Collection id '#{}' cannot be found"` — should read `params['collection']`.
 
 Legacy item fields written by these routes (`recurring-event`, `recurring-parent`, `recurring-children`) are documented in [Legacy recurring item fields](#legacy-recurring-item-fields); they are **not** part of the `Item` schema's declared fields.
 
@@ -556,9 +556,9 @@ Repeat engagement with a catalog item (replaying a game, rewatching a film). An 
 
 | Door | Trigger | Effect |
 |---|---|---|
-| Stage | `create_floating_placement` / `assign_to_date` (i.e. `POST /api/items/:id/placements`, `POST /api/items/:id/occurrences`) | Mints (or reuses) the open instance, then places *it* — the placement never points at the catalog item directly. Born at `want-to`, no dates. |
-| Begin | `PATCH /api/placements/:pid` with `resolution: "completed"` on an instance-tracked item | First completed session stamps the instance's `started` date (to the placement's own date, not today) and moves both instance and catalog item to `doing` (unless already there or retired). |
-| Flip by hand | `POST /api/items/:id/status` with `status: "doing"` | Opens/stamps an instance the same way, for a flip that skips the planner entirely. |
+| Stage | `create_floating_placement` / `assign_to_date` (i.e. `POST /api/items/:itemId/placements`, `POST /api/items/:itemId/occurrences`) | Mints (or reuses) the open instance, then places *it* — the placement never points at the catalog item directly. Born at `want-to`, no dates. |
+| Begin | `PATCH /api/placements/:placementId` with `resolution: "completed"` on an instance-tracked item | First completed session stamps the instance's `started` date (to the placement's own date, not today) and moves both instance and catalog item to `doing` (unless already there or retired). |
+| Flip by hand | `POST /api/items/:itemId/status` with `status: "doing"` | Opens/stamps an instance the same way, for a flip that skips the planner entirely. |
 
 **Manual doors** (both server-authoritative, both routed through `set_status` so the journal is honest):
 
@@ -676,7 +676,7 @@ A `Transition` entry (in `item.transitions`, append-only, written only by `set_s
 | `intense` | High demand / dread |
 
 - **Absent = `moderate`.** `Item#initialize` does not stamp a default, so an unrated item stores no `energy` key. Read it through `Energy.of` / `Energy.of_item`.
-- **No server-authoritative setter** — written through ordinary `PUT /api/items/:id`, which **merges**: omitting `energy` preserves the stored value; clearing a rating requires an explicit `"energy": null`.
+- **No server-authoritative setter** — written through ordinary `PUT /api/items/:itemId`, which **merges**: omitting `energy` preserves the stored value; clearing a rating requires an explicit `"energy": null`.
 
 An unknown tier fails schema validation and the write is rejected.
 
@@ -950,7 +950,7 @@ There is **no** `collections` field on `Account` — that direction was inverted
 | `id` | `String` (Collection ref) | **Yes** |
 | `items` | `Array<String>` | No |
 
-A `Day` record auto-deletes once both `items` and `priorities` are empty. `Day` also maintains a separate pstore-backed reverse index (`item_to_days.pstore`) mapping item id → dates, rebuilt at server start (`Day.build_full_day_index`) and read by the legacy `GET /api/items/:item/dates`.
+A `Day` record auto-deletes once both `items` and `priorities` are empty. `Day` also maintains a separate pstore-backed reverse index (`item_to_days.pstore`) mapping item id → dates, rebuilt at server start (`Day.build_full_day_index`) and read by the legacy `GET /api/items/:itemId/dates`.
 
 ---
 
@@ -989,16 +989,16 @@ Values for `ActionStep.type`, per `src/actions/item_actions.rb`'s `action_method
 | `promoteGroupItem` | `item_id`, `from_list`, `item_index` | `item_id` = the `ItemGroup` id, `item_index` = the child item id to promote out. Removes the child from the group and lists it directly; collapses/removes the group if it drops to 0–1 members. |
 | `setField` | `item_id`, `key`, `value` | Directly sets `item.json[key] = value` on an `Item`; saves immediately. No validation before save on the `set_field` path (contrast `addItemToField`, which validates). |
 | `addItemToField` | `item_id`, `key`, `value` | Appends to `item.json[key]` (array; created if absent); validates after. |
-| `setStatus` | `item_id`, `status`, `actor_id` | Server-authoritative status transition; same primitive as `POST /api/items/:id/status`. May open/stamp a repeat instance — see [Instances](#instances-repeat-engagement). |
-| `assignToDate` | `item_id`, `date`, `collection_id`, `actor_id` | Create a dated `Placement`; same primitive as `POST /api/items/:id/placements` (with `date`). |
-| `removeFromDate` | `item_id`, `date`, `collection_id` | Delete a dated `Placement`; same primitive as `DELETE /api/items/:id/placements`. |
-| `setPlacementPriority` | `item_id`, `date`, `collection_id`, `priority` | Flag/unflag a dated placement; same primitive as `POST /api/items/:id/placements/priority`. |
-| `createFloatingPlacement` | `item_id`, `collection_id`, `staged_week`, `actor_id` | Create a floating `Placement`; same primitive as `POST /api/items/:id/placements` (no `date`). |
-| `bindPlacement` | `placement_id`, `date` | Bind a floating placement to a day; same primitive as `POST /api/placements/:pid/bind`. |
-| `updatePlacement` | `placement_id`, `fields`, `actor_id` | Edit `note`/`time_cost`/`resolution`/`assignee`; same primitive as `PATCH /api/placements/:pid`. |
-| `deferPlacement` | `placement_id`, `week_start` | +1 week defer; same primitive as `POST /api/placements/:pid/defer`. |
-| `refloatPlacement` | `placement_id`, `week_start` | Dated → floating; same primitive as `POST /api/placements/:pid/unbind`. |
-| `deletePlacement` | `placement_id` | Delete a placement (and orphan one-off item if applicable); same primitive as `DELETE /api/placements/:pid`. |
+| `setStatus` | `item_id`, `status`, `actor_id` | Server-authoritative status transition; same primitive as `POST /api/items/:itemId/status`. May open/stamp a repeat instance — see [Instances](#instances-repeat-engagement). |
+| `assignToDate` | `item_id`, `date`, `collection_id`, `actor_id` | Create a dated `Placement`; same primitive as `POST /api/items/:itemId/placements` (with `date`). |
+| `removeFromDate` | `item_id`, `date`, `collection_id` | Delete a dated `Placement`; same primitive as `DELETE /api/items/:itemId/placements`. |
+| `setPlacementPriority` | `item_id`, `date`, `collection_id`, `priority` | Flag/unflag a dated placement; same primitive as `POST /api/items/:itemId/placements/priority`. |
+| `createFloatingPlacement` | `item_id`, `collection_id`, `staged_week`, `actor_id` | Create a floating `Placement`; same primitive as `POST /api/items/:itemId/placements` (no `date`). |
+| `bindPlacement` | `placement_id`, `date` | Bind a floating placement to a day; same primitive as `POST /api/placements/:placementId/bind`. |
+| `updatePlacement` | `placement_id`, `fields`, `actor_id` | Edit `note`/`time_cost`/`resolution`/`assignee`; same primitive as `PATCH /api/placements/:placementId`. |
+| `deferPlacement` | `placement_id`, `week_start` | +1 week defer; same primitive as `POST /api/placements/:placementId/defer`. |
+| `refloatPlacement` | `placement_id`, `week_start` | Dated → floating; same primitive as `POST /api/placements/:placementId/unbind`. |
+| `deletePlacement` | `placement_id` | Delete a placement (and orphan one-off item if applicable); same primitive as `DELETE /api/placements/:placementId`. |
 | `createInstance` | `item_id`, `fields` | Backfill/correction: mint a repeat-engagement instance directly. See [Instances](#instances-repeat-engagement). |
 | `closeInstance` | `instance_id`, `finished_date`, `actor_id` | "I finished it" — close a run. See [Instances](#instances-repeat-engagement). |
 | `deleteInstance` | `instance_id`, `actor_id` | Undo a run that never happened. See [Instances](#instances-repeat-engagement). |
@@ -1037,18 +1037,18 @@ When `list_options` is used, valid values are the item ids currently in that lis
 
 | Operation | Cascades to |
 |---|---|
-| `DELETE /api/collections/:id/templates/:templateId` | Clears `list.template` on lists using it; strips the template from every item in those lists |
-| `DELETE /api/collections/:id/actions/:actionId` | Removes the action ref from all lists and all `collection.groups[].actions` |
-| `DELETE /api/collections/:id/tags/:tagId` | Removes the tag from all items and group-member items in all lists |
-| `PUT /api/lists/:id` (clears `template`) | Removes the old template from all items currently in the list |
+| `DELETE /api/collections/:collectionId/templates/:templateId` | Clears `list.template` on lists using it; strips the template from every item in those lists |
+| `DELETE /api/collections/:collectionId/actions/:actionId` | Removes the action ref from all lists and all `collection.groups[].actions` |
+| `DELETE /api/collections/:collectionId/tags/:tagId` | Removes the tag from all items and group-member items in all lists |
+| `PUT /api/lists/:listId` (clears `template`) | Removes the old template from all items currently in the list |
 | `PUT /api/lists/:listId/addItem/:itemId` | Applies `list.template` to the item if set |
 | `PUT /api/lists/:listId/removeItem/:itemId` | Removes `list.template` from the item if set |
 | `POST /api/lists/:listId/items` | Applies `list.template` to the new item if set |
 | `ItemGroup` template add/remove | Propagates to every member `Item` |
 | `enableInstances` (setting a child template) | Adds the `finished` field to the child template if it's missing |
 | `deleteInstance` | Unlinks from `parent.children`; may revert the parent's status |
-| `PATCH /api/placements/:pid` (resolution → `"completed"`) | Runs `start_instance_for` if the item is instance-tracked; may run `maybe_auto_archive` |
-| `DELETE /api/placements/:pid` | Deletes the orphan one-off item too, if it has no shelf home and no other placements |
+| `PATCH /api/placements/:placementId` (resolution → `"completed"`) | Runs `start_instance_for` if the item is instance-tracked; may run `maybe_auto_archive` |
+| `DELETE /api/placements/:placementId` | Deletes the orphan one-off item too, if it has no shelf home and no other placements |
 | `POST /api/reconcile` | Un-stages past shelf-item placements, lapses past one-offs, sweeps auto-archive across every item with a placement, prunes orphaned placements |
 | `DELETE /api/dates/:day/recurring` (legacy) | Deletes all child occurrence items and their day assignments from the given index forward |
 | `PUT /api/dates/:day/recurring` (legacy, with child id) | Deletes sibling children from that index onward; promotes the child to be the new series parent |
@@ -1058,11 +1058,11 @@ When `list_options` is used, valid values are the item ids currently in that lis
 ```
 DELETE /api/{type}/{objectId}/{subType}/{subObjectId}
 ```
-e.g. `DELETE /api/collections/{id}/templates/{templateId}`, `.../actions/{actionId}`, `.../tags/{tagId}`.
+e.g. `DELETE /api/collections/{collectionId}/templates/{templateId}`, `.../actions/{actionId}`, `.../tags/{tagId}`.
 
 ### Id-addressed vs. item-addressed placement mutation
 
 Two addressing schemes coexist for placements:
 
-- **Id-addressed** (`/api/placements/:pid/*`) — works on any placement, dated or floating. Use for bind/unbind/defer/update/delete once you have the placement's own id.
-- **Item-addressed** (`/api/items/:id/placements*`) — keyed by `(item, date, collection)`, so it only ever finds a **dated** placement. Use for the initial create, and for deleting/flagging a placement you only know by its item + date.
+- **Id-addressed** (`/api/placements/:placementId/*`) — works on any placement, dated or floating. Use for bind/unbind/defer/update/delete once you have the placement's own id.
+- **Item-addressed** (`/api/items/:itemId/placements*`) — keyed by `(item, date, collection)`, so it only ever finds a **dated** placement. Use for the initial create, and for deleting/flagging a placement you only know by its item + date.

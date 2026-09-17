@@ -5,13 +5,13 @@ require_relative './helpers/date_helpers'
 class Api < Sinatra::Base
   register Sinatra::ListApiFramework
 
-  get '/api/dates/:day/:collection/items' do
-    raise ListError::BadRequest, "Path must contain both a date and a collection id." if params['day'].to_s.empty? || params['collection'].to_s.empty?
+  get '/api/dates/:day/:collectionId/items' do
+    raise ListError::BadRequest, "Path must contain both a date and a collection id." if params['day'].to_s.empty? || params['collectionId'].to_s.empty?
     day = Day.get(params['day'])
 
     result = []
     if !day.nil?
-      day_collection_items = day.items.find { |d| d.id == params['collection'] }
+      day_collection_items = day.items.find { |d| d.id == params['collectionId'] }
       result = day_collection_items.items if !day_collection_items.nil?
     end
     status 200
@@ -19,8 +19,8 @@ class Api < Sinatra::Base
   end
 
   # Get the items from a range of dates for a given collection
-  get '/api/dates/:collection/items' do
-    raise ListError::BadRequest, "Path must contain a collection id." if params['collection'].to_s.empty?
+  get '/api/dates/:collectionId/items' do
+    raise ListError::BadRequest, "Path must contain a collection id." if params['collectionId'].to_s.empty?
     raise ListError::BadRequest, "Query parameters must contain 'start' and 'end' dates." if params['start'].to_s.empty? || params['end'].to_s.empty?
 
     start_date = Date.parse(params['start'])
@@ -31,7 +31,7 @@ class Api < Sinatra::Base
     (start_date..end_date).each do |date|
       day = Day.get(date.to_s)
       if !day.nil?
-        day_collection_items = day.items.find { |d| d.id == params['collection'] }
+        day_collection_items = day.items.find { |d| d.id == params['collectionId'] }
         result[date.to_s] = day_collection_items.items if !day_collection_items.nil?
       end
     end
@@ -118,10 +118,10 @@ class Api < Sinatra::Base
   end
 
   # Update the priority items for a given day and collection
-  put '/api/dates/:day/:collection/priorities' do
-    raise ListError::BadRequest, "Path must contain both a date and a collection id." if params['day'].to_s.empty? || params['collection'].to_s.empty?
+  put '/api/dates/:day/:collectionId/priorities' do
+    raise ListError::BadRequest, "Path must contain both a date and a collection id." if params['day'].to_s.empty? || params['collectionId'].to_s.empty?
     day = Day.get(params['day'])
-    raise ListError::NotFound, "Collection id '#{}' cannot be found" unless Collection.exist?(params['collection'])
+    raise ListError::NotFound, "Collection id '#{params['collectionId']}' cannot be found" unless Collection.exist?(params['collectionId'])
 
     if day.nil?
       day = Day.new({
@@ -133,17 +133,17 @@ class Api < Sinatra::Base
     raise ListError::BadRequest, "Request body must be an array of item ids." if !json.is_a?(Array)
 
     day.priorities = [] if day.priorities.nil?
-    priority_items = day.priorities.find { |d| d.id == params['collection'] }
+    priority_items = day.priorities.find { |d| d.id == params['collectionId'] }
     if priority_items.nil?
       priority_items = DailyItem.new({
-        'id' => params['collection'],
+        'id' => params['collectionId'],
         'items' => json
       })
       day.add_prioritie(priority_items)
     else
       # Update priority items and update the reference in the day
       priority_items.items = json
-      day.priorities.map! { |p| p.id == params['collection'] ? priority_items : p }
+      day.priorities.map! { |p| p.id == params['collectionId'] ? priority_items : p }
     end
     day.save!
 
@@ -252,9 +252,9 @@ class Api < Sinatra::Base
   #                     ITEM SPECIFIC DATE ENDPOINTS                          #
   #############################################################################
   # Get all dates for a specific item
-  get '/api/items/:item/dates' do
-    raise ListError::BadRequest, "Path must contain an item id." if params['item'].to_s.empty?
-    dates = Day.get_days_for_item(params['item'])
+  get '/api/items/:itemId/dates' do
+    raise ListError::BadRequest, "Path must contain an item id." if params['itemId'].to_s.empty?
+    dates = Day.get_days_for_item(params['itemId'])
 
     status 200
     body dates.to_json

@@ -12,7 +12,7 @@ class Api < Sinatra::Base
   # immediately instead of leaving a stale label on the board.
   #
   # Declared ABOVE the generated CRUD on purpose: Sinatra matches in definition order, and
-  # the generated GET /api/itemGroups/:id would otherwise swallow this path as an id.
+  # the generated GET /api/itemGroups/:itemGroupId would otherwise swallow this path as an id.
   get '/api/itemGroups/forMembers' do
     ids = params['ids'].to_s.split(',').reject(&:empty?)
     status 200

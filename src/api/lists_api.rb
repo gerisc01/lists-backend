@@ -7,13 +7,12 @@ require_relative 'helpers/api_helpers'
 class Api < Sinatra::Base
   register Sinatra::ListApiFramework
 
-  # Api Methods
-  generate_schema_crud_methods 'lists', List
-
-  put '/api/lists/:id' do
-    instance = List.get(id)
+  # Declared before the generated routes: the first matching route wins, and this update also
+  # strips a removed list template from the list's items.
+  put '/api/lists/:listId' do
+    instance = List.get(params['listId'])
+    raise ListError::NotFound, "List (#{params['listId']}) Not Found" if instance.nil?
     original_template_id = instance.template
-    raise ListError::NotFound, "List (#{id}) Not Found" if instance.nil?
     instance.merge!(get_json_payload(request))
     instance.validate
     instance.save!
@@ -27,6 +26,11 @@ class Api < Sinatra::Base
     status 200
     body instance.to_schema_object.to_json
   end
+
+  generate_schema_endpoint(:list, 'lists', List)
+  generate_schema_endpoint(:get, 'lists', List)
+  generate_schema_endpoint(:create, 'lists', List)
+  generate_schema_endpoint(:delete, 'lists', List)
 
   put '/api/lists/:listId/addItem/:itemId' do
     item = ItemGeneric.get(params['itemId'])

@@ -32,10 +32,10 @@ class Api < Sinatra::Base
   # `staged_week` the client is viewing (defaults to `period_start`) — the pile is read
   # per week, so an unstamped floating placement would show in no week at all. Returns
   # the persisted placement (with its new id) so the client can then bind/complete/skip/
-  # defer it via the existing /api/placements/:pid/* endpoints.
-  post '/api/items/:id/occurrences' do
+  # defer it via the existing /api/placements/:placementId/* endpoints.
+  post '/api/items/:itemId/occurrences' do
     json = JSON.parse(request.body.read)
-    placement = materialize_occurrence(params['id'], json['collection'], json['period_start'],
+    placement = materialize_occurrence(params['itemId'], json['collection'], json['period_start'],
                                        json['date'], json['staged_week'])
     status 200
     body placement.to_schema_object.to_json

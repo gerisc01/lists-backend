@@ -7,6 +7,7 @@ spending time on, and a week planner. Sinatra on Ruby 3.4.2, JSON files for stor
 |---|---|
 | [API.md](API.md) | every endpoint, for a client — refresh with `/api-docs` |
 | [SCHEMA.md](SCHEMA.md) | how types, validation, and storage come from the `ruby-schema` gem |
+| [STYLE_GUIDE.md](STYLE_GUIDE.md) | how code is shaped |
 | [PR_GUIDE.md](PR_GUIDE.md) | PR size and template |
 | [games-lists NEXT.md](../games-lists/NEXT.md) · [issues](https://github.com/gerisc01/games-lists/issues?q=label%3Abe) | what's next; the backlog is issues labelled `be` |
 

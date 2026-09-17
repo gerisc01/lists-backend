@@ -8,6 +8,7 @@ and the issue backlog for both repos.
 | [README.md](README.md) | run, test, how it works, where changes go |
 | [API.md](API.md) | every endpoint — generated; refresh with `/api-docs` |
 | [SCHEMA.md](SCHEMA.md) | what the `ruby-schema` gem generates for each type |
+| [STYLE_GUIDE.md](STYLE_GUIDE.md) | how code is shaped |
 | [PR_GUIDE.md](PR_GUIDE.md) | PR size and template |
 | `../games-lists/NEXT.md` | what's next — backlog is GitHub issues labelled `be` (`gh issue list -R gerisc01/games-lists -l be`) |
 
@@ -22,7 +23,8 @@ and the issue backlog for both repos.
   script's README.
 - **Always `bundle exec`.** A bare `rake` picks up the wrong Sinatra and every API test fails with
   `400 Host not permitted`.
-- Routes stay thin; logic lives in `src/actions/`.
+- Code follows [STYLE_GUIDE.md](STYLE_GUIDE.md): simple CRUD inline in routes, anything more in a
+  helper or action.
 
 ## How to write here
 
@@ -35,8 +37,6 @@ Applies to docs, plans, and options written in a session. Length is a cost.
 
 ## Tooling
 
-Being rebuilt (`../games-lists/NEXT.md` item 1, step 3).
-
 | Tool | Does |
 |---|---|
 | `test.sh` | run all tests, one file, or one test |
@@ -45,7 +45,7 @@ Being rebuilt (`../games-lists/NEXT.md` item 1, step 3).
 | `/review-pr` | style + comment + doc review on the branch diff; applies clear fixes, reports the rest |
 | `/comment-review` | audit comments on the branch diff (or a given path) against the code; keep/rewrite/cut, and suggest missing ones |
 | `/doc-review` | check whether the branch diff needs doc updates, and review docs against the code and the writing rules |
-| `/style-review` | old version — rebuilt once `STYLE_GUIDE.md` exists |
+| `/style-review` | check code structure on the branch diff (or a given path) against `STYLE_GUIDE.md` |
 | `/api-docs` | update `API.md` where it drifted from the handlers; `--full` regenerates |
 
 Doing something for the third time? Make it a script in `scripts/` or a skill in `.claude/skills/`,

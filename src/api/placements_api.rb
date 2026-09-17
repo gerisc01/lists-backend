@@ -4,7 +4,7 @@ require_relative '../actions/auto_archive'
 
 # Thin front doors over the placement primitives (assign_to_date / remove_from_date
 # / set_placement_priority), which are also registry-registered for composition —
-# same pattern as POST /api/items/:id/status. Each delegates to the primitive and
+# same pattern as POST /api/items/:itemId/status. Each delegates to the primitive and
 # returns the affected placement so the client can patch its cache.
 class Api < Sinatra::Base
   register Sinatra::ListApiFramework
@@ -12,13 +12,13 @@ class Api < Sinatra::Base
   # Weekly-planning range read: placements in a collection across a date range,
   # grouped by date → { "YYYY-MM-DD": [<placement>, ...] }. Replaces the legacy
   # Day-based GET /api/dates/:collection/items?start&end.
-  get '/api/collections/:id/placements' do
+  get '/api/collections/:collectionId/placements' do
     if params['start'].to_s.empty? || params['end'].to_s.empty?
       raise ListError::BadRequest, "Query parameters must contain 'start' and 'end' dates."
     end
     raise ListError::BadRequest, "'start' date must be before 'end' date." if params['start'] > params['end']
     status 200
-    body Placement.day_map_for_collection(params['id'], params['start'], params['end']).to_json
+    body Placement.day_map_for_collection(params['collectionId'], params['start'], params['end']).to_json
   end
 
   # Cross-collection weekly-planning range read (PR 8): placements across a SET of
@@ -86,16 +86,16 @@ class Api < Sinatra::Base
   end
 
   # Placements for one item (reverse lookup: "what days is this item on").
-  get '/api/items/:id/placements' do
-    placements = Placement.for_item(params['id'])
+  get '/api/items/:itemId/placements' do
+    placements = Placement.for_item(params['itemId'])
     status 200
     body placements.map(&:to_client_object).to_json
   end
 
   # Floating placements for a collection's staging pile (dayless). Full objects,
   # since binding one to a day is addressed by its placement id.
-  get '/api/collections/:id/placements/floating' do
-    placements = Placement.floating_for_collection(params['id'])
+  get '/api/collections/:collectionId/placements/floating' do
+    placements = Placement.floating_for_collection(params['collectionId'])
     status 200
     body placements.map(&:to_schema_object).to_json
   end
@@ -104,22 +104,22 @@ class Api < Sinatra::Base
   # "YYYY-MM-DD", "staged_week"?: "YYYY-MM-DD" }. With a date → a dated placement
   # (assign to a day); without one → a floating placement that lands in staging for
   # `staged_week` (the current week, so the weekly-plan pile scopes to it).
-  post '/api/items/:id/placements' do
+  post '/api/items/:itemId/placements' do
     json = JSON.parse(request.body.read)
     placement =
       if json['date'].to_s.empty?
-        create_floating_placement(params['id'], json['collection'], json['staged_week'], current_account_id)
+        create_floating_placement(params['itemId'], json['collection'], json['staged_week'], current_account_id)
       else
-        assign_to_date(params['id'], json['date'], json['collection'], current_account_id)
+        assign_to_date(params['itemId'], json['date'], json['collection'], current_account_id)
       end
     status 200
     body placement.to_schema_object.to_json
   end
 
   # Bind a placement to a day: floating -> dated. Body: { "date": "YYYY-MM-DD" }.
-  post '/api/placements/:pid/bind' do
+  post '/api/placements/:placementId/bind' do
     json = JSON.parse(request.body.read)
-    placement = bind_placement(params['pid'], json['date'])
+    placement = bind_placement(params['placementId'], json['date'])
     status 200
     body placement.to_schema_object.to_json
   end
@@ -129,9 +129,9 @@ class Api < Sinatra::Base
   # "completed"|"skipped"|null (null reopens); resolved_at and resolved_by are
   # server-stamped. assignee is an account id (null clears) and is independent of
   # who is making the request — you assign other people, not just yourself.
-  patch '/api/placements/:pid' do
+  patch '/api/placements/:placementId' do
     json = JSON.parse(request.body.read)
-    placement = update_placement(params['pid'], json, current_account_id)
+    placement = update_placement(params['placementId'], json, current_account_id)
     status 200
     body placement.to_schema_object.to_json
   end
@@ -139,9 +139,9 @@ class Api < Sinatra::Base
   # Defer a floating placement +1 week (design §4.4). Body: { "week_start":
   # "YYYY-MM-DD" } — the client's current-week start; the server computes the +1-week
   # not_before marker and stamps origin_date if absent.
-  post '/api/placements/:pid/defer' do
+  post '/api/placements/:placementId/defer' do
     json = JSON.parse(request.body.read)
-    placement = defer_placement(params['pid'], json['week_start'])
+    placement = defer_placement(params['placementId'], json['week_start'])
     status 200
     body placement.to_schema_object.to_json
   end
@@ -150,35 +150,35 @@ class Api < Sinatra::Base
   # /bind (design §4.4 "take it off the day"). Body: { "week_start": "YYYY-MM-DD" } —
   # the client's current-week start; the placement re-stages into that week. Clears any
   # resolution (a lapsed past-day card comes back open); preserves origin_date.
-  post '/api/placements/:pid/unbind' do
+  post '/api/placements/:placementId/unbind' do
     json = JSON.parse(request.body.read)
-    placement = refloat_placement(params['pid'], json['week_start'])
+    placement = refloat_placement(params['placementId'], json['week_start'])
     status 200
     body placement.to_schema_object.to_json
   end
 
   # Delete a placement outright (design §4.4 Delete). Id-addressed so it works on a
   # floating placement; removes the orphan board-born one-off item behind the shelf-home
-  # guard. Distinct from the item-addressed DELETE /api/items/:id/placements (dated).
-  delete '/api/placements/:pid' do
-    placement = delete_placement(params['pid'])
+  # guard. Distinct from the item-addressed DELETE /api/items/:itemId/placements (dated).
+  delete '/api/placements/:placementId' do
+    placement = delete_placement(params['placementId'])
     status 200
     body placement.to_schema_object.to_json
   end
 
   # Remove an item from a day. Body: { "collection": "<id>", "date": "YYYY-MM-DD" }.
-  delete '/api/items/:id/placements' do
+  delete '/api/items/:itemId/placements' do
     json = JSON.parse(request.body.read)
-    placement = remove_from_date(params['id'], json['date'], json['collection'])
+    placement = remove_from_date(params['itemId'], json['date'], json['collection'])
     status 200
     body(placement.nil? ? '{}' : placement.to_schema_object.to_json)
   end
 
   # Flag/unflag a dated placement as a priority (per-date cap enforced in the
   # primitive). Body: { "collection": "<id>", "date": "YYYY-MM-DD", "priority": true }.
-  post '/api/items/:id/placements/priority' do
+  post '/api/items/:itemId/placements/priority' do
     json = JSON.parse(request.body.read)
-    placement = set_placement_priority(params['id'], json['date'], json['collection'], json['priority'])
+    placement = set_placement_priority(params['itemId'], json['date'], json['collection'], json['priority'])
     status 200
     body placement.to_schema_object.to_json
   end

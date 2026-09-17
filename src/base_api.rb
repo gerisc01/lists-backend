@@ -21,7 +21,7 @@ class BaseApi < Sinatra::Base
   set :show_exceptions => :after_handler
 
   set :allow_origin, '*'
-  # PATCH is load-bearing: PATCH /api/placements/:pid is how a placement's resolution is
+  # PATCH is load-bearing: PATCH /api/placements/:placementId is how a placement's resolution is
   # written (complete / skip / reopen). Omitting it here let every browser preflight for
   # that route fail, so tap-to-complete and Skip silently did nothing on web while working
   # fine on native (no CORS) and in Jest (API mocked). Caught by the Playwright spine test.

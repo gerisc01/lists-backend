@@ -141,6 +141,32 @@ class ListApiTest < MinitestWrapper
     assert_nil Item.get('1').templates
   end
 
+  def test_list_update
+    put('/api/lists/a', {'name' => 'Renamed'}.to_json, {"Content-Type" => "application/json"})
+    assert_equal 200, last_response.status
+    assert_equal 'Renamed', List.get('a').name
+  end
+
+  def test_list_update_not_found_failure
+    put('/api/lists/NOT_FOUND', {'name' => 'Renamed'}.to_json, {"Content-Type" => "application/json"})
+    assert_equal 404, last_response.status
+  end
+
+  def test_list_update_removing_template_removes_it_from_items
+    @list2.template = @template
+    @list2.save!
+    ['1', '2'].each do |id|
+      item = ItemGeneric.get(id)
+      item.add_template(@template)
+      item.save!
+    end
+    put('/api/lists/b', {'template' => nil}.to_json, {"Content-Type" => "application/json"})
+    assert_equal 200, last_response.status
+    assert_nil List.get('b').template
+    assert_equal [], Item.get('1').templates
+    assert_equal [], Item.get('2').templates
+  end
+
   def test_list_with_template_add_and_remove_item
     @list.template = @template
     @list.save!

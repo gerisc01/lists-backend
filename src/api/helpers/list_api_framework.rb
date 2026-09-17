@@ -107,27 +107,35 @@ module Sinatra
 
   module ListApiFramework
 
+    # 'collection-groups' -> 'collectionGroupId'
+    def id_param_for(endpoint)
+      words = endpoint.split('-')
+      name = words.first + words.drop(1).map(&:capitalize).join
+      return "#{name.chomp('s')}Id"
+    end
+
     def generate_schema_endpoint(type, endpoint, clazz)
+      id_param = id_param_for(endpoint)
       case type
       when :list
         get "/api/#{endpoint}" do
           schema_endpoint_list(clazz, params['since'])
         end
       when :get
-        get "/api/#{endpoint}/:id" do
-          schema_endpoint_get(clazz, params['id'], params['since'])
+        get "/api/#{endpoint}/:#{id_param}" do
+          schema_endpoint_get(clazz, params[id_param], params['since'])
         end
       when :create
         post "/api/#{endpoint}" do
           schema_endpoint_create(clazz, request)
         end
       when :update
-        put "/api/#{endpoint}/:id" do
-          schema_endpoint_update(clazz, params['id'], request)
+        put "/api/#{endpoint}/:#{id_param}" do
+          schema_endpoint_update(clazz, params[id_param], request)
         end
       when :delete
-        delete "/api/#{endpoint}/:id" do
-          schema_endpoint_delete(clazz, params['id'])
+        delete "/api/#{endpoint}/:#{id_param}" do
+          schema_endpoint_delete(clazz, params[id_param])
         end
       else
         raise "Error generating endpoint; Unknown endpoint type '#{type}'."

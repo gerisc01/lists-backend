@@ -14,7 +14,7 @@ class Api < Sinatra::Base
     body new_account.to_schema_object.to_json
   end
 
-  get '/api/accounts/:account_id' do
+  get '/api/accounts/:accountId' do
     # Authenticate the user because the /accounts endpoint isn't protected by default
     # copy/paste from api.rb protected block
     account_header = request.env['HTTP_ACCOUNT_ID']&.split(' ')&.last
@@ -23,13 +23,13 @@ class Api < Sinatra::Base
       halt 401, {'error' => 'Unauthorized', 'message' => 'Invalid API key' }.to_json
     end
     # end copy/paste
-    account = Account.get(params['account_id'])
-    raise ListError::NotFound, "Account '#{params['account_id']}' not found." if account.nil?
+    account = Account.get(params['accountId'])
+    raise ListError::NotFound, "Account '#{params['accountId']}' not found." if account.nil?
     status 200
     body account.to_schema_object.to_json
   end
 
-  put '/api/accounts/:account_id' do
+  put '/api/accounts/:accountId' do
     # Authenticate the user because the /accounts endpoint isn't protected by default
     # copy/paste from api.rb protected block
     account_header = request.env['HTTP_ACCOUNT_ID']&.split(' ')&.last
@@ -38,8 +38,8 @@ class Api < Sinatra::Base
       halt 401, {'error' => 'Unauthorized', 'message' => 'Invalid API key' }.to_json
     end
     # end copy/paste
-    account = Account.get(params['account_id'])
-    raise ListError::NotFound, "Account '#{params['account_id']}' not found." if account.nil?
+    account = Account.get(params['accountId'])
+    raise ListError::NotFound, "Account '#{params['accountId']}' not found." if account.nil?
     account.merge!(JSON.parse(request.body.read))
     account.validate
     account.save!
@@ -47,7 +47,7 @@ class Api < Sinatra::Base
     body account.to_schema_object.to_json
   end
 
-  delete '/api/accounts/:account_id' do
+  delete '/api/accounts/:accountId' do
     # Authenticate the user because the /accounts endpoint isn't protected by default
     # copy/paste from api.rb protected block
     account_header = request.env['HTTP_ACCOUNT_ID']&.split(' ')&.last
@@ -56,8 +56,8 @@ class Api < Sinatra::Base
       halt 401, {'error' => 'Unauthorized', 'message' => 'Invalid API key' }.to_json
     end
     # end copy/paste
-    account = Account.get(params['account_id'])
-    raise ListError::NotFound, "Account '#{params['account_id']}' not found." if account.nil?
+    account = Account.get(params['accountId'])
+    raise ListError::NotFound, "Account '#{params['accountId']}' not found." if account.nil?
     account.delete! unless account.nil?
     status 204
   end
