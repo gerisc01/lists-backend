@@ -8,11 +8,7 @@ require_relative '../../src/actions/auto_archive'
 require_relative '../../src/actions/delete_placement'
 require_relative '../../src/actions/reconcile'
 
-# An INSTANCE's shelf home is its PARENT's. A playthrough lives in no list — only the
-# game does — so a bare id check read every run as board-born, exactly the way it read
-# every group member before 0074. The sibling of group_member_shelf_home_test, and the
-# same four doors: this pins the two that actually bite, plus the composed case (a run of
-# a game that is itself a group member), which is where the loose end was found.
+# An instance's shelf home is its parent's, including when the parent is a group member.
 class InstanceShelfHomeTest < MinitestWrapper
 
   AS_OF = '2026-07-29'   # a Wednesday
@@ -68,10 +64,7 @@ class InstanceShelfHomeTest < MinitestWrapper
     assert_nil Placement.get(p.id).resolution
   end
 
-  # Rollover, simulated rather than waited for. A run staged and never played is left in
-  # the pile when the week turns: the PLACEMENT is released like any shelf item's, and the
-  # run survives untouched — open, unstarted, and still the one staging will find next
-  # week. Releasing it is what stops an unplayed week from silently becoming a played one.
+  # At rollover the staged placement is released and the run stays open and unstarted.
   def test_a_run_left_in_the_pile_is_released_at_rollover_and_survives
     shelf_list(['kh'])
     p = Placement.new({
@@ -91,9 +84,6 @@ class InstanceShelfHomeTest < MinitestWrapper
     assert_equal 'want-to', Item.get('kh').json['status']
   end
 
-  # The dated half of the same rollover: a session on a day that is now a week behind is
-  # left exactly as it was — no resolution written. A shelf item's past days are the
-  # record of the week, not a backlog to clear.
   def test_a_past_weeks_session_is_left_alone_at_rollover
     shelf_list(['kh'])
     p = dated('run', PASTDAY)
@@ -106,8 +96,6 @@ class InstanceShelfHomeTest < MinitestWrapper
     refute_nil Placement.get(p.id).date
   end
 
-  # Remove on the last session used to delete the run itself, taking its start date and
-  # its place in the ledger with it.
   def test_removing_a_runs_last_placement_keeps_the_run
     shelf_list(['kh'])
     p = dated('run', PASTDAY)

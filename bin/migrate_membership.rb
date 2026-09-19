@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # Migrate a data directory from account-held membership to collection-held membership,
-# and from prefs-blob boards to stored collection groups (decisions 0085, 0086, 0087).
+# and from boards in account prefs to stored collection groups.
 #
 #   account.collections[]            -> collection.members[]
 #   collection.attributes.members    -> collection.members[]     (promoted out of attributes)
@@ -11,9 +11,8 @@
 # this migrates. It also has to run against inert checkpoint folders, which are attached to
 # no storage env var at all.
 #
-# 0087 specifies the union: where `account.collections` and `attributes.members` disagree,
-# take BOTH and log it. Under-granting locks someone out of their own data, and there are
-# few enough accounts to inspect the disagreements by hand.
+# Where `account.collections` and `attributes.members` disagree, it takes both and logs it:
+# under-granting would lock someone out of their own data.
 #
 # Safe by default: DRY RUN (no writes), prints what it would do. Pass --apply to write.
 # Idempotent — a migrated directory re-runs as zero changes.
@@ -73,8 +72,7 @@ collections.each do |cid, collection|
   from_attrs    = (collection.dig('attributes', 'members') || [])
   existing      = (collection['members'] || [])
 
-  # 0087's union, in the order that reads best in the file: existing first, then the two
-  # legacy sources.
+  # Existing members first, then the two old sources.
   members = (existing + from_attrs + from_accounts).uniq
 
   dangling = members.reject { |aid| accounts.key?(aid) }
@@ -135,8 +133,7 @@ if !drop_boards
       board_conversions += 1
       puts "#{apply ? 'created' : 'would create'} collection group #{gid} (#{board['name']}) for account #{account_id}"
 
-      # The pad is granted WITH the group (0085), so it needs the holder on it or its
-      # owner cannot read back their own one-offs.
+      # Adds the holder to the board's one-off collection so they can still read it.
       pad = collections[board['one_off_collection']]
       if board['one_off_collection'] && pad.nil?
         warns << "board '#{gid}': one_off_collection #{board['one_off_collection']} does not exist"
@@ -146,8 +143,7 @@ if !drop_boards
         puts "#{apply ? 'granted' : 'would grant'} pad #{board['one_off_collection']} to #{account_id}"
       end
 
-      # active_board follows the id if a collision renamed it. Which board you are LOOKING
-      # at stays a personal pref and stays on the account (0085).
+      # active_board stays in account prefs; it follows the id if a collision renamed it.
       if account.dig('attributes', 'active_board') == board['id'] && gid != board['id']
         account['attributes']['active_board'] = gid
       end

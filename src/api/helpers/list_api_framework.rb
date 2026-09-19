@@ -5,27 +5,14 @@ module Sinatra
 
   module ListApiUtils
 
-    # The authenticated account's id, for routes that need to record WHO acted (the
-    # placement's resolved_by). `protected!` in base_api.rb proves the header names a
-    # real account and then throws it away, so this re-reads it rather than threading
-    # state through the filter. It lives here, not beside `protected!`, because the
-    # test harness builds its own trimmed `Api` without base_api.rb's helpers — a
-    # route that reached for it there would 500 under test and work in production.
-    # Returns nil wherever authentication is skipped (account creation, e2e).
+    # Here rather than beside protected!, which test/test-api.rb doesn't load. nil where auth is
+    # skipped (account creation, e2e, tests).
     def current_account_id
       return request.env['HTTP_ACCOUNT_ID']&.split(' ')&.last
     end
 
-    # The membership filter behind every "what is there" read (0087). Applied to
-    # collections and collection groups — the two units of trust.
-    #
-    # NO account, no scoping. `current_account_id` is nil exactly where authentication
-    # is skipped (the e2e harness, the trimmed test API), and those paths need to see
-    # the store they just wrote. Under `protected!` a request always names a real
-    # account, so the open path is not reachable in production.
-    # `also_granted` names ids that are reachable WITHOUT carrying the account in their
-    # own roster — access derived from somewhere else rather than declared here. A board's
-    # one-off collection is the only such case today (0090); see collections_api.rb.
+    # Unfiltered when there's no account (e2e, tests). `also_granted` ids pass without the account
+    # in their `members`.
     def members_only(records, also_granted: [])
       account_id = current_account_id
       return records if account_id.nil?

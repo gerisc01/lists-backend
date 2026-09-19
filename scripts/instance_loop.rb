@@ -94,9 +94,7 @@ check('placement points at an instance, not the game', first['item_id'] != game[
 instance_id = first['item_id']
 
 card = pile(collection['id'], W1).first
-# THE CANARY. If either of these is wrong the card renders the instance's name and lands
-# in the One-offs pile instead of Games — the whole substitution failing in the one place
-# you would actually see it.
+# If either is wrong, the card shows the instance's name under One-offs instead of Games.
 check('card resolves identity back to the game', card['catalog_item_id'], game['id'])
 check('card is NOT flagged a one-off', card['one_off'], false)
 

@@ -1,13 +1,9 @@
 #!/usr/bin/env ruby
-# Backfill first-class Placements from existing Day/DailyItem data (PR 5a, design
-# refactor). Each (item, date, collection) assignment in a Day becomes a dated
-# Placement (floating:false); each Day.priorities entry sets priority:true on that
-# placement. See docs/DECISIONS.md "Placement is a first-class type".
+# Backfill Placements from Day/DailyItem data. Each (item, date, collection) in a Day becomes a dated
+# Placement; each Day.priorities entry sets priority:true on it.
 #
-# Additive + idempotent: placements SHADOW Day in 5a (nothing user-facing reads
-# them yet), and re-running creates nothing new — Placement.find_dated dedupes on
-# the (item, date, collection) triple. The per-date priority cap is NOT enforced
-# here: the backfill carries existing reality; the cap guards only new writes.
+# Idempotent: Placement.find_dated dedupes on the triple. The per-date priority cap isn't enforced,
+# so existing data carries over as is.
 #
 # Safe by default: DRY RUN (no writes), prints what it would do. Pass --apply to
 # write. Target store follows the usual env vars (default = data/).

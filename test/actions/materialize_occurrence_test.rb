@@ -5,10 +5,7 @@ require_relative '../../src/type/placement'
 require_relative '../../src/actions/materialize_occurrence'
 require_relative '../../src/actions/occurrences'
 
-# PR 13 — the "touch => real" seam. Materializing a ghost persists a Placement stamped
-# origin_date = period_start (the occurrence's due-week), which both makes it idempotent
-# and makes occurrences.rb stop emitting the ghost — even when bound to a day in a later
-# week (the carried case). Weeks are Mondays so the grid/phase is explicit.
+# Weeks are Mondays.
 class MaterializeOccurrenceTest < MinitestWrapper
 
   W2 = '2026-07-20'   # a due-week (the ghost's period_start)

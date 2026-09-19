@@ -6,8 +6,6 @@ require_relative '../../src/type/collection'
 require_relative '../../src/type/collection_group'
 require_relative '../../src/type/account'
 
-# The board, as the backend sees it (0085): a named ordered set of collection refs with
-# its own membership. Nothing here knows it is a planner.
 class CollectionGroupsApiTest < MinitestWrapper
   include Rack::Test::Methods
 
@@ -60,7 +58,6 @@ class CollectionGroupsApiTest < MinitestWrapper
     assert_equal ['work'], JSON.parse(last_response.body).map { |g| g['id'] }
   end
 
-  # Sharing is one write, to the thing being shared (0087).
   def test_sharing_a_group_is_a_write_to_the_group
     as('acct_a', :post, '/api/collection-groups', group_payload)
     as('acct_a', :put, '/api/collection-groups/household',
@@ -70,10 +67,7 @@ class CollectionGroupsApiTest < MinitestWrapper
     assert_equal ['household'], JSON.parse(last_response.body).map { |g| g['id'] }
   end
 
-  # The lens grants nothing. B holds the group and still cannot see the collections it
-  # NAMES — the client renders those as "no access" rows rather than dropping them
-  # silently. Its one-off collection is the single exception (0085, 0090): that one has no
-  # life apart from the group, so holding the group is the only way anyone reaches it.
+  # Holding a group grants its one-off collection and nothing else it names.
   def test_holding_a_group_grants_only_its_one_off_collection
     as('acct_a', :post, '/api/collection-groups', group_payload('members' => %w[acct_a acct_b]))
 

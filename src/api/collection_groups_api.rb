@@ -5,9 +5,7 @@ require_relative 'helpers/list_api_framework'
 class Api < Sinatra::Base
   register Sinatra::ListApiFramework
 
-  # Scoped LIST, then generated everything else — the same split collections make, and
-  # for the same reason: a list read is the one place membership has to be enforced,
-  # because it is the only read that answers "what is there".
+  # Only the list read filters by membership; the rest are generated.
   get '/api/collection-groups' do
     groups = CollectionGroup.list.reject { |g| g.json['deleted'] }
     groups = members_only(groups)

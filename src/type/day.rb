@@ -33,7 +33,7 @@ class Day
   ]
   apply_schema schema
 
-  # Remove the old validate method and apply the new one that validates the schema and templates
+  # Replaces the gem's validate to also validate each DailyItem.
   remove_method :validate if method_defined? :validate
   def validate
     self.class.schema.validate(self)

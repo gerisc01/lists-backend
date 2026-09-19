@@ -7,20 +7,11 @@ require_relative './collection'
 require_relative './resolution'
 require_relative './scheduling'
 
-# A Placement is one instance of an item being planned on a day (or floating,
-# dayless, in staging). It REFERENCES the catalog item by id — never a copy — so
-# one catalog item can carry many placements (multi-session, split-across-days)
-# and edits/roll-up flow through. See docs/DECISIONS.md: "Placement is a first-class
-# type (floating<->dated behind one flag); Day/DailyItem become a derived read".
-#
-# Floating vs dated is one flag on one entity: a floating placement has `date` nil
-# and `floating` true; binding is simply "set date, clear floating" (PR 5c).
-# `priority` folds in Day.priorities — a priority is just a dated placement that's
-# flagged; the per-date cap is enforced by the set-priority primitive, not here.
+# One planned session of an item, on a day or floating in staging. It points at the item by id,
+# so one item can have many placements.
 class Placement
 
-  # Max flagged priorities per date (preserves the old per-day priorities cap that
-  # a bounded Day.priorities array gave for free). Enforced in set_placement_priority.
+  # Enforced in set_placement_priority, not by the schema.
   MAX_PRIORITIES_PER_DATE = 3
 
   schema = Schema.new
@@ -29,99 +20,51 @@ class Placement
   schema.storage = TypeStorage.global_storage
   schema.accessors = [:get, :list, :exist?, :save!, :delete!]
   schema.fields = [
-    # References, validated to exist at the type level via type_ref. (The action.rb
-    # lazy-require fix keeps this from being a load-order cycle — see action.rb.)
     {:key => 'item_id', :required => true, :type => Item, :type_ref => true, :display_name => 'Item'},
     {:key => 'collection_id', :required => true, :type => Collection, :type_ref => true, :display_name => 'Collection'},
-    # Placement location: a date (YYYY-MM-DD) OR floating (dayless). `date` nil +
-    # `floating` true = floating; a date + `floating` false = dated.
+    # Floating: `date` nil and `floating` true. Dated: a date and `floating` false.
     {:key => 'date', :required => false, :type => SchemaType::Date, :display_name => 'Date'},
     {:key => 'floating', :required => false, :type => SchemaType::Boolean, :display_name => 'Floating'},
-    # A flagged (priority) placement — folds in Day.priorities.
     {:key => 'priority', :required => false, :type => SchemaType::Boolean, :display_name => 'Priority'},
-    # How this instance was closed — `completed` | `skipped`, enforced by the
-    # Resolution type; ABSENT = open (no sentinel). `resolved_at` is server-stamped
-    # when a resolution is set (mirroring set_status's timestamp). A third,
-    # `resolved?` is the predicate over it,
-    # not stored. See docs/DECISIONS.md "placement resolution = completed|skipped".
+    # Absent means open. `resolved_at` and `resolved_by` are stamped when it's written.
     {:key => 'resolution', :required => false, :type => Resolution, :display_name => 'Resolution'},
     {:key => 'resolved_at', :required => false, :type => String, :display_name => 'Resolved At'},
-    # WHO closed this instance — an account id, server-stamped from the request's
-    # authenticated account alongside `resolved_at` and cleared on reopen. Never
-    # client-supplied. Absent on every placement resolved before this field existed,
-    # and on a resolution written without an account header, so a reader must treat
-    # "unknown" as ordinary rather than as an error.
+    # The assignee at resolution, else the caller's account. Often absent — older rows, no header.
     {:key => 'resolved_by', :required => false, :type => String, :display_name => 'Resolved By'},
-    # The ORIGINAL date this placement was first bound to — immutable, stamped on
-    # first dating and never overwritten when carry-forward re-floats it. The
-    # "carried N weeks" count (§4.4) is *derived* from this (elapsed weeks since
-    # origin), never a stored counter, so the hourly reconcile trigger is idempotent.
+    # The first date it was bound to (or an occurrence's due week); never overwritten. "Carried N
+    # weeks" is computed from it.
     {:key => 'origin_date', :required => false, :type => SchemaType::Date, :display_name => 'Origin Date'},
-    # The "not before week X" marker (legacy Defer, design §4.4). VESTIGIAL as of the
-    # weekly-plan reframe (docs/DECISIONS.md): staged_week is now the single week
-    # anchor and Defer moves it forward, so nothing writes not_before anymore. Field
-    # kept so old rows validate; safe to drop in a later cleanup.
+    # Nothing writes this; declared so stored rows that have it still validate.
     {:key => 'not_before', :required => false, :type => SchemaType::Date, :display_name => 'Not Before'},
-    # The week (Monday week-start, YYYY-MM-DD) a FLOATING placement is staged into
-    # (docs/DECISIONS.md "Weekly planning is a weekly PLAN"). The planner is a lean
-    # weekly plan, not a weekless backlog: the staging pile reads only placements
-    # whose staged_week == the visible week. Stamped on stage (current week),
-    # re-stamped on re-stage, and moved +1 week by Defer. Irrelevant once dated (a
-    # dated placement is scoped by its date). reconcile releases placements whose
-    # staged_week is behind the current week.
+    # The week start a floating placement is staged into; the pile shows only the visible week's.
+    # Ignored once dated.
     {:key => 'staged_week', :required => false, :type => SchemaType::Date, :display_name => 'Staged Week'},
     {:key => 'time_cost', :required => false, :type => Integer, :display_name => 'Time Cost'},
     {:key => 'note', :required => false, :type => String, :display_name => 'Note'},
-    # WHO is doing this instance — an account id, absent when nobody has claimed it.
-    # Per-INSTANCE on purpose: a chore two people alternate weeks on would otherwise
-    # overwrite one field forever, losing whose turn each week was. Assignment is a
-    # display and planning axis, never a permission one — an assignee restricts
-    # nothing, and everyone in the collection stays a peer (design §6.1).
+    # An account id. Display only; it restricts nothing.
     {:key => 'assignee', :required => false, :type => String, :display_name => 'Assignee'},
   ]
   apply_schema schema
 
-  # ── Resolution (per design §2.3/§4.4) ────────────────────────────────────────
-  # Is this placement closed? Only an explicit resolution (completed/skipped/lapsed)
-  # closes one. Nothing is ever resolved by the passage of time.
-  #
-  # It used to take `(item, as_of_date:)` because a past *event* resolved by derivation
-  # while a past *task* did not. The event kind is gone (decision 0076) and with it the
-  # only reason this was ever more than a nil check — but the name stays, because
-  # auto_archive and reconcile both read it and "is this closed" is the question they ask.
   def resolved?
     !resolution.nil?
   end
 
-  # A dated placement whose day is fully past (strictly before as_of_date — the
-  # "day is over" boundary; the same day is still live). Floating placements have
-  # no day, so they are never "past".
+  # Strictly before as_of_date; a floating placement is never past.
   def past?(as_of_date)
     return !date.nil? && date < as_of_date
   end
 
-  # The CATALOG item this placement belongs to. `item_id` may name an INSTANCE child —
-  # one playthrough of a game — in which case identity (the name on the card, the tags,
-  # whether it has a list home) belongs to the parent, while the placement itself is
-  # correctly addressed to the instance.
-  #
-  # DERIVED on every read from item.parent rather than stored as a second pointer on the
-  # placement. Two stored pointers to the same relationship can drift apart; one cannot.
+  # `item_id` may be an instance (one playthrough); this is the item the card is about.
   def catalog_item_id
     item = Item.get(item_id)
     return item_id if item.nil?
     return item.parent.nil? ? item_id : item.parent
   end
 
-  # The client-facing shape: the stored placement plus the derived identity above. Every
-  # read that a card renders from goes through this, so no caller has to know that
-  # `item_id` might name an instance.
   def to_client_object
     return to_schema_object.merge('catalog_item_id' => catalog_item_id)
   end
-
-  # ── Queries (indexed by date and by item; scans the store, which is fine at this
-  # app's scale — a sole-user planner) ────────────────────────────────────────────
 
   def self.for_item(item_id)
     return self.list.select { |p| p.item_id == item_id }
@@ -131,12 +74,7 @@ class Placement
     return self.list.select { |p| p.date == date }
   end
 
-  # Floating (dayless) placements for one collection — the staging pile for that
-  # collection. Returns full placements (not just item_ids) because binding one to
-  # a day is addressed by its placement id. Orphaned placements (whose item was
-  # deleted out from under them) are excluded: a placement is only real if its item
-  # still exists — `Item.get` returns nil for a soft-deleted item. reconcile prunes
-  # the dead rows for good; this read keeps them out until it does.
+  # Skips placements whose item was deleted (`Item.get` is nil); reconcile removes them later.
   def self.floating_for_collection(collection_id)
     return self.list.select do |p|
       p.collection_id == collection_id && p.floating == true && p.date.nil? &&
@@ -144,16 +82,7 @@ class Placement
     end
   end
 
-  # Floating (dayless) placements across a SET of collections for ONE week — the
-  # cross-collection staging pile (PR 8), now week-scoped (docs/DECISIONS.md "Weekly
-  # planning is a weekly PLAN"). Returns only placements staged for `week_start` and
-  # still OPEN (resolution nil): the planner is this-week's plan, so other weeks and
-  # resolved placements don't surface. Deferred placements appear for free — Defer
-  # just moves staged_week forward, so they match once their week arrives. One scan;
-  # the caller groups by collection_id. Same orphan-exclusion guard as before.
-  #
-  # `week_start` may be nil, in which case the scan falls back to all floating
-  # placements (legacy/unfiltered) — callers that own a week always pass one.
+  # Open placements only. A nil `week_start` returns every week's.
   def self.floating_for_collections(collection_ids, week_start = nil)
     return self.list.select do |p|
       collection_ids.include?(p.collection_id) && p.floating == true && p.date.nil? &&
@@ -167,16 +96,13 @@ class Placement
     return self.list.select { |p| !p.date.nil? && p.date >= start_date && p.date <= end_date }
   end
 
-  # The one dated placement for (item, date, collection), if any. Assignment is
-  # idempotent on this triple.
+  # assign_to_date keeps this triple unique.
   def self.find_dated(item_id, date, collection_id)
     return self.list.find do |p|
       p.item_id == item_id && p.date == date && p.collection_id == collection_id
     end
   end
 
-  # The weekly-planning range read: { date => [placements] } for one collection across
-  # a date range. Replaces the legacy Day-based GET /api/dates/:collection/items.
   def self.day_map_for_collection(collection_id, start_date, end_date)
     result = Hash.new { |h, k| h[k] = [] }
     for_date_range(start_date, end_date).each do |p|
@@ -185,15 +111,7 @@ class Placement
     return result
   end
 
-  # The cross-collection weekly-planning range read (PR 8): { date => [placements] }
-  # across a SET of collections. Keeps a placement's source collection provenance —
-  # a card bound from any staged collection stays on the mixed grid.
-  #
-  # Returns FULL placement objects, not bare item_ids: the grid renders placements,
-  # and needs both the id (to address a resolution write — "I did this") and the
-  # resolution itself (a completed card stays on the day struck through, rather than
-  # vanishing). Unlike the floating pile read, resolved placements are NOT filtered
-  # out here — the week's board doubles as the record of what got done.
+  # Includes resolved placements, unlike the floating pile: the grid shows them struck through.
   def self.day_map_for_collections(collection_ids, start_date, end_date)
     result = Hash.new { |h, k| h[k] = [] }
     for_date_range(start_date, end_date).each do |p|
@@ -202,26 +120,8 @@ class Placement
     return result
   end
 
-  # WHO is currently on the hook for each item across a SET of collections, as
-  # { catalog_item_id => account_id } — the catalog's answer to the question the board
-  # asks per occurrence. Only items whose applicable occurrence NAMES somebody appear:
-  # an unclaimed occurrence resolves to the item's owner, which the client already
-  # holds on the item, so an entry for it would say nothing.
-  #
-  # WHICH occurrence applies mirrors the details screen's departures list exactly — the
-  # rule lives here now, and the client reads this instead of re-deriving it:
-  #
-  #   open ones exist  => the soonest that names somebody. The plan is the answer, and a
-  #                       dateless (floating) one sorts after every dated one. If no open
-  #                       occurrence names anybody, the answer is the OWNER — so nothing
-  #                       is returned, and a resolved one never speaks over a live plan.
-  #   none, recurring  => nothing. The rule will emit a fresh, unclaimed occurrence, and
-  #                       last week's name is not a claim on next week's.
-  #   none, one-off    => the last resolved one. They did it, and that is still the most
-  #                       recent thing anyone knows about who does this.
-  #
-  # Keyed by CATALOG item, not item_id: a placement may address an instance child (one
-  # playthrough of a game) while the card rendering this is the parent's.
+  # { catalog_item_id => account_id }, only for items whose applicable placement names someone;
+  # otherwise the client falls back to `item.owner`.
   def self.current_assignees_for_collections(collection_ids)
     in_scope = self.list.select { |p| collection_ids.include?(p.collection_id) }
     return in_scope.group_by(&:catalog_item_id).each_with_object({}) do |(item_id, placements), result|
@@ -230,7 +130,7 @@ class Placement
     end
   end
 
-  # The three-way rule above, for one item's placements.
+  # Open placements → the soonest assignee. None open → nil if recurring, else the last resolved.
   def self.applicable_assignee(item_id, placements)
     open = placements.reject(&:resolved?)
     return soonest_assignee(open) if open.any?
@@ -239,8 +139,7 @@ class Placement
     return last_resolved(placements)&.assignee
   end
 
-  # The first named assignee in plan order. A floating placement has no day, so it
-  # sorts last rather than reading as "today".
+  # Floating placements sort after dated ones.
   def self.soonest_assignee(placements)
     return placements.sort_by { |p| [p.date.nil? ? 1 : 0, p.date.to_s] }
               .map(&:assignee)
@@ -248,19 +147,13 @@ class Placement
               .first
   end
 
-  # Ordered by when it was CLOSED, not by its date: something completed late is still
-  # the most recent answer. Falls back to the date for rows stamped before resolved_at
-  # existed, and breaks a tie on the date — two things resolved in the same second is
-  # the ordinary case for a batch of catch-up ticks, and the later day is the later
-  # answer.
+  # By resolved_at (the date when it's missing), then by date — a batch of ticks shares a second.
   def self.last_resolved(placements)
     return placements.select(&:resolved?)
               .max_by { |p| [p.resolved_at.to_s.empty? ? p.date.to_s : p.resolved_at.to_s, p.date.to_s] }
   end
 
-  # A Day-shaped view derived from placements: { collection_id => [item_ids] } for a
-  # date, plus the flagged (priority) subset. This is what lets Day/DailyItem become
-  # a derived read — PR 5a proves it matches the legacy Day read; 5b cuts over to it.
+  # The placements for a date in the shape of a `Day` record.
   def self.day_view(date)
     items = Hash.new { |h, k| h[k] = [] }
     priorities = Hash.new { |h, k| h[k] = [] }

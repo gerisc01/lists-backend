@@ -6,7 +6,7 @@ require_relative '../../type/item_generic'
 module ApiHelpers
 
   def self.convert_item_ids_to_items(item_ids)
-    # Start with a hash to avoid duplicates, then convert to an array before returning
+    # Keyed by id to drop duplicates.
     items = {}
 
     items_to_retrieve = item_ids.dup
@@ -24,15 +24,8 @@ module ApiHelpers
     return items.values
   end
 
-  # A list read pulls in the items a list member DEPENDS ON to render — its group
-  # children, which are ordinary list members themselves.
-  #
-  # `children` is deliberately NOT followed. It holds INSTANCES (see
-  # resolve_open_instance.rb, the only writer), and an instance is not a member of any
-  # list: it is list-free by design, carrying its own template instead. Returning them
-  # here leaked every playthrough into the staging picker, where a completed run could be
-  # staged as though it were a thing you do. The ledger loads its own children by id
-  # (Instances.js) precisely so that list reads do not have to carry them.
+  # A group's members only. `children` are instances, which belong to no list; the frontend loads
+  # them by id (Instances.js).
   def self.get_related_ids(item)
     related_ids = []
     if item.respond_to?(:group) && !item.group.nil?

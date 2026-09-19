@@ -1,10 +1,6 @@
 #!/usr/bin/env ruby
-# Backfill lifecycle `status` onto existing items (PR 1, design refactor).
-#
-# Minimal + idempotent: the only state worth migrating is the legacy `completed`
-# boolean, so items with `completed: true` get `status: 'completed'`. Everything
-# else is left alone — Item#initialize defaults absent status to `want-to` on read,
-# so there's no need to rewrite untouched records.
+# Sets `status: 'completed'` on items with `completed: true`. Idempotent. Other items are left alone:
+# Item#initialize defaults a missing status to want-to.
 #
 # Safe by default: runs as a DRY RUN (no writes) and prints what it *would* change.
 # Pass --apply to actually write. Target store follows the usual env vars

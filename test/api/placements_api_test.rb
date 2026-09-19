@@ -143,7 +143,7 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 400, last_response.status
   end
 
-  # ── Floating placements + bind (5c) ─────────────────────────────────────────
+  # ── Floating placements + bind ─────────────────────────────────────────
 
   WEEK = '2026-07-27'         # a Monday — a valid staged_week
   NEXT_WEEK = '2026-08-03'    # the following Monday
@@ -165,10 +165,7 @@ class PlacementsApiTest < MinitestWrapper
     refute_nil p['id']
   end
 
-  # A GROUP is one row in a list but never carries a placement — a Placement's item_id
-  # always names an Item. Staging one stages the member you'd actually pick up, so the
-  # pile ends up holding "Yakuza 3", not "the Yakuza series". This used to 404, because
-  # the guard was Item.exist? and a group lives in its own store.
+  # A placement can't point at a group, so staging one stages its next member.
   def test_staging_a_group_stages_its_next_member
     Item.get('i1').tap { |it| it.json['status'] = 'completed'; it.save! }
     ItemGroup.new({'id' => 'g1', 'name' => 'Yakuza series', 'group' => %w[i1 i2]}).save!
@@ -253,7 +250,7 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 'i1', floating.first['item_id']
   end
 
-  # ── Cross-collection staging pile + mixed grid (PR 8) ───────────────────────
+  # ── Cross-collection staging pile + mixed grid ───────────────────────
 
   def test_cross_collection_floating_read_spans_the_requested_set
     Collection.new({'id' => 'c2', 'name' => 'Two'}).save!
@@ -282,9 +279,7 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal true, one_off['i2']
   end
 
-  # A staged group MEMBER is not board-born: only the group id sits in `list.items`, so
-  # the naive check read every member as homeless and the pile bucketed it under
-  # "One-offs" instead of its own collection.
+  # Only the group id is in `list.items`; its members still aren't one-offs.
   def test_a_staged_group_member_is_not_flagged_one_off
     ItemGroup.new({'id' => 'g1', 'name' => 'Pegboard', 'group' => %w[i1 i2]}).save!
     List.new({'id' => 'l1', 'name' => 'Shelf', 'items' => ['g1']}).save!
@@ -317,9 +312,7 @@ class PlacementsApiTest < MinitestWrapper
     assert map[DATE].all? { |p| p['id'] && p['collection_id'] }, 'each entry is a full placement'
   end
 
-  # The grid addresses a placement by id to write "I did this", and renders a resolved
-  # card struck through in place — so the range read must carry both, and must NOT
-  # filter resolved placements the way the floating pile read does.
+  # Unlike the floating pile, the range read keeps resolved placements.
   def test_cross_collection_range_read_carries_id_and_resolution_and_keeps_resolved
     assign('i1')
     pid = JSON.parse(last_response.body)['id']
@@ -420,8 +413,7 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 400, last_response.status
   end
 
-  # resolved_by records who the PLAN said would do it, not who tapped (0084): the
-  # person closing a chore is routinely not the person who did it.
+  # resolved_by is the assignee, not whoever made the request.
   def test_resolution_stamps_the_assignee_not_the_acting_account
     %w[acct_a acct_b].each { |id| Account.new({'id' => id, 'name' => id}).save! }
     stage('i1')
@@ -443,8 +435,6 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 'acct_b', reopened['assignee']
   end
 
-  # An unassigned placement resolves to its item's owner (0083), so the stamp follows
-  # the same fallback everything else reads through.
   def test_resolution_falls_back_to_the_items_owner
     %w[acct_a acct_b].each { |id| Account.new({'id' => id, 'name' => id}).save! }
     item = Item.get('i1')
@@ -634,7 +624,7 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal({}, current)
   end
 
-  # ── Auto-archive one-offs when all placements resolve (PR 6 + PR 9) ──────────
+  # ── Auto-archive one-offs when all placements resolve ──────────
 
   def resolve(pid, value = 'completed')
     patch("/api/placements/#{pid}",
@@ -689,7 +679,7 @@ class PlacementsApiTest < MinitestWrapper
   end
 
   def test_skipping_the_last_open_placement_archives_a_one_off
-    # A skip resolves too (§2.3/§4.4), so a mix of complete + skip closes the set.
+    # A mix of completed and skipped still archives.
     assign('i1')
     first = JSON.parse(last_response.body)['id']
     assign('i1', date: '2026-07-23')
@@ -729,7 +719,7 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 'want-to', status_of('i1')
   end
 
-  # ── Defer (PR 9c) — "not this week, yes next" +1 week marker ─────────────────
+  # ── Defer — "not this week, yes next" +1 week marker ─────────────────
 
   WEEK_START = '2026-07-27'   # a Monday; +1 week = 2026-08-03
 
@@ -739,9 +729,6 @@ class PlacementsApiTest < MinitestWrapper
   end
 
   def test_defer_moves_staged_week_one_week_out
-    # Under the weekly-plan reframe (docs/DECISIONS.md) staged_week is the single week
-    # anchor, and Defer moves it forward one week — the pile read then shows the
-    # placement exactly when the current week reaches that value.
     stage('i1')
     pid = JSON.parse(last_response.body)['id']
     defer(pid)
@@ -784,9 +771,7 @@ class PlacementsApiTest < MinitestWrapper
   end
 
   def test_refloat_clears_resolution_so_a_lapsed_card_comes_back_open
-    # reconcile stamps a passed day's placement `lapsed`; taking it off the day must
-    # hand back a clean OPEN floating placement, else the (resolved-excluding) pile
-    # read would silently drop it.
+    # reconcile may have lapsed it; unbinding must return an open placement.
     assign('i1')
     pid = JSON.parse(last_response.body)['id']
     patch("/api/placements/#{pid}",
@@ -819,7 +804,7 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 404, last_response.status
   end
 
-  # ── Delete (PR 9c) — "gone entirely" ─────────────────────────────────────────
+  # ── Delete — "gone entirely" ─────────────────────────────────────────
 
   def test_delete_removes_a_floating_placement
     # The gap remove_from_date can't cover: deleting a floating (dateless) placement.
@@ -861,10 +846,10 @@ class PlacementsApiTest < MinitestWrapper
     assert_equal 404, last_response.status
   end
 
-  # ── Derived day-view matches the legacy Day read (the 5a proof) ──────────────
+  # ── Derived day view matches the Day read ───────────────────────────────────
 
   def test_day_view_matches_legacy_day_grouping
-    # Legacy Day: two items in one collection on DATE.
+    # A Day with two items in one collection on DATE.
     day = Day.new({'id' => DATE, 'items' => [{'id' => 'c1', 'items' => ['i1', 'i2']}]})
     day.save!
     legacy = {}

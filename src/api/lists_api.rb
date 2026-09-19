@@ -7,8 +7,8 @@ require_relative 'helpers/api_helpers'
 class Api < Sinatra::Base
   register Sinatra::ListApiFramework
 
-  # Declared before the generated routes: the first matching route wins, and this update also
-  # strips a removed list template from the list's items.
+  # Above the generated routes so it wins over the generated update. Clearing the template also
+  # removes it from the list's items.
   put '/api/lists/:listId' do
     instance = List.get(params['listId'])
     raise ListError::NotFound, "List (#{params['listId']}) Not Found" if instance.nil?
@@ -51,7 +51,6 @@ class Api < Sinatra::Base
   get '/api/lists/:listId/items' do
     list_id = params['listId']
     list = List.get(list_id)
-    # A stale client asking for a list that's gone is ordinary, not a crash.
     raise ListError::NotFound, "List (#{list_id}) Not Found" if list.nil?
     item_ids = list.items
     items = ApiHelpers.convert_item_ids_to_items(item_ids)

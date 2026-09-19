@@ -116,6 +116,8 @@ def code_shape(src)
       shape << [type, text]
     end
   end
+  shape.shift while shape.first == :nl
+  shape.pop while shape.last == :nl
   return shape
 end
 

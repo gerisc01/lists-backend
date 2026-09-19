@@ -1,28 +1,11 @@
-# Field keys the CODE reads by name, as opposed to the ones it merely renders.
-#
-# The test that puts a key here: does some code look it up by name? `finished` is here
-# because the instance ledger counts and orders by it. `platform`, `platinumed`,
-# `difficulty` are not, because nothing reads them — they render generically, whatever
-# they are called. Everything a template author invents is in the second group.
-#
-# These contracts already existed informally before this file: HIDDEN_FIELDS in the
-# frontend's Fields.js is the de facto register, except it is a rendering filter, so
-# nothing tells a template author those keys are taken. Two entries there (`todo-date`,
-# `completed`) are retired concepts that can never be removed, because old items still
-# carry values. This file exists so the list is managed rather than discovered.
-#
-# Enforcement is server-side deliberately: a disabled input in the editor does not
-# survive curl, a second client, or a script.
+# Field keys that code reads by name. A key belongs here only if something looks it up.
 module ReservedFields
 
-  # Keys the instance ledger depends on. `started` is deliberately NOT here — it is
-  # optional and the ledger already degrades without it (Instances.js renders "not
-  # started"), so pinning it would restrict more than the feature actually needs.
+  # The frontend's Instances.js counts and orders by these. It copes without `started`.
   INSTANCE_CONTRACT = %w[finished].freeze
 
-  # The wider set the app reads by name, mirroring the frontend's HIDDEN_FIELDS. A template
-  # field keyed to one of these would save fine and never render, so Template#validate
-  # refuses it — except the TEMPLATE_DECLARABLE ones below.
+  # Matches the frontend's HIDDEN_FIELDS (Fields.js): a template field with one of these keys would
+  # never render, so Template#validate refuses it.
   SYSTEM_KEYS = %w[
     name id templates tags parent children
     status transitions completed energy scheduling owner
@@ -30,14 +13,10 @@ module ReservedFields
     updated_at lastAccessed
   ].freeze
 
-  # System keys a template legitimately declares, because the template is what defines
-  # them: every template has `name`, and the legacy `todo` / `recurring-item` templates
-  # own the retired keys. Retiring legacy recurring (TODO.md) shrinks this to `name`.
+  # Declared by the `todo` and `recurring-item` templates themselves.
   TEMPLATE_DECLARABLE = %w[name completed todo-date recurring-event recurring-parent recurring-children].freeze
 
-  # The default definition for a contract field, used when opting a template in without
-  # one. Display name is a suggestion — rename it to "Watched" for films and the ledger
-  # is unaffected, because only the KEY is the contract.
+  # Only the key is the contract; the display name can be renamed.
   def self.contract_field(key)
     return {
       'key' => key,

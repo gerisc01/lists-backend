@@ -1,22 +1,14 @@
-# scenarios/scenario_manager.rb
-
 require 'fileutils'
 require 'json'
 require 'time'
 
-# --- Configuration ---
-# __dir__ gives the directory of this file ('scenarios/').
 PROJECT_ROOT = File.expand_path('../', __dir__)
 
-# SCENARIOS_BASE_DIR is the directory that will contain all named scenario folders.
 SCENARIOS_BASE_DIR = File.join(PROJECT_ROOT, 'scenarios', 'checkpoints')
 
-# CURRENT_SCENARIO_DATA_DIR is the active data directory used by the running server.
 CURRENT_SCENARIO_DATA_DIR = File.join(PROJECT_ROOT, 'scenarios', 'data')
 
 PORT = (ENV['LISTS_BACKEND_PORT'] || 9090).to_i
-
-# --- Helper Functions for Scenarios and Checkpoints ---
 
 def clear_directory(path)
   if Dir.exist?(path)
@@ -38,7 +30,6 @@ def copy_directory_contents(source_dir, dest_dir)
   end
 end
 
-# Loads data FROM a named scenario folder INTO the CURRENT_SCENARIO_DATA_DIR.
 def load_scenario(scenario_name)
   source_path = File.join(SCENARIOS_BASE_DIR, scenario_name)
   if !File.directory?(source_path)
@@ -53,12 +44,8 @@ def load_scenario(scenario_name)
   return true
 end
 
-# The client's cache asks "what changed since X?", and a checkpoint's `updated_at` is
-# whenever you recorded it — so without this, every read after a reset answers 204 and the
-# client keeps serving the scenario it had before.
-#
-# Only fixes what the scenario CONTAINS. Objects it LACKS are dropped from the file, never
-# flagged deleted, so a stale client keeps them until its cache is cleared.
+# Without a fresh `updated_at`, the client's `?since=` reads return 204 and it keeps the old data.
+# Objects the checkpoint lacks aren't marked deleted, so the client must clear its cache for those.
 def restamp_updated_at(data_dir)
   now = Time.now.utc.iso8601
   Dir.glob(File.join(data_dir, '*.json')).each do |path|
@@ -70,7 +57,6 @@ def restamp_updated_at(data_dir)
   puts "Stamped #{Dir.glob(File.join(data_dir, '*.json')).length} data files as updated at #{now}."
 end
 
-# Saves data FROM CURRENT_SCENARIO_DATA_DIR TO a named scenario folder.
 def create_checkpoint(scenario_name)
   destination_path = File.join(SCENARIOS_BASE_DIR, scenario_name)
 
@@ -85,7 +71,6 @@ def create_checkpoint(scenario_name)
   return true
 end
 
-# Overwrites an existing named scenario folder with current CURRENT_SCENARIO_DATA_DIR.
 def update_checkpoint(scenario_name)
   destination_path = File.join(SCENARIOS_BASE_DIR, scenario_name)
 
@@ -100,7 +85,6 @@ def update_checkpoint(scenario_name)
   return true
 end
 
-# Deletes a named scenario folder after confirmation.
 def delete_checkpoint(scenario_name)
   destination_path = File.join(SCENARIOS_BASE_DIR, scenario_name)
 
@@ -121,7 +105,6 @@ def delete_checkpoint(scenario_name)
   return true
 end
 
-# Lists all named scenario checkpoints in SCENARIOS_BASE_DIR.
 def list_scenarios
   entries = Dir.exist?(SCENARIOS_BASE_DIR) ? Dir.entries(SCENARIOS_BASE_DIR)
     .select { |e| File.directory?(File.join(SCENARIOS_BASE_DIR, e)) && !e.start_with?('.') }

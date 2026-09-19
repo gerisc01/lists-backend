@@ -5,31 +5,17 @@ require_relative './parser'
 
 module Query
 
-  # Walks a parsed AST against one item at a time.
-  #
-  # Every field resolves to a *list* of values, even the single-valued ones, so
-  # one set of operator semantics covers them all. That matters most for `tag`,
-  # where an item has many: `tag = Me` asks "does any tag match", and `tag != Me`
-  # is its exact negation — "no tag matches", i.e. it isn't assigned to me. The
-  # alternative (per-value comparison) makes `!=` mean "has some other tag too",
-  # which is nearly always the wrong answer.
-  #
-  # A field with no values (an untagged item, an item in no collection) therefore
-  # fails `=` and passes `!=`, which is what you want and is also why IS EMPTY
-  # exists as its own operator: "untagged" is a real thing to search for.
+  # Every field resolves to a list of values, so `tag != Me` means "no tag is Me", and an item with no
+  # values fails `=` and passes `!=`.
   class Evaluator
 
-    # Enum fields validate their operand. A typo'd `status = doig` would otherwise
-    # return zero matches indistinguishably from "nothing matches", and this tool
-    # exists precisely for the case where you can't find something.
+    # A misspelled enum value (`status = doig`) is a 400, not an empty result.
     ENUMS = {
       'status' => Status::VALUES,
       'energy' => Energy::VALUES,
     }.freeze
 
-    # `resolver` answers "what values does this item have for this field?" — it is
-    # the only thing that knows about lists, collections and tag names, which keeps
-    # this class free of storage concerns and trivially testable.
+    # `resolver` returns an item's values for a field (Search's CatalogIndex).
     def initialize(resolver)
       @resolver = resolver
     end
@@ -45,9 +31,7 @@ module Query
       end
     end
 
-    # Validates enum operands across the whole tree before evaluation, so a bad
-    # value is a 400 rather than an empty result set. Separate from parsing
-    # because the parser deliberately knows nothing about the domain's enums.
+    # Checked here, not in the parser, which doesn't know the enums.
     def validate!(node)
       case node
       when And, Or

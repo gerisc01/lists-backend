@@ -119,8 +119,6 @@ class InstanceLoopTest < MinitestWrapper
     assert_equal 'doing', Item.get('kh').json['status']
   end
 
-  # retired is a declaration, not a drift state — recording the session is right,
-  # reinterpreting the intent is not.
   def test_a_completed_session_never_un_retires_the_game
     set_status('kh', 'doing')
     set_status('kh', 'retired')
@@ -138,9 +136,7 @@ class InstanceLoopTest < MinitestWrapper
     assert_equal 1, Item.get('kh').children.length
   end
 
-  # Unlike staging or dating, `doing` is the claim that you have begun — so it stamps.
-  # Without this the item reads `doing` while its only run reads "not started", and the
-  # run then collapses to a single day when closed.
+  # A manual flip to doing stamps `started`, unlike staging or dating.
   def test_flipping_to_doing_by_hand_starts_the_run
     set_status('kh', 'doing')
 

@@ -1,22 +1,10 @@
 require_relative '../exceptions'
 
-# A small JQL-shaped query language over catalog items.
-#
+# The item search language, e.g.
 #   energy = chill AND status != completed
-#   tag = "Me" AND (energy = chill OR name ~ paint)
 #   NOT (collection = Recipes) AND tag IS EMPTY
-#   status IN (want-to, doing) AND name ~ "light switch"
 #
-# Why a hand-written lexer + recursive-descent parser rather than extending the
-# existing `src/filter/filter.rb`: that module splits on regexes, which caps it at
-# a single level of parens, forbids AND inside them, has no NOT, and — the real
-# problem — folds mixed AND/OR left-to-right, so `a OR b AND c` silently means
-# `(a OR b) AND c`. Precedence and arbitrary nesting are the whole point of the
-# feature, and neither is reachable from that design. (That module is unreferenced
-# by any route or client; see docs/DECISIONS.md.)
-#
-# The grammar, lowest precedence first — NOT binds tighter than AND, which binds
-# tighter than OR, matching SQL/JQL and ordinary reading:
+# NOT binds tighter than AND, and AND tighter than OR:
 #
 #   query     := or_expr
 #   or_expr   := and_expr (OR and_expr)*
@@ -29,16 +17,12 @@ require_relative '../exceptions'
 #   value     := QUOTED | BAREWORD
 module Query
 
-  # Keywords are matched case-insensitively (`and` == `AND`), like JQL. Field
-  # names and values compare case-insensitively too — this is a find-my-stuff
-  # tool, and making people match case is a way to hand back zero results.
+  # Keywords, field names and values all match case-insensitively.
   KEYWORDS = %w[AND OR NOT IN IS EMPTY].freeze
 
   Token = Struct.new(:type, :value, :pos)
 
-  # AST nodes. Deliberately data-only — evaluation lives in Query::Evaluator so a
-  # parse can be tested (and later compiled to something else) without touching
-  # the item store.
+  # Data only; Query::Evaluator does the matching.
   And = Struct.new(:left, :right)
   Or = Struct.new(:left, :right)
   Not = Struct.new(:expr)
@@ -64,9 +48,7 @@ module Query
           next
         end
 
-        # Quoted values: the escape hatch for anything with spaces ("light switch")
-        # or a word that would otherwise lex as a keyword (a tag literally named
-        # "not").
+        # Quotes allow spaces, or a value that is also a keyword ("not").
         if char == '"' || char == "'"
           quote = char
           closing = chars.index(quote, pos + 1)
@@ -89,9 +71,7 @@ module Query
           next
         end
 
-        # A bareword: a field name, a keyword, or an unquoted value. Dots are
-        # allowed so the older `item.status` spelling still parses (normalized
-        # away in the parser); dashes matter for `want-to` and `on-hold`.
+        # Dots allow `item.status`; dashes allow `want-to`.
         if char =~ /[\w\-.\/]/
           start = pos
           pos += 1 while pos < chars.length && chars[pos] =~ /[\w\-.\/]/
@@ -112,10 +92,7 @@ module Query
 
   class Parser
 
-    # The fields a condition may name. Kept here rather than in the evaluator so
-    # a typo fails at parse time with the valid set in the message — silently
-    # returning zero results is the worst outcome for a tool whose job is finding
-    # things you've lost.
+    # Here so a misspelled field fails at parse time and lists the valid ones.
     FIELDS = %w[name status energy tag collection list].freeze
 
     def self.parse(input)
@@ -196,9 +173,6 @@ module Query
               "Expected a field name at position #{token.pos}, got '#{token.value || 'end of query'}'"
       end
 
-      # `item.status` and `status` are the same field — the older dot-notation
-      # spelling keeps working, but the prefix carries no meaning: every field is
-      # item-scoped because every result is an item.
       field = token.value.sub(/\Aitem\./i, '').downcase
       if !FIELDS.include?(field)
         raise ListError::BadRequest,

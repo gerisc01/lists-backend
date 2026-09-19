@@ -68,9 +68,7 @@ class ListApiTest < MinitestWrapper
     assert_equal ['one', '2'], JSON.parse(last_response.body).map { |it| it['id'] }
   end
 
-  # An INSTANCE is not a member of any list — it is list-free by design, carrying its own
-  # template. Returning one here leaked every playthrough into the staging picker, where a
-  # completed run could be staged as though it were a thing you do.
+  # Instances belong to no list.
   def test_list_get_items_excludes_instances
     Item.new({'id' => 'run1', 'name' => 'One — Playthrough', 'parent' => '1'}).save!
     parent = Item.get('1')

@@ -17,8 +17,7 @@ class Api < Sinatra::Base
   end
 
   get '/api/accounts/:accountId' do
-    # Authenticate the user because the /accounts endpoint isn't protected by default
-    # copy/paste from api.rb protected block
+    # copy/paste from Api's protected! helper (also already run by the before hook)
     account_header = request.env['HTTP_ACCOUNT_ID']&.split(' ')&.last
     account = Account.get(account_header)
     if account.nil? || account.id != account_header
@@ -32,8 +31,7 @@ class Api < Sinatra::Base
   end
 
   put '/api/accounts/:accountId' do
-    # Authenticate the user because the /accounts endpoint isn't protected by default
-    # copy/paste from api.rb protected block
+    # copy/paste from Api's protected! helper (also already run by the before hook)
     account_header = request.env['HTTP_ACCOUNT_ID']&.split(' ')&.last
     account = Account.get(account_header)
     if account.nil? || account.id != account_header
@@ -50,8 +48,7 @@ class Api < Sinatra::Base
   end
 
   delete '/api/accounts/:accountId' do
-    # Authenticate the user because the /accounts endpoint isn't protected by default
-    # copy/paste from api.rb protected block
+    # copy/paste from Api's protected! helper (also already run by the before hook)
     account_header = request.env['HTTP_ACCOUNT_ID']&.split(' ')&.last
     account = Account.get(account_header)
     if account.nil? || account.id != account_header

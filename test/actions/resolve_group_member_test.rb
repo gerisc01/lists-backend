@@ -74,9 +74,7 @@ class ResolveGroupMemberTest < MinitestWrapper
     assert_raises(ListError::BadRequest) { resolve_group_member('yakuza') }
   end
 
-  # The schema type-refs `group`, so a member id that never existed cannot be saved in
-  # the first place. The reachable version is a member deleted AFTER the group was
-  # saved, which must not be mistaken for "nothing left to do".
+  # `group` is a type_ref, so the reachable case is a member deleted after the group was saved.
   def test_ignores_a_member_deleted_out_from_under_the_group
     group_with('completed', nil)
     Item.get('y2').delete!

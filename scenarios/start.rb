@@ -1,27 +1,20 @@
-# scenarios/start.rb
-
 require 'bundler/setup'
 require 'fileutils'
 
 require_relative './scenario_manager'
 
-# --- Main Interaction Loop and Server Management ---
-
 def start_api_server
   pid = fork do
-    # --- Logging Setup ---
     log_dir = File.join(PROJECT_ROOT, 'scenarios', 'logs')
     FileUtils.mkdir_p(log_dir) if !Dir.exist?(log_dir)
     log_file_path = File.join(log_dir, 'scenario_api.log')
 
-    # Only stdout is redirected — keeps Sinatra's startup noise out of the CLI
-    # while letting stderr reach the terminal so real errors surface immediately.
+    # Only stdout goes to the log; stderr still reaches the terminal.
     begin
       $stdout.reopen(log_file_path, 'a')
       $stdout.sync = true
 
-      # Set env vars BEFORE requiring base_api so TypeStorage initializes
-      # with the correct storage path when Account (and other types) load.
+      # Before requiring base_api: TypeStorage picks its directory on first load.
       ENV['SCENARIO_STORAGE'] = 'true'
       ENV['SCENARIO_DATA_DIR'] = CURRENT_SCENARIO_DATA_DIR
 
@@ -40,8 +33,7 @@ def start_api_server
   Process.detach(pid)
   puts "Starting API server in background on port #{PORT}..."
 
-  # Brief wait then liveness check — catches silent exits (e.g. exception during cache build)
-  # that wouldn't produce stderr output in time to surface on their own.
+  # Catches a server that exits without writing to stderr in time.
   sleep 2
   begin
     Process.kill(0, pid)

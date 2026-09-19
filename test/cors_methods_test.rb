@@ -1,17 +1,7 @@
 require_relative './minitest_wrapper'
 
-# Guards the invariant that broke tap-to-complete on web: every HTTP verb the API serves
-# must appear in the CORS `allow_methods` setting.
-#
-# PATCH was missing, so the browser preflight for `PATCH /api/placements/:pid` — the only
-# way a placement's resolution is written (complete / skip / reopen) — failed. It went
-# unnoticed for a long time because the two test layers that should have caught it can't:
-# native has no CORS at all, and the frontend's Jest suite mocks the API module. Only a
-# real browser against a real server sees it.
-#
-# Deliberately a static check rather than a request test: `test/test-api.rb` builds a
-# trimmed `Api` without `register Sinatra::Cors`, and loading `src/base_api.rb` here would
-# merge its routes and settings into that same class for every other suite in the run.
+# A browser preflight fails for any verb missing from `allow_methods`. Checked statically: loading
+# src/base_api.rb here would add its routes to the shared test Api.
 class CorsMethodsTest < MinitestWrapper
 
   BACKEND_ROOT = File.expand_path('..', __dir__)

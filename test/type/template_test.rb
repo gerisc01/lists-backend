@@ -125,7 +125,7 @@ class TemplateTest < MinitestWrapper
     reserved_template([{'key' => 'name'}, {'key' => 'platform'}]).validate
   end
 
-  # The legacy templates own their retired keys, so declaring them is not a collision.
+  # The `todo` and `recurring-item` templates declare these keys themselves.
   def test_legacy_templates_may_declare_their_own_keys
     reserved_template([{'key' => 'name'}, {'key' => 'completed'}, {'key' => 'recurring-event'}]).validate
   end

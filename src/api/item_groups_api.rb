@@ -5,14 +5,7 @@ require_relative '../../src/api/helpers/list_api_framework'
 class Api < Sinatra::Base
   register Sinatra::ListApiFramework
 
-  # Member -> group lookup: the groups claiming any of ?ids=a,b,c. The planner needs it
-  # because a card must say which bigger thing its item is part of, and the item alone
-  # can't answer that — a member carries no back-pointer. Derived on read rather than
-  # stamped onto the placement, so renaming a group or moving a member out is reflected
-  # immediately instead of leaving a stale label on the board.
-  #
-  # Declared ABOVE the generated CRUD on purpose: Sinatra matches in definition order, and
-  # the generated GET /api/itemGroups/:itemGroupId would otherwise swallow this path as an id.
+  # ?ids=a,b,c. Above the generated routes, or GET /api/itemGroups/:itemGroupId would match it.
   get '/api/itemGroups/forMembers' do
     ids = params['ids'].to_s.split(',').reject(&:empty?)
     status 200
