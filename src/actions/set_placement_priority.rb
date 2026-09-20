@@ -1,11 +1,6 @@
 require_relative '../type/placement'
 
-# Flag (or unflag) a dated placement as a priority — folds in the old
-# Day.priorities concept. Preserves the per-date cap that a bounded priorities
-# array gave for free: at most Placement::MAX_PRIORITIES_PER_DATE flagged
-# placements on a date. Server-authoritative primitive; the cap lives here (the
-# one write path for priority) rather than on the schema. Idempotent when the flag
-# is already in the requested state.
+# The only writer of `priority`, so the per-date cap is enforced here.
 def set_placement_priority(item_id, date, collection_id, priority)
   placement = Placement.find_dated(item_id, date, collection_id)
   raise ListError::NotFound, "no placement for item '#{item_id}' on '#{date}'" if placement.nil?
@@ -24,5 +19,5 @@ def set_placement_priority(item_id, date, collection_id, priority)
   placement.priority = priority
   placement.validate
   placement.save!
-  placement
+  return placement
 end

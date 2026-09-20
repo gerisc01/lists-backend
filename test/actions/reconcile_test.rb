@@ -5,12 +5,7 @@ require_relative '../../src/type/list'
 require_relative '../../src/type/placement'
 require_relative '../../src/actions/reconcile'
 
-# The reconcile primitive under the weekly-plan reframe (docs/DECISIONS.md "Weekly
-# planning is a weekly PLAN, not a backlog"): reconcile RELEASES the past week instead
-# of carrying it forward. A floating shelf item un-stages (deleted, item stays on its
-# shelf); a one-off task lapses (resolution 'lapsed', retained) and then auto-archives;
-# past events resolve by derivation. `as_of_date` is injected so "a week later" is
-# deterministic. AS_OF is a Monday, so its week-start (monday_of) is AS_OF itself.
+# AS_OF is a Monday, so its week start is AS_OF itself.
 class ReconcileTest < MinitestWrapper
 
   AS_OF = '2026-07-27'   # a Monday — monday_of(AS_OF) == AS_OF
@@ -88,9 +83,7 @@ class ReconcileTest < MinitestWrapper
     assert_equal ['t'], result['archived']
   end
 
-  # The week is the unit on BOTH arms (0075). A one-off you meant to do on Monday and
-  # didn't is still this week's plan on Wednesday — you can pull it to Friday. Closing it
-  # a day later marked something undone as resolved AND archived the item to 'completed'.
+  # A one-off missed on Monday is still open on Wednesday: reconcile works by week, not day.
   def test_a_one_off_missed_earlier_this_week_stays_open
     new_item('t')
     p = dated('t', THIS_WEEK_PAST_DAY)
@@ -171,8 +164,6 @@ class ReconcileTest < MinitestWrapper
     refute_nil Placement.for_item('shelf').first.date
   end
 
-  # There is no longer a kind of item that resolves by the passage of time (0076). What
-  # used to be an "event" lapses at week end like everything else, and only THEN archives.
   def test_every_one_off_lapses_the_same_way
     new_item('e')
     p = dated('e', PAST)

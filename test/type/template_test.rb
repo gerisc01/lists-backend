@@ -31,9 +31,6 @@ class TemplateTest < MinitestWrapper
     @date_template.save!
   end
 
-  def teardown
-  end
-
   def test_template_round_trip_jsonstr
     jsonstr = @template.to_schema_object.to_json
     output = Template.from_schema_object(JSON.parse(jsonstr))
@@ -128,7 +125,7 @@ class TemplateTest < MinitestWrapper
     reserved_template([{'key' => 'name'}, {'key' => 'platform'}]).validate
   end
 
-  # The legacy templates own their retired keys, so declaring them is not a collision.
+  # The `todo` and `recurring-item` templates declare these keys themselves.
   def test_legacy_templates_may_declare_their_own_keys
     reserved_template([{'key' => 'name'}, {'key' => 'completed'}, {'key' => 'recurring-event'}]).validate
   end

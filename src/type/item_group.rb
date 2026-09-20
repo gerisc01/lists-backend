@@ -20,17 +20,10 @@ class ItemGroup
   ]
   apply_schema schema
 
-  # The groups claiming any of these item ids — the member -> group lookup, which the
-  # schema has no back-pointer for (a member is an ordinary Item and knows nothing about
-  # its group). Scans the store, like Placement's queries and for the same reason: this
-  # is a sole-user catalog, and a derived read is what keeps the answer from going stale
-  # when a group is renamed or a member moved out.
-  #
-  # The empty case short-circuits rather than falling through: the select would answer []
-  # correctly anyway, but only after walking the whole store to do it.
+  # Members have no pointer back to their group, so this scans every group.
   def self.for_members(item_ids)
     return [] if item_ids.empty?
-    self.list.select { |g| (g.group & item_ids).any? }
+    return self.list.select { |g| (g.group & item_ids).any? }
   end
 
   def add_template(template)

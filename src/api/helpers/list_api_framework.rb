@@ -5,41 +5,30 @@ module Sinatra
 
   module ListApiUtils
 
-    # The authenticated account's id, for routes that need to record WHO acted (the
-    # placement's resolved_by). `protected!` in base_api.rb proves the header names a
-    # real account and then throws it away, so this re-reads it rather than threading
-    # state through the filter. It lives here, not beside `protected!`, because the
-    # test harness builds its own trimmed `Api` without base_api.rb's helpers — a
-    # route that reached for it there would 500 under test and work in production.
-    # Returns nil wherever authentication is skipped (account creation, e2e).
+    # Here rather than beside protected!, which test/test-api.rb doesn't load. nil where auth is
+    # skipped (account creation, e2e, tests).
     def current_account_id
-      request.env['HTTP_ACCOUNT_ID']&.split(' ')&.last
+      return request.env['HTTP_ACCOUNT_ID']&.split(' ')&.last
     end
 
-    # The membership filter behind every "what is there" read (0087). Applied to
-    # collections and collection groups — the two units of trust.
-    #
-    # NO account, no scoping. `current_account_id` is nil exactly where authentication
-    # is skipped (the e2e harness, the trimmed test API), and those paths need to see
-    # the store they just wrote. Under `protected!` a request always names a real
-    # account, so the open path is not reachable in production.
-    # `also_granted` names ids that are reachable WITHOUT carrying the account in their
-    # own roster — access derived from somewhere else rather than declared here. A board's
-    # one-off collection is the only such case today (0090); see collections_api.rb.
+    # Unfiltered when there's no account (e2e, tests). `also_granted` ids pass without the account
+    # in their `members`.
     def members_only(records, also_granted: [])
       account_id = current_account_id
       return records if account_id.nil?
       granted = also_granted.to_a
-      records.select { |r| (r.members || []).include?(account_id) || granted.include?(r.id) }
+      return records.select { |r| (r.members || []).include?(account_id) || granted.include?(r.id) }
     end
 
-    def get_json_payload(request)
+    def get_json_payload(request, optional: false)
+      raw = request.body.read
+      return {} if optional && raw.strip.empty?
       begin
-        json = JSON.parse(request.body.read)
+        json = JSON.parse(raw)
       rescue JSON::ParserError
         raise ListError::BadRequest, "Request payload must be valid JSON"
       end
-      json
+      return json
     end
 
     def schema_endpoint_get(clazz, id, since)
@@ -98,7 +87,7 @@ module Sinatra
 
     def schema_endpoint_delete(clazz, id)
       instance = clazz.get(id)
-      instance.delete! unless instance.nil?
+      instance.delete! if !instance.nil?
       status 204
     end
 
@@ -107,27 +96,35 @@ module Sinatra
 
   module ListApiFramework
 
+    # 'collection-groups' -> 'collectionGroupId'
+    def id_param_for(endpoint)
+      words = endpoint.split('-')
+      name = words.first + words.drop(1).map(&:capitalize).join
+      return "#{name.chomp('s')}Id"
+    end
+
     def generate_schema_endpoint(type, endpoint, clazz)
+      id_param = id_param_for(endpoint)
       case type
       when :list
         get "/api/#{endpoint}" do
           schema_endpoint_list(clazz, params['since'])
         end
       when :get
-        get "/api/#{endpoint}/:id" do
-          schema_endpoint_get(clazz, params['id'], params['since'])
+        get "/api/#{endpoint}/:#{id_param}" do
+          schema_endpoint_get(clazz, params[id_param], params['since'])
         end
       when :create
         post "/api/#{endpoint}" do
           schema_endpoint_create(clazz, request)
         end
       when :update
-        put "/api/#{endpoint}/:id" do
-          schema_endpoint_update(clazz, params['id'], request)
+        put "/api/#{endpoint}/:#{id_param}" do
+          schema_endpoint_update(clazz, params[id_param], request)
         end
       when :delete
-        delete "/api/#{endpoint}/:id" do
-          schema_endpoint_delete(clazz, params['id'])
+        delete "/api/#{endpoint}/:#{id_param}" do
+          schema_endpoint_delete(clazz, params[id_param])
         end
       else
         raise "Error generating endpoint; Unknown endpoint type '#{type}'."

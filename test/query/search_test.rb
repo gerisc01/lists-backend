@@ -54,9 +54,7 @@ class QuerySearchTest < MinitestWrapper
     assert_equal %w[paint tacos], ids('tag = Me')
   end
 
-  # `!=` on a multi-valued field is the negation of `=`: "has no tag named Me",
-  # not "has some other tag". `switch` is tagged Partner and still matches; the
-  # two Me-tagged items in *different* collections both drop out.
+  # `!=` on a multi-valued field means no value matches.
   def test_tag_not_equals_means_does_not_have_that_tag
     assert_equal %w[gutters switch], ids('tag != Me')
   end
@@ -143,9 +141,6 @@ class QuerySearchTest < MinitestWrapper
     assert_equal 0, results['count']
   end
 
-  # A list holds the group ROW; the members hang off it in another store entirely. Before
-  # this walk existed, `Item.get(group_id)` returned nil and every step of a project fell
-  # out of the corpus — a loose item in the same list was found, a grouped one never was.
   def test_group_members_are_indexed_under_the_lists_location
     Item.new({'id' => 'm1', 'name' => 'Buy materials'}).save!
     Item.new({'id' => 'm2', 'name' => 'Mount the pegboard'}).save!

@@ -1,13 +1,9 @@
 #!/usr/bin/env ruby
-# Backfill first-class Placements from existing Day/DailyItem data (PR 5a, design
-# refactor). Each (item, date, collection) assignment in a Day becomes a dated
-# Placement (floating:false); each Day.priorities entry sets priority:true on that
-# placement. See docs/DECISIONS.md "Placement is a first-class type".
+# Backfill Placements from Day/DailyItem data. Each (item, date, collection) in a Day becomes a dated
+# Placement; each Day.priorities entry sets priority:true on it.
 #
-# Additive + idempotent: placements SHADOW Day in 5a (nothing user-facing reads
-# them yet), and re-running creates nothing new — Placement.find_dated dedupes on
-# the (item, date, collection) triple. The per-date priority cap is NOT enforced
-# here: the backfill carries existing reality; the cap guards only new writes.
+# Idempotent: Placement.find_dated dedupes on the triple. The per-date priority cap isn't enforced,
+# so existing data carries over as is.
 #
 # Safe by default: DRY RUN (no writes), prints what it would do. Pass --apply to
 # write. Target store follows the usual env vars (default = data/).
@@ -43,7 +39,7 @@ def ensure_placement(item_id, date, collection_id, priority, apply)
   # Referential existence isn't enforced by the Placement schema (ids are plain
   # strings), so guard here — a dangling item id in old Day data shouldn't seed a
   # bad placement.
-  return :missing_item unless Item.exist?(item_id)
+  return :missing_item if !Item.exist?(item_id)
 
   existing = Placement.find_dated(item_id, date, collection_id)
   if existing
@@ -69,7 +65,7 @@ def ensure_placement(item_id, date, collection_id, priority, apply)
     placement.validate
     placement.save!
   end
-  priority ? :created_priority : :created
+  return priority ? :created_priority : :created
 end
 
 # Walk a Day's DailyItem arrays (items and priorities) into placements.
@@ -91,10 +87,10 @@ Day.list.each do |day|
       when :created, :created_priority
         created += 1
         prioritized += 1 if result == :created_priority
-        puts "would create placement #{item_id} @ #{date} (coll #{collection_id})#{priority ? ' [priority]' : ''}" unless apply
+        puts "would create placement #{item_id} @ #{date} (coll #{collection_id})#{priority ? ' [priority]' : ''}" if !apply
       when :prioritized
         prioritized += 1
-        puts "would set priority on placement #{item_id} @ #{date}" unless apply
+        puts "would set priority on placement #{item_id} @ #{date}" if !apply
       when :exists
         skipped_existing += 1
       when :missing_item
@@ -108,8 +104,8 @@ end
 
 verb = apply ? 'created' : 'would create'
 puts "#{verb} #{created} placement(s); #{prioritized} priority flag(s); #{skipped_existing} already existed."
-unless failed.empty?
+if !failed.empty?
   puts "#{failed.size} placement(s) FAILED (left unchanged):"
   failed.each { |f| puts "  #{f}" }
 end
-puts '(dry run — pass --apply to write)' unless apply
+puts '(dry run — pass --apply to write)' if !apply

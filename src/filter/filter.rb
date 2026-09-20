@@ -6,8 +6,7 @@ require_relative '../type/item'
 class Filter
 
   def self.find_matching_items(collection_id, filter)
-    # Only use json representation to speed up filtering
-    # Right now relying on caching to keep things quick
+    # Raw json, and relies on the storage cache for speed.
     collection = Collection.get(collection_id)
     lists = collection.json['lists'].map { |list_id| List.get(list_id).json }
     lists.each { |json| json['items'] = json.has_key?('items') ? json['items'].map { |item_id| Item.get(item_id).json } : [] }
@@ -18,10 +17,9 @@ class Filter
 
   def self.evaluate_filter(filter, lists)
     result = []
-    # Deal with parens (only works with single for now)
+    # Handles one level of parentheses.
     paren_groups = filter.scan(/\(.*?\)/)
     f = filter.gsub(/\(.*?\)/, "$PAREN_GROUP")
-    # Split into individual statements
     all_expr = f.split(/ (AND|OR) /)
     operators = []
     expressions = []
@@ -29,15 +27,12 @@ class Filter
       expressions.push(expr)
       operators.push(op) if !op.nil?
     end
-    # Evaluate each expressions (including dealing with paren groups as the token is found)
     matching_ids = expressions.map { |expr| evaluate_expression(expr, paren_groups, lists) }
     operators.each_with_index do |op, idx|
       if op == "AND"
-        # Intersection of ids (AND)
-        result = result == [] ? matching_ids[idx] & matching_ids[idx+1] : result & matching_ids[idx+1]
+          result = result == [] ? matching_ids[idx] & matching_ids[idx+1] : result & matching_ids[idx+1]
       elsif op == "OR"
-        # Union of ids (OR)
-        result = result == [] ? matching_ids[idx] | matching_ids[idx+1] : result | matching_ids[idx+1]
+          result = result == [] ? matching_ids[idx] | matching_ids[idx+1] : result | matching_ids[idx+1]
       else
         raise ListError::BadRequest, "Invalid operator '#{op}'. Must be 'OR' or 'AND'."
       end
@@ -103,7 +98,7 @@ class Filter
   def self.get_by_dot_notation(hash, fields)
     return hash if fields.nil? || fields.empty?
     new_hash = hash[fields.slice(0)]
-    get_by_dot_notation(new_hash, fields[1..])
+    return get_by_dot_notation(new_hash, fields[1..])
   end
 
 end

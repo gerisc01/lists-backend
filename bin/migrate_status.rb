@@ -1,10 +1,6 @@
 #!/usr/bin/env ruby
-# Backfill lifecycle `status` onto existing items (PR 1, design refactor).
-#
-# Minimal + idempotent: the only state worth migrating is the legacy `completed`
-# boolean, so items with `completed: true` get `status: 'completed'`. Everything
-# else is left alone — Item#initialize defaults absent status to `want-to` on read,
-# so there's no need to rewrite untouched records.
+# Sets `status: 'completed'` on items with `completed: true`. Idempotent. Other items are left alone:
+# Item#initialize defaults a missing status to want-to.
 #
 # Safe by default: runs as a DRY RUN (no writes) and prints what it *would* change.
 # Pass --apply to actually write. Target store follows the usual env vars
@@ -46,7 +42,7 @@ ids.each do |id|
   item = Item.get(id)
   next if item.nil?
   next if Status::TERMINAL.include?(item.json['status']) # already migrated -> idempotent
-  next unless item.json['completed'] == true
+  next if item.json['completed'] != true
 
   if apply
     begin
@@ -64,8 +60,8 @@ end
 
 verb = apply ? 'migrated' : 'would migrate'
 puts "#{verb} #{migrated} item(s) to 'completed' (of #{ids.size} items)."
-unless failed.empty?
+if !failed.empty?
   puts "#{failed.size} item(s) FAILED to save (left unchanged):"
   failed.each { |f| puts "  #{f}" }
 end
-puts '(dry run — pass --apply to write)' unless apply
+puts '(dry run — pass --apply to write)' if !apply

@@ -26,12 +26,12 @@ def call(method, path, body = nil)
   uri = URI("#{HOST}#{path}")
   klass = { get: Net::HTTP::Get, post: Net::HTTP::Post, put: Net::HTTP::Put }.fetch(method)
   request = klass.new(uri, 'Content-Type' => 'application/json')
-  request.body = body.to_json unless body.nil?
+  request.body = body.to_json if !body.nil?
   response = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(request) }
-  unless response.code.to_i < 300
+  if response.code.to_i >= 300
     abort "  #{method.to_s.upcase} #{path} -> #{response.code}\n  #{response.body}"
   end
-  response.body.to_s.empty? ? nil : JSON.parse(response.body)
+  return response.body.to_s.empty? ? nil : JSON.parse(response.body)
 end
 
 def action(type, body) = call(:post, "/api/actions/ad-hoc/#{type}", body)
@@ -40,7 +40,7 @@ def item(id) = call(:get, "/api/items/#{id}")
 $failures = 0
 def check(label, actual, expected)
   ok = actual == expected
-  $failures += 1 unless ok
+  $failures += 1 if !ok
   puts "  #{ok ? "\e[32m✓\e[0m" : "\e[31m✗\e[0m"} #{label}#{ok ? '' : "  expected #{expected.inspect}, got #{actual.inspect}"}"
 end
 
@@ -80,11 +80,11 @@ puts "  game #{game['id']} · collection #{collection['id']}"
 W1, W2, W3 = '2026-08-17', '2026-08-24', '2028-01-03'
 
 def stage(game_id, collection_id, week)
-  call(:post, "/api/items/#{game_id}/placements", { 'collection' => collection_id, 'staged_week' => week })
+  return call(:post, "/api/items/#{game_id}/placements", { 'collection' => collection_id, 'staged_week' => week })
 end
 
 def pile(collection_id, week)
-  call(:get, "/api/placements/floating?collections=#{collection_id}&week=#{week}")
+  return call(:get, "/api/placements/floating?collections=#{collection_id}&week=#{week}")
 end
 
 # ── Week 1: stage it ──────────────────────────────────────────────────────────────────
@@ -94,9 +94,7 @@ check('placement points at an instance, not the game', first['item_id'] != game[
 instance_id = first['item_id']
 
 card = pile(collection['id'], W1).first
-# THE CANARY. If either of these is wrong the card renders the instance's name and lands
-# in the One-offs pile instead of Games — the whole substitution failing in the one place
-# you would actually see it.
+# If either is wrong, the card shows the instance's name under One-offs instead of Games.
 check('card resolves identity back to the game', card['catalog_item_id'], game['id'])
 check('card is NOT flagged a one-off', card['one_off'], false)
 

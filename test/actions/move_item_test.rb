@@ -16,11 +16,6 @@ class MoveItemTest < MinitestWrapper
     [ @item, @item2, @group, @list, @list2, @list_empty ].each { |obj| obj.save! }
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def test_move_item_to_empty_list
     move_item(@item.id, @list.id, @list_empty.id)
     assert_equal [@group.id], @list.items
@@ -40,9 +35,9 @@ class MoveItemTest < MinitestWrapper
   end
 
   def test_move_item_not_found_failure
-    assert_raises(ListError::BadRequest) { move_item('NOT_FOUND', @list.id, @list2.id) }
-    assert_raises(ListError::BadRequest) { move_item(@item.id, 'NOT_FOUND', @list2.id) }
-    assert_raises(ListError::BadRequest) { move_item(@item.id, @list.id, 'NOT_FOUND') }
+    assert_raises(ListError::NotFound) { move_item('NOT_FOUND', @list.id, @list2.id) }
+    assert_raises(ListError::NotFound) { move_item(@item.id, 'NOT_FOUND', @list2.id) }
+    assert_raises(ListError::NotFound) { move_item(@item.id, @list.id, 'NOT_FOUND') }
   end
 
   def test_move_item_not_on_from_list_failure

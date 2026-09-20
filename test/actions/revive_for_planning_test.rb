@@ -5,10 +5,6 @@ require_relative '../../src/type/placement'
 require_relative '../../src/actions/create_floating_placement'
 require_relative '../../src/actions/assign_to_date'
 
-# Planning a finished thing means you are not finished with it. The escape hatch for
-# "I checked the garage off on Tuesday and then found out it was a bigger job" — made
-# next week, with the gesture you were making anyway, instead of a second verb standing
-# on every day-view row to serve the rare tap.
 class ReviveForPlanningTest < MinitestWrapper
 
   DATE = '2026-07-29'
@@ -17,10 +13,6 @@ class ReviveForPlanningTest < MinitestWrapper
     Collection.new({'id' => 'c1', 'name' => 'C'}).save!
     Item.new({'id' => 'garage', 'name' => 'Clean the garage', 'status' => 'completed'}).save!
     Item.new({'id' => 'live', 'name' => 'Live thing', 'status' => 'doing'}).save!
-  end
-
-  def teardown
-    TypeStorage.clear_test_storage
   end
 
   def test_staging_a_completed_item_revives_it

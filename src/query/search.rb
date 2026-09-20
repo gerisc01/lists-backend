@@ -11,13 +11,8 @@ require_relative './evaluator'
 
 module Query
 
-  # Everything a query needs to know about where an item lives, built once per
-  # search by walking collections -> lists -> items.
-  #
-  # The walk is the collection tree rather than `Item.list`, because location is
-  # itself queryable (`collection = Recipes`) and is how results are grouped.
-  # Consequence worth knowing: an item with no list home — a one-off created
-  # directly on the board — is not reachable and will not appear in results.
+  # Built per search by walking collections → lists → items, so an item in no list (a one-off) is
+  # never found.
   class CatalogIndex
 
     Location = Struct.new(:collection_id, :collection_name, :list_id, :list_name)
@@ -32,7 +27,7 @@ module Query
     end
 
     def self.build
-      new.tap(&:load!)
+      return new.tap(&:load!)
     end
 
     def load!
@@ -48,17 +43,14 @@ module Query
           (list.json['items'] || []).each { |item_id| index_item(item_id, location) }
         end
       end
-      self
+      return self
     end
 
-    # The resolver contract the Evaluator depends on: field name + item -> values.
-    # Always an array; a single-valued field is a one-element one.
+    # Always an array, even for single-valued fields.
     def values_for(field, item)
-      case field
+      return case field
       when 'name' then [item['name']].compact
-      # Absent status reads as the birth default, and absent energy as moderate —
-      # so `energy = moderate` finds everything nobody has rated, which is the
-      # whole reason the default is never persisted.
+      # Absent means the default, so `energy = moderate` finds unrated items.
       when 'status' then [item['status'] || Status::DEFAULT]
       when 'energy' then [Energy.of(item['energy'])]
       when 'tag' then tag_names_for(item)
@@ -70,62 +62,37 @@ module Query
     end
 
     def locations_for(item_id)
-      @locations[item_id] || []
+      return @locations[item_id] || []
     end
 
     private
 
     def index_item(item_id, location)
-      unless @items.key?(item_id)
+      if !@items.key?(item_id)
         item = Item.get(item_id)
         return index_group_members(item_id, location) if item.nil?
         return if item.json['deleted']
         @items[item_id] = item.json
-        # `children` is deliberately NOT followed. It holds INSTANCES — one run of a
-        # game — and a run is not a thing you search for: searching "kingdom" returned
-        # the game and every playthrough of it, and staging alone mints a run, so an
-        # evening's planning could double the corpus with rows nobody named.
-        #
-        # This recursion predates instances. It was written when `children` meant group
-        # members, which ARE searchable things (groups have held their own `group` field
-        # since 0072); instances inherited the walk rather than being granted it.
-        #
-        # It comes back when a query wants them — `finished IN (2016)` is the one, and it
-        # needs `finished` + parent fallback in values_for regardless. Then runs enter the
-        # corpus because something asks for them. See TODO.md § Instances.
       end
 
       (@locations[item_id] ||= []) << location
     end
 
-    # A list holds the GROUP ROW, never its members, and a group lives in its own store —
-    # so `Item.get` on a list entry comes back nil for one, and every step of a project
-    # fell out of the corpus with it. Searching "pegboard" found nothing while a loose
-    # item in the same list was found fine.
-    #
-    # Members inherit the group's location, which is exactly what shelf home says about
-    # them elsewhere: a member is reachable from that list, through its group's row.
-    #
-    # The ROW ITSELF is deliberately not indexed. A group stores no state — status and
-    # progress are derived from its members on every read — so putting one in the corpus
-    # means either duplicating that derivation server-side or letting `status = want-to`
-    # match a project that is finished. That is a decision, not an oversight; the members
-    # are the searchable things today.
+    # A list holds a group's id, not its members'. Members are indexed under the group's location; the
+    # group itself isn't, since its status is derived from its members.
     def index_group_members(group_id, location)
       group = ItemGroup.get(group_id)
       return if group.nil? || group.json['deleted']
 
       (group.group || []).each { |member_id| index_item(member_id, location) }
-      nil
+      return nil
     end
 
     def tag_names_for(item)
-      @tag_names[item['id']] ||= (item['tags'] || []).map { |tag_id| tag_name(tag_id) }.compact
+      return @tag_names[item['id']] ||= (item['tags'] || []).map { |tag_id| tag_name(tag_id) }.compact
     end
 
-    # Tags are per-collection records, so the same label exists as different ids in
-    # different collections. Matching on the *name* is what makes `tag = Me` work
-    # as one cross-collection question instead of a per-collection one.
+    # Matched by name: each collection has its own tag record for the same label.
     def tag_name(tag_id)
       return @tag_cache[tag_id] if @tag_cache.key?(tag_id)
       tag = Tag.get(tag_id)
@@ -134,7 +101,6 @@ module Query
 
   end
 
-  # Entry point: a query string in, items grouped by collection out.
   class Search
 
     def self.run(query_string, index: nil)
@@ -144,14 +110,10 @@ module Query
       evaluator.validate!(ast)
 
       matched = index.items.values.select { |item| evaluator.matches?(ast, item) }
-      group(matched, index)
+      return group(matched, index)
     end
 
-    # Grouped by collection to match how results are read ("Recipes · Tacos") and
-    # because an item's collection is the strongest hint about where you left it.
-    # An item in two collections appears under both — that's information, not a
-    # duplicate; within a collection it appears once, tagged with the lists that
-    # hold it.
+    # An item in two collections appears under both; within one, once, with every list holding it.
     def self.group(items, index)
       groups = {}
 
@@ -172,7 +134,7 @@ module Query
       sorted = groups.values.sort_by { |g| g['collection_name'].to_s.downcase }
       sorted.each { |g| g['items'].sort_by! { |i| i['name'].to_s.downcase } }
 
-      {
+      return {
         'count' => items.length,
         'groups' => sorted,
       }

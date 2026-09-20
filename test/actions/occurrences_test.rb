@@ -4,11 +4,7 @@ require_relative '../../src/type/collection'
 require_relative '../../src/type/placement'
 require_relative '../../src/actions/occurrences'
 
-# PR 12 — the recurrence materializer (shadow). Untouched occurrences are ghosts
-# computed for the visible week; a persisted Placement for a period suppresses that
-# week's ghost. Absolute weekly, floating + fixed-day. Weeks below are Mondays so the
-# grid and phase are explicit; `week_start` both selects the visible week and defines
-# the grid.
+# Weeks are Mondays; `week_start` also defines the grid.
 class OccurrencesTest < MinitestWrapper
 
   W0 = '2026-07-06'   # Monday — the rule's start_date / anchor week
@@ -65,10 +61,7 @@ class OccurrencesTest < MinitestWrapper
     assert_equal 1, week(W0).length, 'W0 is a due week'
     assert_equal 1, week(W2).length, 'W2 is a due week (2 weeks later)'
     assert_equal 1, week(W4).length, 'W4 is a due week'
-    # W1 / W3 are off-phase. Viewed from W0 they are still in the FUTURE, so the W0
-    # occurrence does not carry into them (see the future-carry tests) — an off week you
-    # haven't reached yet is empty. Standing IN W1, the carry does apply (carry test below);
-    # either way it is one live occurrence, never two.
+    # Seen from W0, W1 and W3 are future off-weeks, so nothing carries into them.
     assert_empty week(W1)
     assert_empty week(W3)
     assert_equal 1, week(W1, as_of: W1).length
@@ -130,19 +123,14 @@ class OccurrencesTest < MinitestWrapper
   # ── No backfill (the pause/resume concern) ───────────────────────────────────
 
   def test_no_backfill_however_long_since_the_rule_started
-    # The crux of "unpause won't dump 3 months of missed events": occurrences are computed
-    # on read, never stored, and AT MOST ONE live occurrence exists per week. So however far
-    # past the start you look — e.g. resuming a long-paused weekly rule — a week shows exactly
-    # one occurrence, never a backlog of every elapsed period.
+    # Occurrences aren't stored, so a long-running rule still shows one per week.
     recurring_item('chore', rule('interval' => 1))     # weekly
     far = (::Date.parse(W0) + 84).iso8601              # ~12 weeks after start
     assert_equal 1, week(far, as_of: far).length, 'one occurrence, not a 12-week pile'
   end
 
   def test_resuming_a_paused_rule_surfaces_only_the_current_occurrence
-    # Paused (active:false) emits nothing, however far out you look. Resuming is just
-    # active:true again — the same read then yields the single current occurrence (the weeks
-    # it was paused simply never emitted; there is nothing to catch up).
+    # Paused emits nothing; resuming shows only the current occurrence.
     far = (::Date.parse(W0) + 84).iso8601
     recurring_item('chore', rule('interval' => 1, 'active' => false))
     assert_empty week(far, as_of: far), 'paused: nothing emits'
@@ -206,9 +194,6 @@ class OccurrencesTest < MinitestWrapper
   end
 
   # ── Carry never projects into the future ─────────────────────────────────────
-  # Carry-until-due says "you didn't get to it, it's still on your plate" — a claim about
-  # weeks you have already lived through. Looking AHEAD, an occurrence appears only in the
-  # week it is actually due, so an every-2-weeks rule leaves the off weeks empty.
 
   def test_an_occurrence_does_not_carry_into_a_future_week
     recurring_item('trash', rule)
@@ -239,9 +224,6 @@ class OccurrencesTest < MinitestWrapper
   end
 
   # ── Manually staged placements (no origin_date, no date) ─────────────────────
-  # An item staged into the pile by hand and THEN given a rule has a placement with no
-  # period of its own. It still represents the occurrence it sits on top of, so the ghost
-  # must not be emitted beside it (that showed the item twice in one week).
 
   def test_a_dayless_staged_placement_in_the_due_week_suppresses_the_ghost
     recurring_item('trash', rule)
@@ -271,10 +253,7 @@ class OccurrencesTest < MinitestWrapper
   end
 
   # ── Monthly cadence ──────────────────────────────────────────────────────────
-  # Monthly rules ride the same week grid: a due DATE is computed from the month, then
-  # mapped onto the caller's grid. Every Monday below is spelled out so the mapping is
-  # visible — 2026-07-15 is a Wednesday in the 07-13 week, 2026-08-15 a Saturday in the
-  # 08-10 week, which is exactly what makes the week-vs-month distinction observable.
+  # Jul 15 is in the 07-13 week; Aug 15 is in the 08-10 week.
 
   M_JUL13 = '2026-07-13'    # the week holding Jul 15
   M_AUG3  = '2026-08-03'    # the week BEFORE Aug 15's — August, but not yet due
@@ -299,10 +278,7 @@ class OccurrencesTest < MinitestWrapper
   end
 
   def test_a_monthly_occurrence_expires_at_the_next_due_week_not_the_month_boundary
-    # The crux. Aug 15 falls in the 08-10 week, so standing in the 08-03 week — already
-    # August — July's occurrence is STILL the live one and must keep carrying. Indexing by
-    # due MONTH instead of due WEEK would hand August's occurrence over a week early and
-    # silently drop July's carry.
+    # In the 08-03 week, July's occurrence is still live: August's isn't due until the 08-10 week.
     recurring_item('rent', monthly_rule)
     carried = week(M_AUG3, as_of: M_AUG3).first
     assert_equal M_JUL13, carried['period_start'], "still July's, though the month has turned"
@@ -355,9 +331,7 @@ class OccurrencesTest < MinitestWrapper
   end
 
   def test_a_monthly_rule_without_a_start_date_phases_from_as_of_without_deferring
-    # No start_date is no floor — as_of supplies phase only, mirroring the weekly fallback
-    # where the week you are standing in is a due week. Clamping forward here would hide a
-    # day-15 rule for a month whenever it was first read after the 15th.
+    # Without start_date, as_of sets the phase only; a day-15 rule read on the 20th isn't pushed a month.
     rule_hash = monthly_rule
     rule_hash.delete('start_date')
     recurring_item('rent', rule_hash)
@@ -385,9 +359,7 @@ class OccurrencesTest < MinitestWrapper
     end
   end
 
-  # A month spans exactly 4 or 5 majority weeks, so only week 5 ever clamps — which makes
-  # week 5 mean "the last week" in every month. August 2026 has four (Aug 3/10/17/24; the
-  # 08-31 week is six sevenths September), so 5 lands on Aug 24 rather than vanishing.
+  # August 2026 has four weeks (the 08-31 week is mostly September), so week 5 is Aug 24.
   def test_week_five_clamps_to_the_last_week_of_a_four_week_month
     recurring_item('kitchen', monthly_rule('anchor' => { 'kind' => 'week-of-month', 'week' => 5 },
                                            'start_date' => '2026-08-01'))
@@ -417,10 +389,7 @@ class OccurrencesTest < MinitestWrapper
     assert_equal ghost['period_start'], ghost['origin_date']
   end
 
-  # A rule shape this version doesn't understand — one left behind by the week-phase rename,
-  # or written by a later build — must yield no occurrence rather than raise, or one bad rule
-  # takes down the whole week's read for every rule beside it. Exercised directly: the schema
-  # refuses to persist such a rule, which is the point.
+  # Called directly, since the schema won't save such a rule.
   def test_an_unrecognised_anchor_yields_no_occurrence_instead_of_raising
     stale = monthly_rule('anchor' => { 'kind' => 'week-phase', 'phase' => 'first' })
     assert_nil monthly_due_date(stale['anchor'], ::Date.new(2026, 8, 1))

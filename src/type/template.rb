@@ -6,14 +6,6 @@ require_relative '../storage'
 require_relative '../exceptions'
 require_relative './reserved_fields'
 
-## Template rules
-# - An item added to a list must meet the templates requirements
-# - An item removed from a list will keep the template reference
-# - When a template is deleted, the template reference will be deleted from all items in the collection
-
-## TODO: This one isn't working yet
-# - an item moved to a list must meet the templates requirements
-
 class Template
 
     schema = Schema.new
@@ -30,7 +22,7 @@ class Template
     ]
     apply_schema schema
 
-    # Fix template fields to allow hash definitions but convert to Field objects before running validation
+    # Accepts hash field definitions and converts them to Field objects.
     alias_method(:original_fields=, :fields=)
     def fields=(values)
         if values.is_a?(Array)
@@ -51,40 +43,30 @@ class Template
         end
     end
 
-    # Every template named as some other template's instance child. A key is only
-    # load-bearing while something points at it, which is what keeps the guard below
-    # narrow — retire the last parent and the field becomes ordinary again.
+    # Ids of templates that another template names in `attributes.instances.template`.
     def self.instance_child_ids(excluding_id = nil)
-        list.filter_map do |template|
+        return list.filter_map do |template|
             next if template.id == excluding_id
             config = (template.attributes || {})['instances']
             config['template'] if config.is_a?(Hash)
         end
     end
 
-    # Schema validation plus the contract guard. A template that some parent uses to keep
-    # a record cannot drop the field the ledger counts by — that would not fail loudly, it
-    # would silently stop counting, which is the worst shape for a data bug.
-    #
-    # Scoped as narrowly as it can be: one key, and only while referenced. Every other
-    # field on an instance template stays freely editable, renamable and removable.
+    # An instance template can't drop INSTANCE_CONTRACT keys while another template points at it.
     remove_method :validate if method_defined? :validate
     def validate
         self.class.schema.validate(self)
         validate_no_system_keys
-        return unless Template.instance_child_ids(self.id).include?(self.id)
+        return if !Template.instance_child_ids(self.id).include?(self.id)
 
         missing = ReservedFields::INSTANCE_CONTRACT - (self.fields || []).map(&:key)
         return if missing.empty?
-        # ListError::Validation, not Schema::ValidationError — this is a caller mistake and
-        # must reach the client as a 400 it can show, not a 500.
         raise ListError::Validation,
               "Template '#{self.display_name}' keeps a record for another template, so it " \
               "cannot drop: #{missing.join(', ')}"
     end
 
-    # A field keyed `status` saves, and the item details screen hides it forever. Refused at
-    # the door instead, which also covers curl and scripts the editor's key picker can't.
+    # A field with a reserved key would save and then never render.
     def validate_no_system_keys
         reserved = ReservedFields::SYSTEM_KEYS - ReservedFields::TEMPLATE_DECLARABLE
         taken = (self.fields || []).map(&:key) & reserved
@@ -108,11 +90,10 @@ class Template
                 field
             end
         end
-        # Sub-template validation runs every call (not just when building cache) because
-        # it validates the current value, not the schema structure.
+        # Sub-templates are checked on every call: they validate the value, not the cached schema.
         template_fields = self.fields.select { |field| field.type == Template || field.subtype == Template }
         validate_template_fields(template_fields, value, visited + [self.id])
-        validator_schema.validate(value)
+        return validator_schema.validate(value)
     end
 
     def validate_template_fields(fields, value, visited = [])
@@ -137,10 +118,10 @@ class Template
 
     def validate_template_field(field, field_value, visited = [])
         template = Template.get(field.extra_attrs[:template_id])
-        unless field_value.is_a?(Hash)
+        if !field_value.is_a?(Hash)
             raise Schema::ValidationError, "Invalid Sub-Template (field: #{field.key}): Must be a Hash"
         end
-        template.validate_obj(DummyItem.new(field_value), visited)
+        return template.validate_obj(DummyItem.new(field_value), visited)
     end
 
 end

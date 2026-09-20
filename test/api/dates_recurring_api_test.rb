@@ -30,10 +30,6 @@ class DatesRecurringApiTest < MinitestWrapper
     Day.toggle_cache_source(:test)
   end
 
-  def teardown
-    mocha_teardown
-  end
-
   # Non-Recurring Date => Recurring Date
   def test_create_recurring_item_from_non_recurring
     payload = { "collection": "a", "item": "1r", "interval": 1, "type": "weekly" }.to_json
@@ -175,7 +171,6 @@ class DatesRecurringApiTest < MinitestWrapper
     # Check that the item itself still exists and the correct children remain
     parent_item = Item.get('1r')
     assert_equal 2, parent_item.json['recurring-children'].length
-    # Check that days after 2025-06-15 no longer have the children items
     assert_nil Day.get('2025-06-22')
     assert_nil Day.get('2025-06-29')
   end
@@ -195,15 +190,10 @@ class DatesRecurringApiTest < MinitestWrapper
     assert_equal original_item['id'], response['id']
     # Check that the item itself still exists and the correct children remain
     parent_item = Item.get('1r')
-    # TODO: In the future templates should remove the recurring-item template but it doesn't do it yet
-    # assert_equal [], parent_item.json['templates']
     assert_nil parent_item.json['recurring-event']
     assert_nil parent_item.json['recurring-children']
   end
 
-  ##################################################################
-  # Helper methods for recurring date tests
-  ##################################################################
   def get_recurring_item_template_json
     {
       "id" => "recurring-item",

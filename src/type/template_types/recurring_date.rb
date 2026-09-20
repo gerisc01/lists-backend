@@ -18,7 +18,7 @@ class SchemaType
       end
       if value.key?('end-date')
         begin
-          # Prefix with :: to avoid conflicts with any other Date classes/modules
+          # :: so it isn't SchemaType::Date.
           ::Date.parse(value['end-date'].to_s)
         rescue ArgumentError
           raise Schema::ValidationError.new("Key 'end-date' must be a valid date in 'YYYY-MM-DD' format")
@@ -27,7 +27,7 @@ class SchemaType
     end
 
     def self.type_match?(value)
-      value.is_a?(Hash)
+      return value.is_a?(Hash)
     end
 
   end

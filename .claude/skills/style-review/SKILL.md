@@ -1,36 +1,51 @@
 ---
 name: style-review
-description: "Review a diff against backend repo conventions: LLM-vs-human style rules, defensive-coding posture, naming consistency, error handling. Outputs ReportFindings or clean pass."
-priority: high
+description: "Review code structure on the branch diff (or a given path) against STYLE_GUIDE.md: placement, naming, route shape, error handling, habits, test conventions. Ignores comments. Applies the clear fixes; reports the rest."
 model: sonnet
-allowed-tools: "Bash, Read, Edit, Write"
+allowed-tools: "Bash, Read, Edit, Grep, Glob"
 ---
 
 # Style Review for lists-backend
 
-Validate a diff against this repo's stated conventions (CLAUDE.md, PR_GUIDE.md, README.md, docs/decisions.md) plus project-specific rules:
+Checks that code is shaped the way `STYLE_GUIDE.md` says. Comments are `/comment-review`'s job;
+correctness bugs are `/code-review`'s.
 
-1. **Defensive coding posture**: Match the existing error-handling patterns in the file/layer. Required path params (e.g., `:collectionId` in Sinatra routes) should not be guarded with empty-string checks — they're structurally guaranteed by route matching. Genuine external boundaries (request bodies, cross-service calls) warrant validation; document any new guard clause's rationale.
-2. **Duplicated logic**: Don't repeat the same guard clause or validation snippet across 2+ routes without extracting it into a shared helper. If copy-pasting is necessary, explicitly mark it (`# copy/paste from ... # end copy/paste`) and track it for future refactoring.
-3. **Comment style**: Must explain *why*, not restate the next line. Avoid redundant comments like `# Update the reference` above an obvious `.map!`. Comments citing design-doc sections or PR numbers are red flags for elevated code review scrutiny.
-4. **Naming consistency**: Route param naming has drifted (legacy `:collectionId`/`:listId` vs newer `:pid`/`:id`). Don't mix conventions in one PR — pick one and apply it consistently across all new routes, or document the deliberate transition.
-5. **Error-handling clarity**: Keep pattern consistent file-to-file. Don't swallow exceptions silently in some routes and re-raise in others without a clear reason.
+| Invocation | Reviews |
+|---|---|
+| `/style-review` | this branch: `git diff main...HEAD` plus uncommitted changes |
+| `/style-review <path>` | that file or directory |
+| `... --report` | same, but edit nothing — `/review-pr` uses this |
 
-## How it works
+**Applied:** a rule the guide states outright and a fix that stays inside the changed files — a
+param rename, `unless` → `if !`, an explicit `return`, `JSON.parse` → `get_json_payload`,
+`throw` → `raise`, a test name, a teardown the wrapper already covers.
+**Left for you:** moving logic out of a route, extracting a helper, replacing a silent return or a
+blanket rescue (the right error needs judgment), moving files, and guide gaps.
 
-1. Reads the current diff: `git diff --cached` if staged, else `git diff HEAD...main`.
-2. Scans for mechanical violations first (capitalized section headers, empty-param guards on required routes, duplicated validation snippets).
-3. Reads changed files for judgment-based violations (comment density, naming drift, error-handling inconsistency).
-4. Reports findings via ReportFindings (most severe first) or "clean pass" if none found.
+## What it checks
 
-No findings reported for:
-- Correctness bugs (undefined variables, throw vs raise, broken indentation, etc.) — those are a separate cleanup scope.
-- Trivial formatting or whitespace changes.
+| Area | Look at |
+|---|---|
+| Placement | the folder matches § File & Folder Organization; shared logic lives in `src/actions/` or a helper |
+| Naming | the § Naming table; route params are camelCase and say what they identify |
+| Routes | simple CRUD inline; anything more calls a helper or action; `get_json_payload`; explicit `status` and `body` |
+| Error handling | a specific `ListError` raised where the problem is found; no silent `return` on an unexpected nil; no `rescue Exception`; no `throw` |
+| Habits | explicit `return`; `if !` not `unless`; `.to_s.empty?`; code copied twice becomes a helper |
+| Actions | one top-level `def` per file, named after the file |
+| Tests | `MinitestWrapper`; setup only what's needed; `teardown` only for what the wrapper doesn't clear; `test_<thing>_<case>` / `_failure` |
+| Readability | code a reader can't follow without a comment — restructure it instead |
 
-## Invocation
+## Procedure
 
-```
-/style-review
-```
+1. List the changed `.rb` files, then read each in full — a finding depends on the file's shape.
+2. For each area, compare the change with `STYLE_GUIDE.md` and with neighboring files, preferring
+   files last changed before 2026 when neighbors disagree.
+3. Apply the fixes marked *applied*, then run `bundle exec rake test TEST=<file>` for the tests
+   covering touched files.
+4. Report each finding as `file:line`, the rule it breaks, and the fix, most severe first, marking
+   what was applied.
 
-Run this before `git commit` or `git push` to catch violations early.
+A pattern that looks wrong but no rule covers is a finding against `STYLE_GUIDE.md`: report it as
+"guide gap", not as a violation.
+
+Skip whitespace and formatting.

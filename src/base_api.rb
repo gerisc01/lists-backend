@@ -2,7 +2,6 @@ require 'sinatra/base'
 require 'sinatra/cors'
 require_relative './api/helpers/list_api_framework'
 require_relative './exceptions_api'
-# Require all files in a directory ending with _api.rb
 Dir[File.dirname(__FILE__) + '/api/*_api.rb'].each do |path|
   require_relative "./api/#{File.basename(path)}"
 end
@@ -12,25 +11,20 @@ require_relative './type/template_types/integer_patch'
 require_relative './type/template_types/recurring_date'
 require_relative './type/account'
 
-# This class defines the core API application logic and routes.
+# Only `start` is used; the app that serves requests is Api, below.
 class BaseApi < Sinatra::Base
   puts "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LOADING BASE API DEFINITION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   register Sinatra::Cors
 
-  # Setup
   set :show_exceptions => :after_handler
 
   set :allow_origin, '*'
-  # PATCH is load-bearing: PATCH /api/placements/:pid is how a placement's resolution is
-  # written (complete / skip / reopen). Omitting it here let every browser preflight for
-  # that route fail, so tap-to-complete and Skip silently did nothing on web while working
-  # fine on native (no CORS) and in Jest (API mocked). Caught by the Playwright spine test.
   set :allow_methods, 'GET,POST,PUT,PATCH,DELETE,OPTIONS'
   set :allow_headers, 'Content-Type, Accept, ACCOUNT_ID'
 
   helpers do
     def protected!
-      # HTTP_ACCOUNT_ID correlates to a ACCOUNT_ID: <Token> header
+      # The ACCOUNT_ID header.
       account_header = request.env['HTTP_ACCOUNT_ID']&.split(' ')&.last
       account = Account.get(account_header)
       if !account.nil? && account.id == account_header
@@ -41,21 +35,17 @@ class BaseApi < Sinatra::Base
   end
 
   before do
-    # Allow OPTIONS requests for CORS preflight without authentication
-    # Authenticate other requests unless it's a specific path (like accounts creation)
     if request.request_method != 'OPTIONS'
-      protected! unless request.path_info == '/api/accounts'
+      protected! if request.path_info != '/api/accounts'
     end
     content_type 'application/json'
   end
 
-  # Class method to start the server. This is the reusable part.
   def self.start(port: 9090, bind: '0.0.0.0')
     Api.set :port, port
     Api.set :bind, bind
 
-    # Check if the todo template already exists, if not create it
-    unless Template.exist?('todo')
+    if !Template.exist?('todo')
       todo_template = Template.new
       todo_template.id = 'todo'
       todo_template.key = 'todo'
@@ -67,7 +57,7 @@ class BaseApi < Sinatra::Base
       todo_template.save!
     end
 
-    # Mirror the storage environment in the cache so they always stay in sync.
+    # The day cache has its own environment switch.
     if TypeStorage.is_e2e_test
       Day.toggle_cache_source(:e2e)
     elsif TypeStorage.scenario_var_set
@@ -85,7 +75,8 @@ class Api < Sinatra::Base
   register Sinatra::Cors
 
   set :allow_origin, '*'
-  set :allow_methods, 'GET,POST,PUT,PATCH,DELETE,OPTIONS'  # PATCH: see note above
+  # test/cors_methods_test.rb checks this against every route's verb.
+  set :allow_methods, 'GET,POST,PUT,PATCH,DELETE,OPTIONS'
   set :allow_headers, 'Content-Type, Accept, ACCOUNT_ID'
 
   helpers do
@@ -101,7 +92,7 @@ class Api < Sinatra::Base
 
   before do
     if request.request_method != 'OPTIONS'
-      protected! unless request.path_info == '/api/accounts' || TypeStorage.is_e2e_test
+      protected! if request.path_info != '/api/accounts' && !TypeStorage.is_e2e_test
     end
     content_type 'application/json'
   end

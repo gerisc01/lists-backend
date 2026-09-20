@@ -18,7 +18,7 @@ class TypeRefClass
   end
 
   def self.is_schema_class?
-    true
+    return true
   end
 
 end

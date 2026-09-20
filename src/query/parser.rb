@@ -1,22 +1,10 @@
 require_relative '../exceptions'
 
-# A small JQL-shaped query language over catalog items.
-#
+# The item search language, e.g.
 #   energy = chill AND status != completed
-#   tag = "Me" AND (energy = chill OR name ~ paint)
 #   NOT (collection = Recipes) AND tag IS EMPTY
-#   status IN (want-to, doing) AND name ~ "light switch"
 #
-# Why a hand-written lexer + recursive-descent parser rather than extending the
-# existing `src/filter/filter.rb`: that module splits on regexes, which caps it at
-# a single level of parens, forbids AND inside them, has no NOT, and — the real
-# problem — folds mixed AND/OR left-to-right, so `a OR b AND c` silently means
-# `(a OR b) AND c`. Precedence and arbitrary nesting are the whole point of the
-# feature, and neither is reachable from that design. (That module is unreferenced
-# by any route or client; see docs/DECISIONS.md.)
-#
-# The grammar, lowest precedence first — NOT binds tighter than AND, which binds
-# tighter than OR, matching SQL/JQL and ordinary reading:
+# NOT binds tighter than AND, and AND tighter than OR:
 #
 #   query     := or_expr
 #   or_expr   := and_expr (OR and_expr)*
@@ -29,16 +17,12 @@ require_relative '../exceptions'
 #   value     := QUOTED | BAREWORD
 module Query
 
-  # Keywords are matched case-insensitively (`and` == `AND`), like JQL. Field
-  # names and values compare case-insensitively too — this is a find-my-stuff
-  # tool, and making people match case is a way to hand back zero results.
+  # Keywords, field names and values all match case-insensitively.
   KEYWORDS = %w[AND OR NOT IN IS EMPTY].freeze
 
   Token = Struct.new(:type, :value, :pos)
 
-  # AST nodes. Deliberately data-only — evaluation lives in Query::Evaluator so a
-  # parse can be tested (and later compiled to something else) without touching
-  # the item store.
+  # Data only; Query::Evaluator does the matching.
   And = Struct.new(:left, :right)
   Or = Struct.new(:left, :right)
   Not = Struct.new(:expr)
@@ -64,9 +48,7 @@ module Query
           next
         end
 
-        # Quoted values: the escape hatch for anything with spaces ("light switch")
-        # or a word that would otherwise lex as a keyword (a tag literally named
-        # "not").
+        # Quotes allow spaces, or a value that is also a keyword ("not").
         if char == '"' || char == "'"
           quote = char
           closing = chars.index(quote, pos + 1)
@@ -89,9 +71,7 @@ module Query
           next
         end
 
-        # A bareword: a field name, a keyword, or an unquoted value. Dots are
-        # allowed so the older `item.status` spelling still parses (normalized
-        # away in the parser); dashes matter for `want-to` and `on-hold`.
+        # Dots allow `item.status`; dashes allow `want-to`.
         if char =~ /[\w\-.\/]/
           start = pos
           pos += 1 while pos < chars.length && chars[pos] =~ /[\w\-.\/]/
@@ -105,17 +85,14 @@ module Query
       end
 
       tokens << Token.new(:eof, nil, chars.length)
-      tokens
+      return tokens
     end
 
   end
 
   class Parser
 
-    # The fields a condition may name. Kept here rather than in the evaluator so
-    # a typo fails at parse time with the valid set in the message — silently
-    # returning zero results is the worst outcome for a tool whose job is finding
-    # things you've lost.
+    # Here so a misspelled field fails at parse time and lists the valid ones.
     FIELDS = %w[name status energy tag collection list].freeze
 
     def self.parse(input)
@@ -123,7 +100,7 @@ module Query
       parser = new(Lexer.tokenize(input))
       ast = parser.send(:parse_or)
       parser.send(:expect_eof)
-      ast
+      return ast
     end
 
     def initialize(tokens)
@@ -134,23 +111,23 @@ module Query
     private
 
     def peek
-      @tokens[@pos]
+      return @tokens[@pos]
     end
 
     def advance
       token = @tokens[@pos]
       @pos += 1
-      token
+      return token
     end
 
     def keyword?(word)
-      peek.type == :keyword && peek.value == word
+      return peek.type == :keyword && peek.value == word
     end
 
     def accept_keyword(word)
-      return false unless keyword?(word)
+      return false if !keyword?(word)
       advance
-      true
+      return true
     end
 
     def expect_eof
@@ -162,31 +139,31 @@ module Query
     def parse_or
       node = parse_and
       node = Or.new(node, parse_and) while accept_keyword('OR')
-      node
+      return node
     end
 
     def parse_and
       node = parse_unary
       node = And.new(node, parse_unary) while accept_keyword('AND')
-      node
+      return node
     end
 
     def parse_unary
       return Not.new(parse_unary) if accept_keyword('NOT')
-      parse_primary
+      return parse_primary
     end
 
     def parse_primary
       if peek.type == :lparen
         advance
         node = parse_or
-        unless peek.type == :rparen
+        if peek.type != :rparen
           raise ListError::BadRequest, "Missing ')' — unclosed group at position #{peek.pos}"
         end
         advance
         return node
       end
-      parse_condition
+      return parse_condition
     end
 
     def parse_condition
@@ -196,18 +173,15 @@ module Query
               "Expected a field name at position #{token.pos}, got '#{token.value || 'end of query'}'"
       end
 
-      # `item.status` and `status` are the same field — the older dot-notation
-      # spelling keeps working, but the prefix carries no meaning: every field is
-      # item-scoped because every result is an item.
       field = token.value.sub(/\Aitem\./i, '').downcase
-      unless FIELDS.include?(field)
+      if !FIELDS.include?(field)
         raise ListError::BadRequest,
               "Unknown field '#{field}'. Valid fields: #{FIELDS.join(', ')}"
       end
 
       if accept_keyword('IS')
         negated = accept_keyword('NOT')
-        unless accept_keyword('EMPTY')
+        if !accept_keyword('EMPTY')
           raise ListError::BadRequest, "Expected EMPTY after IS at position #{peek.pos}"
         end
         return Condition.new(field, negated ? :not_empty : :empty, [])
@@ -220,30 +194,30 @@ module Query
 
       if keyword?('NOT')
         advance
-        unless accept_keyword('IN')
+        if !accept_keyword('IN')
           raise ListError::BadRequest, "Expected IN after NOT at position #{peek.pos}"
         end
         return Condition.new(field, :not_in, parse_value_list)
       end
 
       op_token = advance
-      unless op_token.type == :operator
+      if op_token.type != :operator
         raise ListError::BadRequest,
               "Expected an operator after '#{field}' at position #{op_token.pos}, got '#{op_token.value || 'end of query'}'"
       end
       op = { '=' => :eq, '!=' => :ne, '~' => :contains, '!~' => :not_contains }[op_token.value]
 
       value_token = advance
-      unless value_token.type == :value
+      if value_token.type != :value
         raise ListError::BadRequest,
               "Expected a value after '#{op_token.value}' at position #{value_token.pos}"
       end
 
-      Condition.new(field, op, [value_token.value])
+      return Condition.new(field, op, [value_token.value])
     end
 
     def parse_value_list
-      unless peek.type == :lparen
+      if peek.type != :lparen
         raise ListError::BadRequest, "Expected '(' after IN at position #{peek.pos}"
       end
       advance
@@ -251,20 +225,20 @@ module Query
       values = []
       loop do
         token = advance
-        unless token.type == :value
+        if token.type != :value
           raise ListError::BadRequest, "Expected a value inside IN (...) at position #{token.pos}"
         end
         values << token.value
-        break unless peek.type == :comma
+        break if peek.type != :comma
         advance
       end
 
-      unless peek.type == :rparen
+      if peek.type != :rparen
         raise ListError::BadRequest, "Missing ')' closing IN (...) at position #{peek.pos}"
       end
       advance
 
-      values
+      return values
     end
 
   end

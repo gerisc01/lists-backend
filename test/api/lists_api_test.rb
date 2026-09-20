@@ -38,11 +38,6 @@ class ListApiTest < MinitestWrapper
     @action.save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   # add item
   def test_add_item
     put('/api/lists/a/addItem/1')
@@ -73,9 +68,7 @@ class ListApiTest < MinitestWrapper
     assert_equal ['one', '2'], JSON.parse(last_response.body).map { |it| it['id'] }
   end
 
-  # An INSTANCE is not a member of any list — it is list-free by design, carrying its own
-  # template. Returning one here leaked every playthrough into the staging picker, where a
-  # completed run could be staged as though it were a thing you do.
+  # Instances belong to no list.
   def test_list_get_items_excludes_instances
     Item.new({'id' => 'run1', 'name' => 'One — Playthrough', 'parent' => '1'}).save!
     parent = Item.get('1')
@@ -139,6 +132,38 @@ class ListApiTest < MinitestWrapper
     put('/api/lists/a/items/1', {'name' => ''}.to_json, {"Content-Type" => "application/json"})
     assert last_response.status != 200
     assert_nil Item.get('1').templates
+  end
+
+  def test_list_create_validation_failure
+    post('/api/lists', {}.to_json, {"Content-Type" => "application/json"})
+    assert_equal 400, last_response.status
+    assert_equal 'Validation Exception', JSON.parse(last_response.body)['type']
+  end
+
+  def test_list_update
+    put('/api/lists/a', {'name' => 'Renamed'}.to_json, {"Content-Type" => "application/json"})
+    assert_equal 200, last_response.status
+    assert_equal 'Renamed', List.get('a').name
+  end
+
+  def test_list_update_not_found_failure
+    put('/api/lists/NOT_FOUND', {'name' => 'Renamed'}.to_json, {"Content-Type" => "application/json"})
+    assert_equal 404, last_response.status
+  end
+
+  def test_list_update_removing_template_removes_it_from_items
+    @list2.template = @template
+    @list2.save!
+    ['1', '2'].each do |id|
+      item = ItemGeneric.get(id)
+      item.add_template(@template)
+      item.save!
+    end
+    put('/api/lists/b', {'template' => nil}.to_json, {"Content-Type" => "application/json"})
+    assert_equal 200, last_response.status
+    assert_nil List.get('b').template
+    assert_equal [], Item.get('1').templates
+    assert_equal [], Item.get('2').templates
   end
 
   def test_list_with_template_add_and_remove_item

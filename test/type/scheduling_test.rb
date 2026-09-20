@@ -2,8 +2,6 @@ require_relative '../minitest_wrapper'
 require_relative '../../src/type/item'
 require_relative '../../src/type/scheduling'
 
-# The scheduling object after the event/task kind was deleted (0076): it validates a
-# SHAPE and nothing more. The kind's own tests are gone with it.
 class SchedulingTest < MinitestWrapper
 
   def test_type_match_requires_an_object

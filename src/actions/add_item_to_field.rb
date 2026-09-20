@@ -1,18 +1,15 @@
 require_relative '../type/item'
 
 def add_item_to_field(id, key, value)
-  begin
-    item = Item.get(id)
-    raise "item id '#{id}' not found" if item.nil?
-    if item.json[key].nil?
-      item.json[key] = [value] if item.json[key].nil?
-    else
-      raise "field '#{key}' does not accept multiple values" unless item.json[key].respond_to?(:push)
-      item.json[key].push(value)
-    end
-    item.validate
-    item.save!
-  rescue Exception => e
-    raise ListError::BadRequest, "Failed to set field on item: #{e.message}"
+  item = Item.get(id)
+  raise ListError::NotFound, "Item (#{id}) Not Found" if item.nil?
+  if item.json[key].nil?
+    item.json[key] = [value]
+  else
+    raise ListError::BadRequest, "Field '#{key}' does not accept multiple values" if !item.json[key].respond_to?(:push)
+    item.json[key].push(value)
   end
+  item.validate
+  item.save!
+  return item
 end

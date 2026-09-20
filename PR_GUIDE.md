@@ -79,8 +79,7 @@ trace through the code.]
 One line per file with a note on what changed in it.]
 
 ## Docs
-[For each doc file, state whether it was updated and why, or why no update
-was needed. Claude generates this section automatically — see rules below.]
+[Whether README.md, SCHEMA.md, API.md or CLAUDE.md needed a change — see below.]
 
 ## Out of scope / follow-up
 [Anything noticed but intentionally left out of this PR.]
@@ -94,36 +93,10 @@ The *How it fits together* and *Docs* sections are the most important ones for t
 
 ---
 
-## Documentation Rules (Claude: apply when generating a PR description)
+## Docs section
 
-When generating a PR description, look at the files changed and apply these rules to produce the `## Docs` section. Do not skip this — even a "no changes needed" conclusion must be stated explicitly.
-
-**`docs/decisions.md` — update if any of these are true:**
-- A significant design decision was made during this work (add a dated entry)
-- A previous decision was reversed or superseded (update or replace the old entry)
-- Work is in progress that doesn't fully land in this PR (note it in the "In Progress" section)
-- This PR completes something that was previously noted as in-progress (remove or resolve that entry)
-
-**`CLAUDE.md` — update if any of these changed:**
-- A file was added, moved, or removed → update the File Map table
-- A new architectural pattern was introduced or an existing one changed → update Pattern Vocabulary
-- A non-obvious constraint was added or removed → update Non-Obvious Constraints
-- The storage environment setup changed → update the Storage Environments table
-
-**`docs/architecture.md` — update if any of these changed:**
-- The request lifecycle changed (new middleware, new startup step, auth change)
-- The schema system was extended (new field option, new generated method)
-- The Day cache behavior changed (new rebuild trigger, new environment)
-- The recurring event model changed
-- A significant new design pattern was introduced
-
-**`docs/development.md` — update if any of these changed:**
-- The dev workflow changed (new server flags, new environment variables)
-- Test setup patterns changed (new teardown steps, new cache behavior in tests)
-- A new type or action was added and the "how to add" steps need updating
-- New debugging tips apply based on something encountered in this work
-
-**If no doc needs updating:** write one sentence saying why — e.g. "No doc changes needed: test-only change with no structural or behavioral impact." The point is that the check was done, not skipped.
+For each of `README.md`, `SCHEMA.md`, `API.md` and `CLAUDE.md`, say whether this PR changed what it describes.
+If none needed a change, say which sections you checked.
 
 ---
 

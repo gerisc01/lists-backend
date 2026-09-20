@@ -18,10 +18,6 @@ class RecurringDateTest < MinitestWrapper
     @template.save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-  end
-
   def test_field_def_validation_subtype_rejected
     template = Template.new
     template.id = 'invalid-recurring'

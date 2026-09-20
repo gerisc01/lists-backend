@@ -6,8 +6,6 @@ require_relative '../../src/type/item'
 require_relative '../../src/type/collection'
 require_relative '../../src/type/placement'
 
-# PR 13 — the recurrence endpoints: GET /api/occurrences (ghosts for a week) and
-# POST /api/items/:id/occurrences (materialize a ghost into a real placement).
 class OccurrencesApiTest < MinitestWrapper
   include Rack::Test::Methods
 
@@ -33,11 +31,6 @@ class OccurrencesApiTest < MinitestWrapper
       },
     }).save!
     Day.toggle_cache_source(:test)
-  end
-
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
   end
 
   def materialize(body)
@@ -83,9 +76,7 @@ class OccurrencesApiTest < MinitestWrapper
   end
 
   # ── Monthly cadence over the wire ────────────────────────────────────────────
-  # One smoke case per direction: the shape survives validation on the way in, and the
-  # materializer's monthly arithmetic reaches the response. The behaviour itself is
-  # covered in test/actions/occurrences_test.rb.
+  # Behavior is covered in test/actions/occurrences_test.rb.
 
   def monthly_item(anchor)
     Item.new({

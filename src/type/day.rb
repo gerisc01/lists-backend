@@ -33,7 +33,7 @@ class Day
   ]
   apply_schema schema
 
-  # Remove the old validate method and apply the new one that validates the schema and templates
+  # Replaces the gem's validate to also validate each DailyItem.
   remove_method :validate if method_defined? :validate
   def validate
     self.class.schema.validate(self)
@@ -59,11 +59,11 @@ class Day
   def self.cache_file
     path = @cache_files[@cache_env] || @cache_files[:prod]
     FileUtils.mkdir_p(File.dirname(path))
-    path
+    return path
   end
 
   def self.pstore
-    PStore.new(cache_file)
+    return PStore.new(cache_file)
   end
 
   def self.clear_cache
@@ -73,7 +73,7 @@ class Day
 
   def self.build_full_day_index
     item_to_days = pstore
-    item_to_days.transaction do
+    return item_to_days.transaction do
       days = self.list
       days.each do |day|
         date = day.id
@@ -81,7 +81,7 @@ class Day
         day.items.each do |daily_items|
           next if daily_items.items.nil?
           daily_items.items.each do |item_id|
-            item_to_days[item_id] = [] unless item_to_days.key?(item_id)
+            item_to_days[item_id] = [] if !item_to_days.key?(item_id)
             item_to_days[item_id] << date
           end
         end
@@ -102,15 +102,15 @@ class Day
 
   def self.add_day_for_item(item_id, date)
     item_to_days = pstore
-    item_to_days.transaction do
-      item_to_days[item_id] = [] unless item_to_days.key?(item_id)
-      item_to_days[item_id] << date unless item_to_days[item_id].include?(date)
+    return item_to_days.transaction do
+      item_to_days[item_id] = [] if !item_to_days.key?(item_id)
+      item_to_days[item_id] << date if !item_to_days[item_id].include?(date)
     end
   end
 
   def self.remove_day_for_item(item_id, date)
     item_to_days = pstore
-    item_to_days.transaction do
+    return item_to_days.transaction do
       if item_to_days.key?(item_id)
         item_to_days[item_id].delete(date)
         if item_to_days[item_id].empty?

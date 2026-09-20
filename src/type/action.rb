@@ -2,12 +2,6 @@ require 'ruby-schema'
 require 'ruby-schema-storage'
 
 require_relative '../storage'
-# NB: `item_actions` (the action-methods registry) is required lazily in
-# ActionStep#process, NOT here. Requiring it at load time drags the whole action
-# subsystem — and every type an action touches (e.g. Placement) — into the middle
-# of the type-definition phase (collection → list → action → item_actions → …),
-# which is a load-order cycle. The Action *type* only needs the *methods* at
-# process time, and every api that processes actions already requires item_actions.
 
 class ActionStep
 
@@ -18,20 +12,17 @@ class ActionStep
     {:key => 'type', :required => true, :type => String},
     {:key => 'fixed_params', :required => true, :type => Hash, :subtype => String},
     {:key => 'dynamic_params', :required => false, :type => Hash, :subtype => String},
-    # Not used, but could be useful for UI to know what inputs are needed
+    # Nothing reads this.
     {:key => 'input_params', :required => false, :type => Array, :subtype => String}
   ]
   apply_schema schema
 
-  ## TODO: Return the result of the action
-  ## TODO: Allow results of previous steps to be used as parameters in later steps
-  ## TODO: How should those params be passed if action steps are executed individually?
-
   def process(json)
-    require_relative '../actions/item_actions' # lazy: see note at top of file
+    # Required here, not at the top: loading it with the types is a require cycle.
+    require_relative '../actions/item_actions'
     action = self.type
     fixed_params = self.fixed_params
-    unless fixed_params.nil?
+    if !fixed_params.nil?
       json = fixed_params.merge(json)
     end
 
@@ -40,7 +31,7 @@ class ActionStep
       raise ListError::NotFound, "Action '#{action}' not found."
     else
       params = a['params'].map { |p| json[p] }
-      Kernel.send(a['method'], *params)
+      return Kernel.send(a['method'], *params)
     end
   end
 
@@ -63,16 +54,14 @@ class Action
   def process(json)
     results = {}
     self.steps.each do |step|
-      # Make a copy of the input for each step
       input = json.dup
-      # Add in dynamic params
       if !step.dynamic_params.nil?
         step.dynamic_params.each do |key, value|
-          # Replace with result from previous step if it exists
+          # "step.field" reads `field` from an earlier step's result.
           result_step,result_field = value.split('.')
           result_val = results[result_step]
           if !result_val.nil? && !result_field.nil?
-            raise ListError::BadRequest, "Result field '#{result_field}' not found on step '#{result_step}'." unless result_val.respond_to?(result_field)
+            raise ListError::BadRequest, "Result field '#{result_field}' not found on step '#{result_step}'." if !result_val.respond_to?(result_field)
             input[key] = result_val.send(result_field)
           end
         end

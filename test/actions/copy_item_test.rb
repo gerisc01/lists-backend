@@ -14,11 +14,6 @@ class CopyItemTest < MinitestWrapper
     [ @item, @group, @list, @list_empty ].each { |obj| obj.save! }
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def test_copy_item_to_empty_list
     copy_item(@item.id, @list_empty.id)
     assert_equal [@item.id], @list.items
@@ -31,8 +26,8 @@ class CopyItemTest < MinitestWrapper
   end
 
   def test_copy_item_not_found_failure
-    assert_raises(ListError::BadRequest) { copy_item('NOT_FOUND', @list.id) }
-    assert_raises(ListError::BadRequest) { copy_item(@item.id, 'NOT_FOUND') }
+    assert_raises(ListError::NotFound) { copy_item('NOT_FOUND', @list.id) }
+    assert_raises(ListError::NotFound) { copy_item(@item.id, 'NOT_FOUND') }
   end
 
 end

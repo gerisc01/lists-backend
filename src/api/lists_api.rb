@@ -7,13 +7,12 @@ require_relative 'helpers/api_helpers'
 class Api < Sinatra::Base
   register Sinatra::ListApiFramework
 
-  # Api Methods
-  generate_schema_crud_methods 'lists', List
-
-  put '/api/lists/:id' do
-    instance = List.get(id)
+  # Above the generated routes so it wins over the generated update. Clearing the template also
+  # removes it from the list's items.
+  put '/api/lists/:listId' do
+    instance = List.get(params['listId'])
+    raise ListError::NotFound, "List (#{params['listId']}) Not Found" if instance.nil?
     original_template_id = instance.template
-    raise ListError::NotFound, "List (#{id}) Not Found" if instance.nil?
     instance.merge!(get_json_payload(request))
     instance.validate
     instance.save!
@@ -27,6 +26,11 @@ class Api < Sinatra::Base
     status 200
     body instance.to_schema_object.to_json
   end
+
+  generate_schema_endpoint(:list, 'lists', List)
+  generate_schema_endpoint(:get, 'lists', List)
+  generate_schema_endpoint(:create, 'lists', List)
+  generate_schema_endpoint(:delete, 'lists', List)
 
   put '/api/lists/:listId/addItem/:itemId' do
     item = ItemGeneric.get(params['itemId'])
@@ -47,7 +51,6 @@ class Api < Sinatra::Base
   get '/api/lists/:listId/items' do
     list_id = params['listId']
     list = List.get(list_id)
-    # A stale client asking for a list that's gone is ordinary, not a crash.
     raise ListError::NotFound, "List (#{list_id}) Not Found" if list.nil?
     item_ids = list.items
     items = ApiHelpers.convert_item_ids_to_items(item_ids)
@@ -67,7 +70,7 @@ class Api < Sinatra::Base
   end
 
   post '/api/lists/:listId/items' do
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     list_id = params['listId']
     if !json['id'].nil?
       item = ItemGeneric.get(json['id'])
@@ -98,7 +101,7 @@ class Api < Sinatra::Base
   end
 
   post '/api/lists/:listId/actions' do
-    json = JSON.parse(request.body.read)
+    json = get_json_payload(request)
     list_id = params['listId']
     list = List.get(list_id)
     action = Action.new(json)

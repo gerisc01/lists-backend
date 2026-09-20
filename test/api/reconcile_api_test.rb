@@ -8,10 +8,7 @@ require_relative '../../src/type/item'
 require_relative '../../src/type/collection'
 require_relative '../../src/type/list'
 
-# The thin POST /api/reconcile front door. The primitive itself is covered by
-# test/actions/reconcile_test.rb; this spec only proves the endpoint delegates, passes
-# an injected as_of_date through, and returns the {released,lapsed,archived,pruned}
-# summary (weekly-plan reframe — docs/DECISIONS.md).
+# Behavior is covered in test/actions/reconcile_test.rb.
 class ReconcileApiTest < MinitestWrapper
   include Rack::Test::Methods
 
@@ -26,11 +23,6 @@ class ReconcileApiTest < MinitestWrapper
     @collection = Collection.new({'id' => 'c1', 'name' => 'Collection'})
     @collection.save!
     Day.toggle_cache_source(:test)
-  end
-
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
   end
 
   def new_item(id, scheduling: nil)

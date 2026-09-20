@@ -4,43 +4,31 @@ require_relative './resolve_group_member'
 require_relative './revive_for_planning'
 require_relative '../type/item_generic'
 
-# Assign an item to a day: create a dated Placement for (item, date, collection).
-# A dedicated server-authoritative primitive (sibling of set_status), fronted by a
-# thin REST endpoint and registry-registered for composition. See docs/DECISIONS.md
-# "Placement is a first-class type". Idempotent on the (item, date, collection)
-# triple — re-assigning returns the existing placement rather than duplicating.
+# Returns the existing placement for (item, date, collection) instead of adding a second one.
 def assign_to_date(item_id, date, collection_id, actor_id = nil)
-  # Same two-guard shape as staging (create_floating_placement.rb): dating a group means
-  # dating the member you'd pick up, and a Placement can only point at a real Item.
-  raise ListError::NotFound, "item id '#{item_id}' not found" unless ItemGeneric.exist?(item_id)
+  # A group id resolves to a member; a placement can only point at an Item.
+  raise ListError::NotFound, "item id '#{item_id}' not found" if !ItemGeneric.exist?(item_id)
   item_id = resolve_group_member(item_id)
-  raise ListError::NotFound, "item id '#{item_id}' not found" unless Item.exist?(item_id)
-  raise ListError::NotFound, "collection id '#{collection_id}' not found" unless Collection.exist?(collection_id)
+  raise ListError::NotFound, "item id '#{item_id}' not found" if !Item.exist?(item_id)
+  raise ListError::NotFound, "collection id '#{collection_id}' not found" if !Collection.exist?(collection_id)
   raise ListError::BadRequest, "a date is required" if date.to_s.empty?
 
-  # Same seam as staging: a dated session belongs to the open instance. See
-  # resolve_open_instance.rb — a no-op unless the item's template opts in.
   item_id = resolve_open_instance(item_id)
 
-  # Planning a terminal item revives it — see revive_for_planning.rb. Placed AFTER the
-  # instance seam so it lands on whatever the placement will actually point at: for a
-  # run-keeping item that is a fresh instance at want-to, so this is a no-op and the
-  # completed playthrough behind it stays completed.
+  # After resolving the instance, so a finished run behind a fresh one stays completed.
   revive_for_planning(item_id, actor_id)
 
   existing = Placement.find_dated(item_id, date, collection_id)
-  return existing unless existing.nil?
+  return existing if !existing.nil?
 
   placement = Placement.new({
     'item_id' => item_id,
     'collection_id' => collection_id,
     'date' => date,
     'floating' => false,
-    # Immutable anchor for the carry-forward count — the original date this
-    # instance was first placed on (see Placement#origin_date). Set once here.
     'origin_date' => date,
   })
   placement.validate
   placement.save!
-  placement
+  return placement
 end

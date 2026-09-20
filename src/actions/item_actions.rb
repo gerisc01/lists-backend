@@ -22,7 +22,7 @@ require_relative './delete_instance'
 require_relative './enable_instances'
 
 def action_methods
-  {
+  return {
     'moveItem' => {
       'method' => :move_item,
       'params' => ['item_id', 'from_list', 'to_list']

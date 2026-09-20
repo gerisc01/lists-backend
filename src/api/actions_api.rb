@@ -4,9 +4,7 @@ require_relative '../actions/item_actions'
 class Api < Sinatra::Base
   register Sinatra::ListApiFramework
 
-  # This needs to be defined before the schema crud methods are
-  # generated, so that types can be a static endpoint instead of
-  # the api thinking it is an action id.
+  # Above the generated routes, or GET /api/actions/:actionId would match "types".
   get '/api/actions/types' do
     status 200
     body action_methods.to_json
@@ -15,11 +13,9 @@ class Api < Sinatra::Base
   generate_schema_crud_methods 'actions', Action
 
   helpers do
-    # Registry steps that journal a status change take `actor_id` like any other param.
-    # It is always written from the request, even as nil, so neither a body nor an
-    # action's stored fixed_params can name someone else as the author.
+    # Always overwritten from the request, so a body or stored fixed_params can't set the author.
     def with_actor(json)
-      json.merge('actor_id' => current_account_id)
+      return json.merge('actor_id' => current_account_id)
     end
   end
 
@@ -30,7 +26,7 @@ class Api < Sinatra::Base
       'type' => params['action_type'],
       'fixed_params' => {}
     })]
-    json = with_actor(JSON.parse(request.body.read))
+    json = with_actor(get_json_payload(request))
     action.steps.each do |step|
       step.process(json)
     end
@@ -40,7 +36,7 @@ class Api < Sinatra::Base
   post '/api/actions/:action_id' do
     action = Action.get(params['action_id'])
     raise ListError::NotFound, "Action '#{params['action_id']}' not found." if action.nil?
-    json = with_actor(JSON.parse(request.body.read))
+    json = with_actor(get_json_payload(request))
     action.steps.each do |step|
       step.process(json)
     end

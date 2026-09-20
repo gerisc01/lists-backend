@@ -31,11 +31,6 @@ class ResolveOpenInstanceTest < MinitestWrapper
     @recipe.save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   # The property the whole feature ships behind: an item whose template does not opt in
   # is returned untouched, so every existing caller behaves exactly as before.
   def test_no_attribute_is_a_no_op

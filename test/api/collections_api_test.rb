@@ -43,11 +43,6 @@ class CollectionsApiTest < MinitestWrapper
     @collection2.save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def test_remove_template
     assert_equal ['i', 'j'], @item.templates
     delete("/api/collections/col/templates/i")
@@ -129,8 +124,6 @@ class CollectionsApiTest < MinitestWrapper
     delete("/api/collections/col2/tags/t1")
     assert_nil @collection2.tags
   end
-  # The list read is where membership is enforced (0087) — the client no longer filters,
-  # so anything this returns is something you hold.
   def test_list_returns_only_collections_you_are_a_member_of
     Account.new({'id' => 'acct_a', 'name' => 'A'}).save!
     Account.new({'id' => 'acct_b', 'name' => 'B'}).save!
@@ -164,9 +157,7 @@ class CollectionsApiTest < MinitestWrapper
     assert_includes JSON.parse(last_response.body).map { |c| c['id'] }, 'mine'
   end
 
-  # A one-off collection carries no roster of its own; the board it belongs to is what
-  # grants it (0090). Both halves matter: the member reaches it, and holding no board
-  # still reaches nothing.
+  # A one-off collection has no members; the board grants it.
   def test_a_boards_one_off_collection_is_granted_through_the_board
     Account.new({'id' => 'acct_a', 'name' => 'A'}).save!
     Account.new({'id' => 'acct_b', 'name' => 'B'}).save!

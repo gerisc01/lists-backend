@@ -93,7 +93,7 @@ class PlacementTest < MinitestWrapper
     assert_equal [@item2.id], view['priorities'][@collection.id]
   end
 
-  # ── resolution / origin_date (PR 9a) ────────────────────────────────────────
+  # ── resolution / origin_date ────────────────────────────────────────
 
   def test_resolution_and_origin_date_round_trip
     p = new_placement({'resolution' => 'completed', 'resolved_at' => '2026-07-22T00:00:00Z',
@@ -139,8 +139,6 @@ class PlacementTest < MinitestWrapper
     refute floating.past?('2030-01-01')              # dayless is never past
   end
 
-  # Only an explicit resolution closes a placement. A day passing does not — the event
-  # kind that used to make it do so is gone (0076).
   def test_only_an_explicit_resolution_resolves
     past = new_placement({'date' => '2026-07-22'})               # no resolution set
     refute past.resolved?
@@ -174,7 +172,7 @@ class PlacementTest < MinitestWrapper
     assert_empty Placement.floating_for_collection(@collection.id)
   end
 
-  # ── Cross-collection queries (PR 8) ──────────────────────────────────────────
+  # ── Cross-collection queries ──────────────────────────────────────────
 
   def test_floating_for_collections_spans_the_set
     Collection.new({'id' => 'c2', 'name' => 'Two'}).save!
@@ -218,10 +216,7 @@ class PlacementTest < MinitestWrapper
     assert_equal [@item.id, @item2.id].sort, map['2026-07-22'].map { |p| p['item_id'] }.sort
   end
 
-  # The grid renders placements, not items: it addresses one by id to write a
-  # resolution ("I did this") and reads the resolution back to strike a completed
-  # card in place. A resolved placement therefore STAYS in the day map, unlike the
-  # floating pile read which filters it out.
+  # Unlike the floating pile read, the day map keeps resolved placements.
   def test_day_map_for_collections_returns_full_placements_including_resolved
     placement = new_placement({'date' => '2026-07-22', 'resolution' => 'completed'})
     placement.validate

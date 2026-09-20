@@ -23,11 +23,6 @@ class GroupedActionTest < MinitestWrapper
     @list2.save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def test_replace_field_then_copy_item
     move_item = ActionStep.new({
      'type' => 'moveItem',

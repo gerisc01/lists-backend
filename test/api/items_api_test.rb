@@ -137,11 +137,7 @@ class ItemsApiTest < MinitestWrapper
     assert_equal 'chill', reloaded['energy']
   end
 
-  # Picking `moderate` in the UI *clears* the field rather than storing the
-  # default, and this is the mechanism it relies on: an explicit null clears.
-  # Omitting the key does NOT — the generated PUT merges — so the client has to
-  # send null deliberately. Pinned because the "default is never persisted"
-  # invariant is only true as long as this holds.
+  # An explicit null clears energy; omitting the key keeps it (the generated PUT merges).
   def test_explicit_null_clears_energy_but_omitting_it_preserves
     put('/api/items/1', { 'id' => '1', 'name' => 'One', 'energy' => 'intense' }.to_json,
         { "Content-Type" => "application/json" })
@@ -156,11 +152,6 @@ class ItemsApiTest < MinitestWrapper
     assert_nil reloaded['energy']
   end
 
-  # The enum is enforced server-side and the bad value never lands. Asserted as
-  # "not OK" rather than a specific code: the generated CRUD has no validation
-  # rescue, so *any* schema failure surfaces as a 500 (a bad `status` through the
-  # same PUT behaves identically). That mapping is a framework-wide gap, not an
-  # energy one — tighten it there, and this test still holds.
   def test_unknown_energy_is_rejected_by_the_schema
     put('/api/items/1', { 'id' => '1', 'name' => 'One', 'energy' => 'somewhat' }.to_json,
         { "Content-Type" => "application/json" })
@@ -168,8 +159,6 @@ class ItemsApiTest < MinitestWrapper
     assert_nil reloaded['energy']
   end
 
-  # The durable half of assignment (0083). An ordinary field write — what it needs
-  # from the API is only that it survives the round trip and rejects a stranger.
   def test_owner_is_written_and_read_back
     Account.new({'id' => 'acct_a', 'name' => 'A'}).save!
     put('/api/items/1', { 'id' => '1', 'name' => 'One', 'owner' => 'acct_a' }.to_json,

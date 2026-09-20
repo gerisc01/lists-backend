@@ -9,10 +9,7 @@ require_relative '../../src/actions/auto_archive'
 require_relative '../../src/actions/delete_placement'
 require_relative '../../src/actions/reconcile'
 
-# A group member's shelf home is its GROUP's. Only the group id sits in `list.items`, so
-# a bare id check reads every member as list-free — which made a member behave like a
-# board-born one-off at four separate doors. These pin all four, because each has a
-# different and progressively worse consequence.
+# A group member's shelf home is its group's. Each test pins one place that checks it.
 class GroupMemberShelfHomeTest < MinitestWrapper
 
   AS_OF = '2026-07-27'   # a Monday — monday_of(AS_OF) == AS_OF
@@ -27,10 +24,6 @@ class GroupMemberShelfHomeTest < MinitestWrapper
     List.new({'id' => 'l1', 'name' => 'Shelf', 'items' => ['g1']}).save!
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-  end
-
   def floating(item_id, overrides = {})
     Placement.new({
       'item_id' => item_id, 'collection_id' => 'c1', 'floating' => true,
@@ -43,7 +36,6 @@ class GroupMemberShelfHomeTest < MinitestWrapper
     refute item_has_shelf_home?('loose')
   end
 
-  # Worst of the four: Remove on a staged member used to delete the member itself.
   def test_removing_a_members_last_placement_keeps_the_member
     p = floating('s1')
     delete_placement(p.id)
@@ -91,9 +83,7 @@ class GroupMemberShelfHomeTest < MinitestWrapper
     assert_equal 'want-to', Item.get('s1').json['status']
   end
 
-  # A member that DECLARED itself a multi-sitting thing ("this is a game") is a series of
-  # runs by definition, so its placement set is not finite and close_instance owns its
-  # ending. This is the line the whole rule is drawn on.
+  # A member whose template mints instances is never auto-archived; close_instance ends it.
   def test_a_run_keeping_member_does_not_archive
     child = Template.new
     child.id = 'playthrough'

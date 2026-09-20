@@ -3,9 +3,6 @@ require_relative '../../src/type/item'
 require_relative '../../src/type/recurrence'
 require_relative '../../src/type/scheduling'
 
-# The Recurrence validation type. A rule folds into item.scheduling.recurrence and the
-# schema enforces its shape server-side (like Status / Resolution / Scheduling). Scope:
-# absolute weekly (floating + fixed-day) and absolute monthly (date + week-of-month).
 class RecurrenceTest < MinitestWrapper
 
   def floating_rule(overrides = {})
@@ -92,8 +89,7 @@ class RecurrenceTest < MinitestWrapper
     refute Recurrence.type_match?(floating_rule('mode' => 'relative'))   # deferred, not yet valid
   end
 
-  # Cadence and anchor are jointly validated (design §2.5): plain floating is weekly-only,
-  # and a monthly rule must say WHERE in the month it lands.
+  # Floating is weekly-only; a monthly rule needs a date or week-of-month anchor.
   def test_rejects_a_cadence_anchor_mismatch
     refute Recurrence.type_match?(monthly_date_rule('anchor' => { 'kind' => 'floating' }))
     refute Recurrence.type_match?(monthly_date_rule('anchor' => { 'kind' => 'fixed-day', 'weekday' => 2 }))
@@ -120,7 +116,7 @@ class RecurrenceTest < MinitestWrapper
     refute Recurrence.type_match?(monthly_week_rule('anchor' => { 'kind' => 'week-of-month', 'week' => 6 }))
     refute Recurrence.type_match?(monthly_week_rule('anchor' => { 'kind' => 'week-of-month', 'week' => '3' }))
     refute Recurrence.type_match?(monthly_week_rule('anchor' => { 'kind' => 'week-of-month' }))   # missing week
-    # The pre-rename shape is no longer accepted.
+    # The old `week-phase` shape.
     refute Recurrence.type_match?(monthly_week_rule('anchor' => { 'kind' => 'week-phase', 'phase' => 'first' }))
   end
 

@@ -10,11 +10,6 @@ class EnableInstancesTest < MinitestWrapper
     @child = template('playthrough', 'Playthrough', [field('name', 'Name', String, true)])
   end
 
-  def teardown
-    TypeStorage.clear_test_storage
-    mocha_teardown
-  end
-
   def test_adds_the_contract_field_when_missing
     enable_instances('game', 'playthrough')
 
@@ -67,10 +62,7 @@ class EnableInstancesTest < MinitestWrapper
     assert_raises(ListError::BadRequest) { enable_instances('game', 'game') }
   end
 
-  # A record of a record is not inert: set_status calls resolve_open_instance on the
-  # instance's own id when a session starts it, and instance_template_for works on any
-  # item — so a third layer would actually mint. Capped at two regardless of which end
-  # of the chain gets wired first.
+  # A third level would mint: resolve_open_instance also runs on an instance's own id.
   def test_refuses_to_make_a_record_template_into_a_parent
     template('session', 'Session', [field('name', 'Name', String, true)])
     enable_instances('game', 'playthrough')
