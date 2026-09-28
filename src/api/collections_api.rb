@@ -20,18 +20,8 @@ class Api < Sinatra::Base
     end
   end
 
-  # Only the list read filters by membership; the rest are generated.
-  get '/api/collections' do
-    collections = Collection.list.reject { |c| c.json['deleted'] }
-    collections = members_only(collections, also_granted: one_off_collections_granted_by_boards)
-    status 200
-    body collections.map(&:to_schema_object).to_json
-  end
-
-  generate_schema_endpoint(:get, 'collections', Collection)
-  generate_schema_endpoint(:create, 'collections', Collection)
-  generate_schema_endpoint(:update, 'collections', Collection)
-  generate_schema_endpoint(:delete, 'collections', Collection)
+  generate_schema_crud_methods 'collections', Collection,
+    scope: ->(records) { members_only(records, also_granted: one_off_collections_granted_by_boards) }
 
   get '/api/collections/:collectionId/listItems' do
     collection_id = params['collectionId']

@@ -91,7 +91,7 @@ Verified against `src/api/helpers/list_api_framework.rb` (`schema_endpoint_list`
 | `since` provided, matching instances empty | `204` | `{"objects": [], "deleted_ids": []}` |
 | `since` provided, matching instances non-empty | `200` | `{"objects": [...], "deleted_ids": [...]}` |
 
-The underlying store query filters by `since` (`clazz.list(since:, include_deleted: true)`) before this layer sorts objects vs. deleted_ids.
+The underlying store query filters by `since` (`clazz.list(since:, include_deleted: true)`). A type's `scope:` (collections and collection-groups: membership) then narrows the result, deleted records included, before this layer sorts objects vs. deleted_ids.
 
 ### `?since=` on single-object endpoints (`GET /api/<type>/:<type>Id`)
 
@@ -172,7 +172,7 @@ See [Account shape](#account-shape).
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/collection-groups` | List, filtered to groups whose `members` includes the caller's account id (`members_only`). Non-deleted only. |
+| `GET` | `/api/collection-groups` | List (supports `?since=`), filtered to groups whose `members` includes the caller's account id (`members_only`). |
 | `GET` | `/api/collection-groups/:collectionGroupId` | Get (supports `?since=`) |
 | `POST` | `/api/collection-groups` | Create |
 | `PUT` | `/api/collection-groups/:collectionGroupId` | Update |
@@ -188,7 +188,7 @@ See [CollectionGroup shape](#collectiongroup-shape).
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/collections` | List, filtered to collections the caller's account is a member of, **plus** any collection that is the `one_off_collection` of a `CollectionGroup` the caller belongs to (`one_off_collections_granted_by_boards` — a board's one-off scratch collection carries no roster of its own; access is derived from the board). Non-deleted only. |
+| `GET` | `/api/collections` | List, filtered to collections the caller's account is a member of, **plus** any collection that is the `one_off_collection` of a `CollectionGroup` the caller belongs to (`one_off_collections_granted_by_boards` — a board's one-off scratch collection carries no roster of its own; access is derived from the board). Supports `?since=`. |
 | `GET` | `/api/collections/:collectionId` | Get (supports `?since=`) — **not** membership-filtered |
 | `POST` | `/api/collections` | Create |
 | `PUT` | `/api/collections/:collectionId` | Update |

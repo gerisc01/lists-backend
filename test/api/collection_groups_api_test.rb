@@ -75,6 +75,25 @@ class CollectionGroupsApiTest < MinitestWrapper
     assert_equal ['pad'], JSON.parse(last_response.body).map { |c| c['id'] }
   end
 
+  def test_list_since_returns_a_scoped_delta
+    as('acct_a', :post, '/api/collection-groups', group_payload)
+    as('acct_a', :post, '/api/collection-groups', group_payload('id' => 'old', 'name' => 'Old'))
+    as('acct_b', :post, '/api/collection-groups',
+       group_payload('id' => 'work', 'name' => 'Work', 'members' => ['acct_b']))
+    as('acct_a', :delete, '/api/collection-groups/old')
+
+    as('acct_a', :get, '/api/collection-groups?since=1970-01-01T00:00:00Z')
+    delta = JSON.parse(last_response.body)
+    assert_equal 200, last_response.status
+    assert_equal ['household'], delta['objects'].map { |g| g['id'] }
+    assert_equal ['old'], delta['deleted_ids']
+
+    as('acct_b', :get, '/api/collection-groups?since=1970-01-01T00:00:00Z')
+    delta = JSON.parse(last_response.body)
+    assert_equal ['work'], delta['objects'].map { |g| g['id'] }
+    assert_empty delta['deleted_ids']
+  end
+
   def test_a_group_naming_no_collection_is_rejected
     as('acct_a', :post, '/api/collection-groups', group_payload('collections' => ['nope']))
     refute last_response.ok?

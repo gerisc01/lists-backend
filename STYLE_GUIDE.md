@@ -58,6 +58,8 @@ end
 - Respond with `status` then `body …to_json`, both explicit.
 - A route that must come before a generated one (`/api/items/query`) is declared above the
   `generate_schema_crud_methods` call.
+- To narrow what a generated list returns, pass `scope:`; never replace the generated route —
+  a hand-written list drops `?since` and deletions.
 
 ## Error Handling
 
