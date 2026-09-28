@@ -51,10 +51,13 @@ module Sinatra
       body instance.to_schema_object.to_json
     end
 
-    def schema_endpoint_list(clazz, since)
+    def schema_endpoint_list(clazz, since, scope = nil)
       since = Time.now.utc.iso8601 if since.to_s.downcase == 'now'
       instances = clazz.list({since: since, include_deleted: true})
-                       .map { |it| it.to_schema_object }
+      # Runs in the request, so `scope` can call helpers; and before the deleted split, so
+      # `deleted_ids` is scoped too.
+      instances = instance_exec(instances, &scope) if scope
+      instances = instances.map { |it| it.to_schema_object }
       if !since.nil? && !instances.nil? && instances.empty?
         updated_info = {
           'deleted_ids' => [],
@@ -103,12 +106,12 @@ module Sinatra
       return "#{name.chomp('s')}Id"
     end
 
-    def generate_schema_endpoint(type, endpoint, clazz)
+    def generate_schema_endpoint(type, endpoint, clazz, scope: nil)
       id_param = id_param_for(endpoint)
       case type
       when :list
         get "/api/#{endpoint}" do
-          schema_endpoint_list(clazz, params['since'])
+          schema_endpoint_list(clazz, params['since'], scope)
         end
       when :get
         get "/api/#{endpoint}/:#{id_param}" do
@@ -131,8 +134,8 @@ module Sinatra
       end
     end
 
-    def generate_schema_crud_methods(endpoint, clazz)
-      generate_schema_endpoint(:list, endpoint, clazz)
+    def generate_schema_crud_methods(endpoint, clazz, scope: nil)
+      generate_schema_endpoint(:list, endpoint, clazz, scope: scope)
       generate_schema_endpoint(:get, endpoint, clazz)
       generate_schema_endpoint(:create, endpoint, clazz)
       generate_schema_endpoint(:update, endpoint, clazz)

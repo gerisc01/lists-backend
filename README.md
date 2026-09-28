@@ -68,11 +68,11 @@ Day (date → item ids, the older date model; the planner reads placements)
 | Piece | How |
 |---|---|
 | Types | a `Schema` per class; see [SCHEMA.md](SCHEMA.md) |
-| CRUD routes | `generate_schema_crud_methods 'items', Item` (`src/api/helpers/list_api_framework.rb`) makes list / get / create / update / delete for tags, templates, itemGroups, lists, actions, items |
+| CRUD routes | `generate_schema_crud_methods 'items', Item` (`src/api/helpers/list_api_framework.rb`) makes list / get / create / update / delete for tags, templates, itemGroups, lists, actions, items, collections, collection-groups |
 | Delta sync | `GET /api/<type>?since=<iso>` → `200 {objects, deleted_ids}`, or `204` if nothing changed. Without `since`, a plain array. `since=now` returns an empty `204` — a starting point |
 | Deletes | soft: `deleted: true` stays in the file so sync can report it |
 | Auth | `ACCOUNT_ID: <account id>` header on everything except `POST /api/accounts` and OPTIONS. Any real account passes |
-| Membership | reads of collections and boards return only records whose `members` include the caller, plus the one-off collection of a board they're on (`members_only`) |
+| Membership | list reads of collections and boards return only records whose `members` include the caller, plus the one-off collection of a board they're on (`members_only`, passed as `scope:` to their `generate_schema_crud_methods`) |
 | Placements | one instance of doing an item: on a `date` or `floating` in the staging pile for `staged_week`. `PATCH /api/placements/:pid` sets `resolution` (complete / skip / reopen). The day grid returns resolved placements; the pile doesn't |
 | Recurrence | a rule at `item.scheduling.recurrence`: weekly (`floating`, `fixed-day`) or monthly (`date`, `week-of-month`). Untouched occurrences are computed per week (`src/actions/occurrences.rb`), never stored. `POST /api/items/:id/occurrences` turns one into a real placement |
 | Reconcile | `POST /api/reconcile` — idempotent sweep of weeks now past: a staged shelf item goes back to its shelf, a one-off lapses, and one-offs whose placements are all resolved are archived. Nothing resolves by time alone. `bin/reconcile_loop.sh` calls it |

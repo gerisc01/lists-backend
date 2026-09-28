@@ -188,6 +188,33 @@ class CollectionsApiTest < MinitestWrapper
     assert_includes JSON.parse(last_response.body).map { |c| c['id'] }, 'oneoffs'
   end
 
+  def test_list_since_returns_a_scoped_delta
+    Account.new({'id' => 'acct_a', 'name' => 'A'}).save!
+    Account.new({'id' => 'acct_b', 'name' => 'B'}).save!
+    Collection.new({'id' => 'mine', 'name' => 'Mine', 'members' => ['acct_a']}).save!
+    Collection.new({'id' => 'gone', 'name' => 'Gone', 'members' => ['acct_a']}).save!
+    Collection.new({'id' => 'theirs', 'name' => 'Theirs', 'members' => ['acct_b']}).save!
+    delete('/api/collections/gone')
+
+    get('/api/collections?since=1970-01-01T00:00:00Z', nil, { 'HTTP_ACCOUNT_ID' => 'acct_a' })
+    delta = JSON.parse(last_response.body)
+    assert_equal 200, last_response.status
+    assert_equal ['mine'], delta['objects'].map { |c| c['id'] }
+    assert_equal ['gone'], delta['deleted_ids']
+
+    get('/api/collections?since=1970-01-01T00:00:00Z', nil, { 'HTTP_ACCOUNT_ID' => 'acct_b' })
+    delta = JSON.parse(last_response.body)
+    assert_equal ['theirs'], delta['objects'].map { |c| c['id'] }
+    assert_empty delta['deleted_ids']
+  end
+
+  def test_list_since_with_nothing_newer_is_no_content
+    Account.new({'id' => 'acct_a', 'name' => 'A'}).save!
+    Collection.new({'id' => 'mine', 'name' => 'Mine', 'members' => ['acct_a']}).save!
+    get('/api/collections?since=2999-01-01T00:00:00Z', nil, { 'HTTP_ACCOUNT_ID' => 'acct_a' })
+    assert_equal 204, last_response.status
+  end
+
   def test_a_member_naming_no_account_is_rejected
     Collection.new({'id' => 'mine', 'name' => 'Mine'}).save!
     put('/api/collections/mine', { 'members' => ['ghost'] }.to_json,
